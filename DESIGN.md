@@ -1,0 +1,751 @@
+# haskell-gha design
+
+haskell-gha is a command-line tool. It reads a Haskell cabal project and
+writes one GitHub Actions workflow that builds and tests the project on each
+GHC version from `tested-with`.
+
+haskell-gha replaces haskell-ci for projects that use only GitHub Actions.
+haskell-ci supports many backends, setup methods and old GHC versions. Its
+generated workflow for the `all-versions` fixture has 515 lines. haskell-gha
+starts again with a small scope, modern defaults and a short workflow. The
+model for the output is the hand-written workflow of ghc-tags, which has about
+50 lines.
+
+This document is the complete specification for the first version. The
+implementation starts from an empty directory.
+
+## Background
+
+The design comes from these facts. The paths are relative to the parent
+directory of this repository.
+
+- `haskell-ci/` is the tool that haskell-gha replaces. Read its code for
+  ideas, but do not depend on it and do not copy its structure.
+- `ghc-tags/.github/workflows/ci.yml` is the model for the generated
+  workflow.
+- `cabal/` is a checkout of the cabal source (3.18).
+- `simple-eff/` is the effectful project, the model for the code style.
+
+The facts below about other projects were read from their source code.
+
+`haskell-actions/setup` resolves a GHC or cabal version with its bundled
+`versions.json` (the `resolve` function in `src/opts.ts`). `latest` becomes
+the first entry of the list. A short form such as `9.10` becomes the newest
+entry that starts with `9.10.`. Any other version goes to GHCup unchanged,
+also a full version that the list does not contain. Thus a new GHC release
+with a full version works without a new release of the action or of
+haskell-gha. A short form gives the newest version that the action knows,
+which can be older than the newest version in GHCup.
+
+If the list has no entry for a short form, e.g. a new major series, the
+action gives the short form to GHCup unchanged. The implementation must test
+what GHCup then does. If GHCup fails, the user must write the exact version
+until a release of the action lists the series.
+
+The action pins the GHCup version in `versions.json`. The workflow refers to
+the moving tag `haskell-actions/setup@v2`, so a new action release also gives
+a new GHCup. The action has the outputs `ghc-version`, `cabal-version`,
+`cabal-store`, `ghc-exe` and `cabal-exe`. The input `cabal-update` is true
+by default, so the action runs `cabal update`. The generated workflow needs
+this, because its first `cabal build` needs the package index.
+
+The action calls `sudo apt-get` only for GHC older than 8.3 and for GHC head.
+Both are out of scope. A job container has no `sudo`, and this is one reason
+why the jobs run on the runner image.
+
+cabal decides `if impl(ghc ...)` blocks in `cabal.project` with the
+configured compiler, before it reads the local packages
+(`rebuildProjectConfig` in `cabal-install/src/Distribution/Client/ProjectPlanning.hs`).
+Thus a `packages:` line in such a block works in CI, because the action
+selects the GHC version.
+
+## Decisions
+
+These decisions are final. Each one has its reason.
+
+The tool uses `Cabal-syntax` and `Cabal`, not the `cabal-install` library.
+The `cabal-install` library needs `Cabal ^>=3.18`, and its internal API
+changes in each major release. `Cabal-syntax` and `Cabal` allow wide bounds.
+
+The configuration is YAML. The services and hook steps are GitHub Actions
+YAML, so users can copy them from the documentation of any action.
+
+The tool copies `services`, `hooks` and the extra matrix entries without
+changes. It does not model each service or each install method.
+
+The tool does not rewrite `cabal.project`. The workflow uses the
+`cabal.project` of the user. If packages support different GHC versions, the
+user adds `if impl(ghc ...)` blocks to `cabal.project`. The tool finds a
+missing block and gives the exact block in the error message. Thus local
+builds and CI use the same project.
+
+The jobs run on the runner image, not in a job container. Additional service
+containers are supported.
+
+The first version supports only Linux. Three rules keep macOS support easy to
+add later:
+
+- The workflow sets `defaults.run.shell: bash`.
+- The cache key contains `runner.os`.
+- All tool paths come from the outputs of `haskell-actions/setup`, not from
+  Linux paths in the code.
+
+The default `cabal-version` is `3.16.1.0`. For `latest`, the action now
+selects cabal `3.18.1.0`. That version has a bug in the GHC job semaphore:
+[cabal issue 12306][issue-12306].
+
+[issue-12306]: https://github.com/haskell/cabal/issues/12306
+
+If a cabal release fixes the issue, change the default to `latest`. The
+action then resolves it, and a new cabal release needs no new release of
+haskell-gha.
+
+The `semaphore` field needs cabal 3.12 or later. If `cabal-version` is an
+older version, the tool stops with an error. The tool compares only the
+first two parts of the version, so `3.10` and `3.10.3.0` are both errors.
+
+## Command line
+
+The tool has no subcommands. Each run writes the workflow file.
+
+The tool has no check mode. To make sure that a committed workflow is up to
+date, run the tool and then `git diff --exit-code`. `git diff` does not show
+an untracked file. The README recommends `git status --porcelain` for users
+who also want to find a new workflow file that is not committed.
+
+The tool accepts these options:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the file does not exist, all fields take their defaults. |
+| `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. |
+| `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
+
+All paths are relative to the current directory, which is the root of the
+repository. If `--project-dir` is not `.`, the workflow sets
+`defaults.run.working-directory` to that directory. The paths in `hashFiles`
+are then relative to the root of the repository, because GitHub evaluates
+`hashFiles` from the root.
+
+The generated file starts with this comment. The command line in the comment
+contains all options that are not defaults.
+
+```yaml
+# This file is generated by haskell-gha <version>. Do not edit it.
+# To make it again, run:
+#   haskell-gha --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
+```
+
+The tool works in three phases. It reads the configuration, then it reads
+the project files, and then it checks each package against each matrix
+entry. In each phase, the tool collects all errors and prints them all. If
+a phase has errors, the tool exits with code 1 and does not start the next
+phase.
+
+## Configuration file
+
+All fields are optional. An unknown field is an error, and the message names
+the field. This finds typing errors.
+
+```yaml
+name: CI
+cabal-version: 3.16.1.0
+runs-on: ubuntu-latest
+branches: [master, main]
+matrix:
+  postgres: ['15', '18']
+  exclude:
+    - ghc: '9.10'
+      postgres: '15'
+apt: [libpq-dev]
+services:
+  postgres:
+    image: postgres:${{ matrix.postgres }}
+    env:
+      POSTGRES_PASSWORD: postgres
+    ports: ['5432:5432']
+hooks:
+  before-build:
+    - name: Show the Postgres version
+      run: psql --version
+  after-build: []
+ghc-options: -Werror
+jobs: 4
+tests: true
+benchmarks: true
+doctest:
+  ghc: '>=9.6 && <9.14'
+  version: '>=0.24'
+  skip: [some-package]
+  options: [--fast]
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `name` | `CI` | The name of the workflow. |
+| `cabal-version` | `3.16.1.0` | The cabal version for `haskell-actions/setup`. `latest` is also valid. See [Decisions](#decisions). |
+| `runs-on` | `ubuntu-latest` | The name of the runner image, e.g. `ubuntu-24.04`. A list of labels is an error. |
+| `branches` | `[master, main]` | The branches for the `push` trigger. An empty list is an error. |
+| `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
+| `apt` | `[]` | Ubuntu packages to install. |
+| `services` | none | Service containers. The tool copies the map to `jobs.build.services`. |
+| `hooks.before-build` | `[]` | Steps before the build of the local packages. |
+| `hooks.after-build` | `[]` | Steps after the build and before the tests. |
+| `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
+| `jobs` | `4` | The number of parallel build jobs, a positive integer. See [The generated workflow](#the-generated-workflow). |
+| `tests` | `true` | Build and run the test suites. |
+| `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
+| `doctest` | none | Run doctest. See [Doctest](#doctest). |
+
+A value of the wrong type is an error, and the message names the field.
+
+GitHub uses the workflow name in the concurrency group. Thus two workflows
+in one repository must have different names. If they have the same name, a
+push starts both in one group, and one run cancels the other.
+
+The `matrix` field must not contain the key `ghc`, because the tool makes
+that axis. A value in `include` or `exclude` can refer to `ghc`. The value
+must then be a quoted string, and it must be an entry of the `ghc` axis.
+Any other `ghc` value is an error. An `include` entry with a new GHC version
+adds a job, and the tool does not check the packages for that job.
+
+Expressions such as `${{ matrix.postgres }}` work in `services`, `apt` and
+the hooks, because GitHub evaluates them. The tool does not read them.
+
+## Reading the project
+
+The project reader makes a list of local packages. For each matrix entry, it
+also decides which packages are in the project.
+
+If `cabal.project` does not exist in the project directory, the project is
+`packages: ./*.cabal`, as in cabal (`defaultImplicitProjectConfig` in
+`cabal-install/src/Distribution/Client/ProjectConfig.hs`).
+
+If `cabal.project` exists, the reader parses it with `readFields` from
+`Distribution.Fields`. It uses the fields `packages:` and
+`optional-packages:`. A missing match is an error for `packages:` and is not
+an error for `optional-packages:`. It also uses the `if`, `elif` and `else`
+sections. The reader parses each condition with `parseConditionConfVar` from
+`Distribution.Fields.ConfVar`, and it decides the condition for each matrix
+entry.
+
+The reader ignores all other fields. cabal reads them, so the workflow gets
+them without changes.
+
+The reader also ignores `import:` lines. cabal reads the imported files in
+CI, but the tool does not see a package that only an imported file lists.
+Such a package gets no `ghc-options` stanza and no `tested-with` check. If
+all test suites are in such packages, the workflow has no test step, and CI
+does not run the tests. This is a known limit.
+
+If the project has no packages for a matrix entry, the tool stops with an
+error. If the project lists no packages, cabal also stops
+(`ProjectConfigNoPackages` in
+`cabal-install/src/Distribution/Client/ProjectOrchestration.hs`).
+
+For conditions, `impl(ghc <range>)` is decided with the matrix entry. See
+[GHC versions](#ghc-versions) for a major series. `os(linux)` is true, and
+`arch(x86_64)` is true. Other operating systems and
+architectures are false. `flag(...)` is an error, because the tool does not
+know the flag value. An `impl` for a compiler other than GHC is false.
+
+The tool assumes that no project selects its packages by operating system
+or architecture. Thus the fixed values for `os` and `arch` do not change the
+list of packages, also on a runner that is not x86_64.
+
+A `packages:` entry can be a directory, a `.cabal` file or a glob. A
+directory must contain exactly one `.cabal` file. A tarball or a URL is an
+error. The glob syntax is the cabal syntax. Parse it with the `Parsec`
+instance of `RootedGlob` from `Distribution.Simple.FileMonitor.Types`, and
+match it with `matchGlob` from `Distribution.Simple.Glob`. Both are in
+`Cabal` 3.14 and later. The rooted match function `matchFileGlob` is in
+`cabal-install/src/Distribution/Client/Glob.hs`. It is short, so copy it.
+
+### GHC versions
+
+The reader parses each `.cabal` file with `parseGenericPackageDescription`
+and reads `tested-with`. The GHC range of a package is the union of its GHC
+entries. Entries for other compilers are ignored. A package without a GHC
+entry is an error.
+
+The reader splits the range into its intervals with `asVersionIntervals`.
+Each interval must be one of these two kinds:
+
+- An exact version, e.g. `== 9.10.3`. The matrix entry is `'9.10.3'`.
+- A major series, i.e. `>= X.Y && < X.(Y+1)`. The matrix entry is `'X.Y'`,
+  and the action selects the newest release of the series. Users write it
+  as `^>= 9.10` or `== 9.10.*`.
+
+Any other interval is an error, e.g. `>= 9.10`, because the matrix needs a
+finite list. The message names the package and the interval, and shows the
+two supported forms. A package can mix the two kinds, e.g.
+`GHC == { 9.6.7 } || ^>= 9.10 || ^>= 9.12`.
+
+The `ghc` axis of the matrix is the union of the entries of all packages.
+The axis is in version order. A series entry is sorted as its lowest
+version.
+
+A matrix entry has a version range. An exact entry has one version. A
+series entry `X.Y` has the range `>= X.Y && < X.(Y+1)`. The tool uses this
+range for every decision about a matrix entry:
+
+- Conditions such as `impl(ghc >= 9.8)`, the `doctest.ghc` range, and the
+  9.8 limit of the semaphore are ranges too. If such a range includes all
+  of the range of the entry, it is true for the entry. If it includes none
+  of it, it is false. If it includes only a part of it, the tool stops with
+  an error. The result then depends on the minor version that the action
+  selects.
+- If the `tested-with` range of a package includes all of the range of an
+  entry, the package supports the entry. Thus `^>= 9.10` in one package and
+  `== 9.10.3` in another package give two entries. The second package does
+  not support the entry `'9.10'`.
+
+For each matrix entry, a package that is in the project must support that
+entry. If it does not, the tool stops with an error that names the package
+and the version, and shows the block to add. The condition of the block is
+the GHC range of the package from `tested-with`, written with `prettyShow`.
+The `packages:` line gives the directory of the package, relative to the
+project directory. The original entry can be a glob that also matches other
+packages, so the block does not repeat it:
+
+```
+Package servant-client does not list GHC 9.6.7 in tested-with, but
+cabal.project includes it for that GHC version. Move the package to a
+conditional block in cabal.project, e.g.:
+
+if impl(ghc ^>=9.10 || ^>=9.12)
+  packages: servant-client
+```
+
+## The generated workflow
+
+This is the workflow for a single package `example` with
+`tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12`, a test suite and an
+empty configuration. The implementation must produce this output, apart
+from the tool version.
+
+```yaml
+# This file is generated by haskell-gha 0.1.0.0. Do not edit it.
+# To make it again, run:
+#   haskell-gha
+name: CI
+
+on:
+  push:
+    branches:
+    - master
+    - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: GHC ${{ matrix.ghc }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc:
+        - '9.6.7'
+        - '9.10'
+        - '9.12'
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: haskell-actions/setup@v2
+      id: setup
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: '3.16.1.0'
+
+    - name: Show the versions
+      run: |
+        ghc --version
+        cabal --version
+        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Configure the project
+      run: |
+        cat >> cabal.project.local <<'EOF'
+        jobs: 4
+        tests: True
+        benchmarks: True
+
+        package example
+          ghc-options: -Werror
+        EOF
+
+    - name: Enable parallel module builds for the local packages
+      if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
+      run: |
+        cat >> cabal.project.local <<'EOF'
+        package example
+          ghc-options: -j4
+        EOF
+
+    - name: Enable the GHC job semaphore
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      run: |
+        echo 'semaphore: True' >> cabal.project.local
+
+    - name: Make the build plan
+      run: |
+        cabal build all --dry-run
+
+    - uses: actions/cache/restore@v6
+      id: cache
+      with:
+        path: ${{ steps.setup.outputs.cabal-store }}
+        key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+        restore-keys: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-
+
+    - name: Build the dependencies
+      run: |
+        cabal build all --only-dependencies
+
+    - uses: actions/cache/save@v6
+      if: steps.cache.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.setup.outputs.cabal-store }}
+        key: ${{ steps.cache.outputs.cache-primary-key }}
+
+    - name: Build
+      run: |
+        cabal build all
+
+    - name: Run the tests
+      run: |
+        cabal test all --test-show-details=direct
+```
+
+A sequence under a key has no indent. See
+[YAML input and output](#yaml-input-and-output).
+
+The rules for each part follow.
+
+The `name` of the job contains each extra axis, e.g.
+`GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}`.
+
+The versions in the `ghc` axis are quoted strings, because YAML reads
+`9.10` as a number.
+
+The job `name` cannot show the version that the action selects for a series
+entry, because GitHub evaluates the job name before the steps run. Thus the
+step `Show the versions` prints the versions in the log and in the job
+summary. The cache key also uses the selected version, from the
+`ghc-version` output of the action. Thus a new minor release starts a new
+cache, and the job does not restore a store for the old minor release.
+
+The `jobs` field sets the parallel work, and its default is 4, because the
+standard Linux runners of GitHub have 4 CPUs. The configuration step always
+writes `jobs: <N>`, so cabal builds up to N packages at the same time. The
+other part depends on the GHC version:
+
+- GHC 9.8 and later support the GHC job semaphore (a job count that cabal
+  and all GHC processes share). For these versions, the semaphore step adds
+  `semaphore: True`. Then GHC also compiles modules in parallel, and the
+  total stays at N.
+- Older GHC versions do not support the semaphore. For these versions, the
+  parallel module step adds `ghc-options: -j<N>` for each local package.
+  The dependencies do not get `-j<N>`, because cabal already builds N of
+  them at the same time, and more work would overload the CPUs.
+
+The condition of each step lists its GHC versions. If a step has no GHC
+versions, the workflow does not contain it. For a package that is not in the
+project for a GHC version, the parallel module step has no stanza for that
+version. If this makes the stanza lists different for different versions,
+the tool makes one step for each group of versions with the same list.
+
+The configuration step writes all its configuration to
+`cabal.project.local`, so a developer can run the same `cabal` commands
+locally. If `tests` is false, the step omits `tests: True`. If `benchmarks`
+is false, the step omits `benchmarks: True`. If `ghc-options` is not an
+empty string, the step adds one `package` stanza with the options for each
+local package. The default is `-Werror`, so a warning in a local package
+fails the build. The dependencies do not get the options, so their warnings
+do not fail the build. A new GHC release often adds new warnings, and then
+the job for that GHC version fails until the code is fixed.
+
+The configuration step writes the `package` stanzas for all local packages
+on all GHC versions. Take a package that is not in the project for a GHC
+version. If another package depends on it, cabal gets it from Hackage and
+applies the stanza. Then the warnings of that dependency fail the build.
+This is a known limit.
+
+cabal merges two `package` stanzas for the same package, so this stanza
+and the `-j<N>` stanza can both be present. The heredocs use `<<'EOF'`, so
+that bash does not expand text from the configuration.
+
+Some user values go on a command line, e.g. the `apt` packages and the
+`doctest.options`. The tool puts each one in single quotes and escapes a
+`'` in it. GitHub replaces `${{ }}` expressions before bash runs, so an
+expression in such a value still works.
+
+The cache is saved after the dependencies are built. Thus a build error or a
+test error in a local package does not prevent the save.
+
+If `apt` is not empty, a step after the checkout runs
+`sudo apt-get update` and
+`sudo apt-get install -y --no-install-recommends <packages>`.
+
+If `services` is set, the tool puts it in `jobs.build.services`.
+
+The `before-build` hooks come before the step `Build`. The `after-build`
+hooks come after it.
+
+If `tests` is false or no local package has a test suite, the workflow has
+no test step. If only some GHC versions have a package with a test suite,
+the step gets an `if:` condition with those versions. If the project has no
+test suites, `cabal test all` fails. Thus the condition is necessary.
+
+A `test-suite` section counts, whatever its conditions are. Take a project
+whose test suites all have `buildable: False` for a GHC version. Then the
+test step fails for that version. This is a known limit.
+
+If `--project-dir` is not `.`, the workflow gets
+`defaults.run.working-directory`. The `hashFiles` path becomes
+`<project-dir>/dist-newstyle/cache/plan.json`.
+
+The tool knows the action versions `actions/checkout@v7`,
+`actions/cache/restore@v6` and `actions/cache/save@v6` as constants. A new major version of those
+actions needs a new release of haskell-gha. Such releases are rare.
+
+## Doctest
+
+If the configuration has a `doctest` field, the workflow runs doctest after
+the tests. The `ghc` field is a version range, and its default is all
+versions. The doctest steps run only for GHC versions in that range, because
+a new GHC release often works with doctest only after some weeks. The
+`version` field is a version range for the doctest package. The `skip` field
+lists packages that the workflow does not test with doctest. A name in
+`skip` that is not a local package is an error. The `options` field lists
+extra arguments for doctest.
+
+The method is not decided yet. Stage 5 starts with an experiment.
+
+First, try the method from the doctest README:
+`cabal repl --with-compiler=doctest` for each package. In an earlier test,
+this method did not work for the project owner. If it does not work in a
+small test project, use the second method.
+
+The second method is the haskell-ci method, which the project owner knows
+works. See the doctest steps in `haskell-ci/src/HaskellCI/GitHub.hs` and
+`doctestArgs` in `haskell-ci/src/HaskellCI/Tools.hs`. The steps are these:
+
+1. Make cabal write GHC environment files, which tell doctest where the
+   dependencies are. If doctest is enabled, the configuration step adds
+   `write-ghc-environment-files: always` to `cabal.project.local`.
+2. Install doctest with the GHC of the job, e.g.
+   `cabal install doctest --ignore-project --installdir="$HOME/.local/bin" --overwrite-policy=always`.
+   doctest uses the GHC API, so it must be built with the same GHC. If
+   `doctest.version` is set, add `--constraint='doctest <version>'`.
+3. In each package directory, run `doctest` with the `hs-source-dirs`, the
+   `default-language` and the `default-extensions` of the library and of
+   each sublibrary as arguments.
+
+Each doctest step for a package has an `if:` condition. The condition lists
+the GHC versions that are in the `doctest.ghc` range and that include the
+package in the project.
+
+## YAML input and output
+
+The tool must keep the key order of the fragments that it copies. A
+reordered step is hard to review. `aeson` objects sort their keys, so the
+tool does not use `aeson` or `Data.Yaml`.
+
+The tool reads the configuration with the event API of `HsYAML`
+(`parseEvents` from `Data.YAML.Event`). HsYAML is pure Haskell and
+implements YAML 1.2. From the events, the tool builds a small ordered tree.
+Each scalar keeps its style from the input, i.e. plain, quoted, or a
+literal block with its chomping indicator and indent. The output writes all
+sequences and mappings in the block style. A flow sequence in the input,
+e.g. `[master, main]`, thus becomes a block sequence.
+
+The tree has only mappings, sequences, scalars and comments. An anchor, an
+alias, a tag or a duplicate key is an error, and the message gives its
+position.
+
+The tool writes the workflow with `writeEvents` from `Data.YAML.Event`. The
+writer uses the style of each scalar as it is. It does not make sure that a
+plain scalar is valid YAML. Thus the tool gives each scalar its style with
+these rules:
+
+- A copied scalar keeps its style from the input. A plain scalar that is
+  valid in the input is also valid in the output, because the output uses
+  the block style.
+- Each `run:` value that the tool makes is a literal block with the default
+  chomping (`|`). The first line of each script is fixed text from the
+  tool, so user text in a later line cannot break the block.
+- A version is always single-quoted, e.g. in the `ghc` axis and in
+  `cabal-version`.
+- The tool single-quotes each string that it builds from user text, e.g.
+  the job name with the extra axis names.
+- Other text that the tool makes, e.g. step names and expressions, gets its
+  style in the code.
+
+Each golden test also parses the output with HsYAML and compares the result
+with the tree that the tool wrote. Thus a wrong style fails the test, also
+after `HASKELL_GHA_ACCEPT=1` wrote the expected file.
+
+The writer writes `Comment` events, so the tool writes the header comment as
+events. The writer cannot write empty lines. The tool adds them to the output
+text. It puts an empty line before each top-level key except the first, and
+before each step except the first. The workflow has one job, so each step
+starts with `- ` in the same column.
+
+The first round-trip test of stage 1 makes sure that the writer behaves as
+this section says. It also shows the indent of a sequence under a key. If
+the indent is different from the example in
+[The generated workflow](#the-generated-workflow), change the example.
+
+The tool keeps the YAML comments in the copied fragments. The HsYAML parser
+gives each comment as a `Comment` event. The tree keeps each comment at its
+position in a mapping or a sequence. The writer writes it back at the same
+position. The configuration reader skips the comments in the tree.
+
+The round-trip tests of stage 1 include comments on their own lines and
+comments at the end of a line. If the writer moves an end-of-line comment
+to its own line, that is acceptable. The comment must stay next to the same
+entry.
+
+## Dependencies
+
+| Package | Use |
+|---|---|
+| `Cabal-syntax >=3.14 && <3.20` | The parsers for `.cabal` files, fields and conditions. |
+| `Cabal >=3.14 && <3.20` | Globs. |
+| `HsYAML` | The YAML parser and writer, from `Data.YAML.Event`. |
+| `optparse-applicative` | The command line. |
+| `tasty`, `tasty-hunit` | Tests. |
+
+The tool builds with GHC 9.6 and later. The packages that come with GHC,
+e.g. `containers`, `directory`, `filepath` and `text`, are always
+permitted. For any other package, the rule is this: if a new dependency
+does not remove a large amount of code, do not add it. Do not add
+`cabal-install-parsers` or `cabal-docspec`.
+
+## Code style
+
+The code follows the style of the effectful project in `simple-eff/`. Read
+`simple-eff/effectful-core/effectful-core.cabal` and some modules in
+`simple-eff/effectful-core/src/Effectful/` before you write code. Do not
+copy the style of haskell-ci, which is different.
+
+These are the main rules:
+
+- Copy `simple-eff/fourmolu.yaml` to the root of the repository, and format
+  all Haskell code with fourmolu. With this configuration, arrows and
+  commas start the line, the indent is two spaces, and lines have no
+  length limit.
+- Use `cabal-version: 3.8` and a `common language` stanza that each
+  component imports. Copy its `ghc-options`, `default-language: GHC2021`
+  and `default-extensions` from `effectful-core.cabal`. Align the field
+  values in the `.cabal` file as that file does.
+- Give each module an export list with Haddock section headings, e.g.
+  `-- * Configuration`.
+- Give each exported function a Haddock comment. For an argument that needs
+  an explanation, put a `-- ^` comment after the argument type.
+- Records use `NoFieldSelectors` and `OverloadedRecordDot`, from the default
+  extensions. Access a field with `config.jobs`, not with a selector
+  function.
+
+The style applies to the code only. The tool does not depend on
+`effectful`, because it has no need for effects. Plain `IO` is enough.
+
+## Tests
+
+The tests use `tasty` and `tasty-hunit`.
+
+Golden tests (tests that compare the output with a stored file) cover the
+generated workflow. Each fixture is a directory under `test/golden/` with a
+project, an optional configuration file and the expected workflow. When the
+environment variable `HASKELL_GHA_ACCEPT=1` is set, the tests write the new
+output to the expected file. The comparison ignores the header comment, so
+a new tool version does not change the result. It does not ignore the
+comments that the tool copies from the configuration.
+
+Make these fixtures:
+
+- A single package without a configuration file. The output is the example
+  in [The generated workflow](#the-generated-workflow).
+- A multi-package project with an `if impl(ghc ...)` block.
+- A project with `services`, `matrix`, `apt`, `hooks` and `ghc-options`.
+  The configuration contains comments in `services` and `hooks`.
+- A project with doctest.
+- A project with `--project-dir`.
+
+Unit tests cover the project reader: globs, conditions, each `tested-with`
+error, the error for an empty project and the error for a missing
+conditional block. Other unit tests cover each error of the configuration
+reader. The unit tests also cover these cases for series entries:
+
+- A mix of exact and series entries.
+- A condition that includes only a part of a series.
+- A package with `== 9.10.3` next to a package with `^>= 9.10`.
+
+The repository also tests itself on GitHub. The file
+`.github/workflows/haskell-gha.yml` is generated for the tool itself. A
+second file, `.github/workflows/haskell-gha-multi.yml`, is generated for
+`examples/multi/`, a multi-package project with its own `cabal.project`.
+Make it with this command:
+
+```
+haskell-gha --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
+```
+
+The configuration of `examples/multi/` sets `name: CI (multi)`, because two
+workflows with the same name cancel each other.
+
+The configuration of the tool, `.github/haskell-gha.conf.yml`, has an
+`after-build` hook that makes both files again. Thus a pull request with an
+outdated workflow file fails:
+
+```yaml
+- name: Make sure that the workflows are up to date
+  run: |
+    cabal run haskell-gha
+    cabal run haskell-gha -- --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
+    git diff --exit-code
+```
+
+## Stages
+
+Do the work in this order. Start a stage after all tests of the stage
+before it pass.
+
+1. Make the package skeleton, the ordered YAML tree, the configuration
+   reader and the output. Add round-trip tests.
+2. Make the project reader with globs, conditions and `tested-with`. Add a
+   unit test for each error message.
+3. Make the workflow model and the command line. Add the golden test for a
+   single package.
+4. Add `apt`, `services`, `matrix`, `hooks`, `ghc-options`, `jobs`, `tests`,
+   `benchmarks`, the cache and `--project-dir`. Add their golden tests.
+5. Do the doctest experiment, then add doctest and its golden test.
+6. Write the README and the changelog. Add `examples/multi/` and the two
+   workflows of the repository. Run them on GitHub.
+
+## Out of scope
+
+The first version does not support these features:
+
+- A job container.
+- macOS and Windows.
+- GHC prereleases and GHC head.
+- head.hackage.
+- Builds from `sdist` tarballs, `cabal check` and haddock.
+- A job that tests the lower bounds with `--prefer-oldest`.
+- `before-test` and `after-test` hooks.
+- Benchmark runs.
+- stack.
+
+Each feature can come later as a new optional field, without a breaking
+change to the configuration format.
