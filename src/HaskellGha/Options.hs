@@ -1,3 +1,6 @@
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- | The command line options.
 module HaskellGha.Options
   ( -- * Options
@@ -34,11 +37,11 @@ optionsParser =
     (fullDesc <> progDesc "Write a GitHub Actions workflow that builds and tests a cabal project on each GHC version from tested-with.")
   where
     options :: Parser Options
-    options =
-      Options
-        <$> strOption (long "config" <> metavar "FILE" <> value defaultOptions.config <> showDefault <> help "The configuration file")
-        <*> strOption (long "project-dir" <> metavar "DIR" <> value defaultOptions.projectDir <> showDefault <> help "The directory that contains cabal.project or the package")
-        <*> strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
+    options = do
+      config <- strOption (long "config" <> metavar "FILE" <> value defaultOptions.config <> showDefault <> help "The configuration file")
+      projectDir <- strOption (long "project-dir" <> metavar "DIR" <> value defaultOptions.projectDir <> showDefault <> help "The directory that contains cabal.project or the package")
+      output <- strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
+      pure Options {..}
 
 -- | The command line that gives the options. It contains only the options
 -- that are not defaults.

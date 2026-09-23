@@ -1,4 +1,6 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | The configuration file.
 module HaskellGha.Config
@@ -227,30 +229,29 @@ parseConfig file input = case parseYaml input of
 
 configFromNode :: Node -> Check Config
 configFromNode = \case
-  Mapping entries _ ->
+  Mapping entries _ -> do
     knownFields "" fields entries
-      *> ( Config
-             <$> field entries "name" defaultConfig.name scalar
-             <*> field entries "cabal-version" defaultConfig.cabalVersion cabalVersionField
-             <*> field entries "runs-on" defaultConfig.runsOn scalar
-             <*> field entries "branches" defaultConfig.branches branchesField
-             <*> field entries "matrix" defaultConfig.matrix matrixField
-             <*> field entries "apt" defaultConfig.apt textList
-             <*> field entries "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
-             <*> field entries "hooks" defaultConfig.hooks hooksField
-             <*> field entries "ghc-options" defaultConfig.ghcOptions text
-             <*> field entries "cabal-project-local" defaultConfig.cabalProjectLocal projectText
-             <*> field entries "jobs" defaultConfig.jobs positiveInt
-             <*> field entries "tests" defaultConfig.tests bool
-             <*> field entries "benchmarks" defaultConfig.benchmarks bool
-             <*> doctestField entries
-             <*> field entries "check" defaultConfig.check bool
-             <*> field entries "sdist" defaultConfig.sdist bool
-             <*> field entries "haddock" defaultConfig.haddock bool
-             <*> fourmoluField entries
-             <*> hlintField entries
-             <*> field entries "actions" defaultConfig.actions actionsField
-         )
+    name <- field entries "name" defaultConfig.name scalar
+    cabalVersion <- field entries "cabal-version" defaultConfig.cabalVersion cabalVersionField
+    runsOn <- field entries "runs-on" defaultConfig.runsOn scalar
+    branches <- field entries "branches" defaultConfig.branches branchesField
+    matrix <- field entries "matrix" defaultConfig.matrix matrixField
+    apt <- field entries "apt" defaultConfig.apt textList
+    services <- field entries "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
+    hooks <- field entries "hooks" defaultConfig.hooks hooksField
+    ghcOptions <- field entries "ghc-options" defaultConfig.ghcOptions text
+    cabalProjectLocal <- field entries "cabal-project-local" defaultConfig.cabalProjectLocal projectText
+    jobs <- field entries "jobs" defaultConfig.jobs positiveInt
+    tests <- field entries "tests" defaultConfig.tests bool
+    benchmarks <- field entries "benchmarks" defaultConfig.benchmarks bool
+    doctest <- doctestField entries
+    check <- field entries "check" defaultConfig.check bool
+    sdist <- field entries "sdist" defaultConfig.sdist bool
+    haddock <- field entries "haddock" defaultConfig.haddock bool
+    fourmolu <- fourmoluField entries
+    hlint <- hlintField entries
+    actions <- field entries "actions" defaultConfig.actions actionsField
+    pure Config {..}
   _ -> failure "the configuration must be a mapping"
   where
     fields :: [T.Text]
@@ -261,15 +262,12 @@ configFromNode = \case
     hlintField entries = case lookupKey "hlint" entries of
       Nothing -> pure Nothing
       Just n | isNull n -> pure $ Just defaultHLint
-      Just (Mapping hs _) ->
+      Just (Mapping hs _) -> do
         knownFields "hlint." ["version", "fail-on", "path"] hs
-          *> fmap
-            Just
-            ( HLint
-                <$> field' hs "hlint.version" "version" defaultHLint.version versionField
-                <*> field' hs "hlint.fail-on" "fail-on" defaultHLint.failOn failOnField
-                <*> field' hs "hlint.path" "path" defaultHLint.path textList
-            )
+        version <- field' hs "hlint.version" "version" defaultHLint.version versionField
+        failOn <- field' hs "hlint.fail-on" "fail-on" defaultHLint.failOn failOnField
+        path <- field' hs "hlint.path" "path" defaultHLint.path textList
+        pure $ Just HLint {..}
       Just _ -> expected "hlint" "a mapping"
 
     failOnField :: String -> Node -> Check T.Text
@@ -286,14 +284,11 @@ configFromNode = \case
     fourmoluField entries = case lookupKey "fourmolu" entries of
       Nothing -> pure Nothing
       Just n | isNull n -> pure $ Just defaultFourmolu
-      Just (Mapping fs _) ->
+      Just (Mapping fs _) -> do
         knownFields "fourmolu." ["version", "pattern"] fs
-          *> fmap
-            Just
-            ( Fourmolu
-                <$> field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
-                <*> field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns textList
-            )
+        version <- field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
+        patterns <- field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns textList
+        pure $ Just Fourmolu {..}
       Just _ -> expected "fourmolu" "a mapping"
 
     versionField :: String -> Node -> Check Version
@@ -304,16 +299,15 @@ configFromNode = \case
 
     actionsField :: String -> Node -> Check Actions
     actionsField path = \case
-      Mapping as _ ->
+      Mapping as _ -> do
         knownFields "actions." ["checkout", "setup", "cache", "run-fourmolu", "hlint-setup", "hlint-run"] as
-          *> ( Actions
-                 <$> field' as "actions.checkout" "checkout" defaultConfig.actions.checkout ref
-                 <*> field' as "actions.setup" "setup" defaultConfig.actions.setup ref
-                 <*> field' as "actions.cache" "cache" defaultConfig.actions.cache ref
-                 <*> field' as "actions.run-fourmolu" "run-fourmolu" defaultConfig.actions.runFourmolu ref
-                 <*> field' as "actions.hlint-setup" "hlint-setup" defaultConfig.actions.hlintSetup ref
-                 <*> field' as "actions.hlint-run" "hlint-run" defaultConfig.actions.hlintRun ref
-             )
+        checkout <- field' as "actions.checkout" "checkout" defaultConfig.actions.checkout ref
+        setup <- field' as "actions.setup" "setup" defaultConfig.actions.setup ref
+        cache <- field' as "actions.cache" "cache" defaultConfig.actions.cache ref
+        runFourmolu <- field' as "actions.run-fourmolu" "run-fourmolu" defaultConfig.actions.runFourmolu ref
+        hlintSetup <- field' as "actions.hlint-setup" "hlint-setup" defaultConfig.actions.hlintSetup ref
+        hlintRun <- field' as "actions.hlint-run" "hlint-run" defaultConfig.actions.hlintRun ref
+        pure Actions {..}
       _ -> expected path "a mapping"
 
     ref :: String -> Node -> Check T.Text
@@ -333,28 +327,24 @@ configFromNode = \case
 
     hooksField :: String -> Node -> Check Hooks
     hooksField path = \case
-      Mapping hs _ ->
+      Mapping hs _ -> do
         knownFields "hooks." ["before-build", "after-build"] hs
-          *> ( Hooks
-                 <$> field' hs "hooks.before-build" "before-build" [] steps
-                 <*> field' hs "hooks.after-build" "after-build" [] steps
-             )
+        beforeBuild <- field' hs "hooks.before-build" "before-build" [] steps
+        afterBuild <- field' hs "hooks.after-build" "after-build" [] steps
+        pure Hooks {..}
       _ -> expected path "a mapping"
 
     doctestField :: [Item (Key, Node)] -> Check (Maybe Doctest)
     doctestField entries = case lookupKey "doctest" entries of
       Nothing -> pure Nothing
       Just n | isNull n -> pure $ Just defaultDoctest
-      Just (Mapping ds _) ->
+      Just (Mapping ds _) -> do
         knownFields "doctest." ["ghc", "version", "skip", "options"] ds
-          *> fmap
-            Just
-            ( Doctest
-                <$> field' ds "doctest.ghc" "ghc" defaultDoctest.ghc versionRange
-                <*> field' ds "doctest.version" "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
-                <*> field' ds "doctest.skip" "skip" defaultDoctest.skip textList
-                <*> field' ds "doctest.options" "options" defaultDoctest.options textList
-            )
+        ghc <- field' ds "doctest.ghc" "ghc" defaultDoctest.ghc versionRange
+        version <- field' ds "doctest.version" "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
+        skip <- field' ds "doctest.skip" "skip" defaultDoctest.skip textList
+        options <- field' ds "doctest.options" "options" defaultDoctest.options textList
+        pure $ Just Doctest {..}
       Just _ -> expected "doctest" "a mapping"
 
 ----------------------------------------
