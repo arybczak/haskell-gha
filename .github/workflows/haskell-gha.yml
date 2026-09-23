@@ -29,6 +29,32 @@ defaults:
     shell: bash
 
 jobs:
+  fourmolu:
+    name: Fourmolu
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: haskell-actions/run-fourmolu@v13
+      with:
+        version: '0.20.1.0'
+
+  hlint:
+    name: HLint
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: haskell-actions/hlint-setup@c04631035af0a6787c85e33b3ea0128b8568b590
+      with:
+        version: '3.10'
+
+    - uses: haskell-actions/hlint-run@d009541bdae0b8492992416e665bb6df8a3b5cde
+      with:
+        fail-on: suggestion
+
   build:
     name: GHC ${{ matrix.ghc }}
     runs-on: ubuntu-26.04
@@ -147,29 +173,3 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage
-
-  fourmolu:
-    name: Fourmolu
-    runs-on: ubuntu-26.04
-    timeout-minutes: 60
-    steps:
-    - uses: actions/checkout@v7
-
-    - uses: haskell-actions/run-fourmolu@v13
-      with:
-        version: '0.20.1.0'
-
-  hlint:
-    name: HLint
-    runs-on: ubuntu-26.04
-    timeout-minutes: 60
-    steps:
-    - uses: actions/checkout@v7
-
-    - uses: haskell-actions/hlint-setup@c04631035af0a6787c85e33b3ea0128b8568b590
-      with:
-        version: '3.10'
-
-    - uses: haskell-actions/hlint-run@d009541bdae0b8492992416e665bb6df8a3b5cde
-      with:
-        fail-on: suggestion

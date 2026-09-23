@@ -228,6 +228,10 @@ The expected output of the golden test
 [`single`](tests/golden/single/expected.yml) shows the workflow for one
 package with the default configuration. The reasons for its parts follow.
 
+The fourmolu and HLint jobs come before the build job in the file. The build
+job has more than 100 lines, so a short job after it is easy to miss. No job
+needs another, so all jobs start at the same time in any order.
+
 The `merge_group` trigger runs the workflow for a merge queue. Without it, a
 merge queue waits for the required checks of this workflow, and they never
 start. The trigger does nothing in a repository without a merge queue.

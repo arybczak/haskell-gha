@@ -146,10 +146,12 @@ workflow opts config project = runCheck $ checks $> root
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
             ,
               ( "jobs"
-              , Mapping $
-                  item (Key Plain "build", job)
-                    : [Item True (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
-                    ++ [Item True (Key Plain "hlint", hlintJob h) | Just h <- [config.hlint]]
+              , -- The short jobs come first, so the long build job does not
+                -- hide them.
+                Mapping . separate $
+                  [item (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
+                    ++ [item (Key Plain "hlint", hlintJob h) | Just h <- [config.hlint]]
+                    ++ [item (Key Plain "build", job)]
               )
             ]
         )
@@ -280,8 +282,8 @@ workflow opts config project = runCheck $ checks $> root
     matrix =
       Mapping (item (Key Plain "ghc", sequenceOf (map (singleQuoted . entryText) entries)) : config.matrix)
 
-    -- An empty line before each step except the first.
-    separate :: [Item Node] -> [Item Node]
+    -- An empty line before each item except the first.
+    separate :: [Item a] -> [Item a]
     separate = zipWith (\i s -> s {emptyLine = i > (0 :: Int)}) [0 ..]
 
     steps :: [Item Node]

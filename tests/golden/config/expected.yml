@@ -30,6 +30,36 @@ defaults:
     shell: bash
 
 jobs:
+  fourmolu:
+    name: Fourmolu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: haskell-actions/run-fourmolu@v12
+      with:
+        version: '0.19.0.1'
+        pattern: |
+          src/**/*.hs
+          !src/Generated.hs
+
+  hlint:
+    name: HLint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: haskell-actions/hlint-setup@v2
+      with:
+        version: '3.8'
+
+    - uses: haskell-actions/hlint-run@v2
+      with:
+        path: '["src", "test"]'
+        fail-on: error
+
   build:
     name: 'GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}'
     runs-on: ubuntu-24.04
@@ -154,33 +184,3 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage
-
-  fourmolu:
-    name: Fourmolu
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: haskell-actions/run-fourmolu@v12
-      with:
-        version: '0.19.0.1'
-        pattern: |
-          src/**/*.hs
-          !src/Generated.hs
-
-  hlint:
-    name: HLint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: haskell-actions/hlint-setup@v2
-      with:
-        version: '3.8'
-
-    - uses: haskell-actions/hlint-run@v2
-      with:
-        path: '["src", "test"]'
-        fail-on: error
