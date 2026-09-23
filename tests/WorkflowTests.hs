@@ -1,6 +1,7 @@
 module WorkflowTests (workflowTests) where
 
 import Data.ByteString.Lazy.Char8 qualified as BL8
+import Data.Either
 import Data.List qualified as L
 import Data.Text qualified as T
 import Test.Tasty
@@ -20,7 +21,29 @@ workflowTests =
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "an unknown package in doctest.skip" test_unknownSkip
     , testCase "the command line in the header" test_headerCommandLine
+    , testCase "sdist with an import and a package outside the project" test_sdistOutside
     ]
+
+test_sdistOutside :: Assertion
+test_sdistOutside = do
+  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  p <- case project.packages of
+    [p] -> pure p
+    ps -> assertFailure ("packages: " ++ show ps)
+  let changed =
+        project
+          { packages = [p {directory = "../lib"}, p {name = "inner", directory = "a/../b"}]
+          , imports = [Import "cabal.project:1:1: " "local.project", Import "cabal.project:2:1: " "https://example.com/remote.project"]
+          }
+  assertEqual
+    "errors"
+    ( Left
+        [ "cabal.project:1:1: the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file local.project. Set sdist: false in the configuration."
+        , "Package example is in ../lib, outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
+        ]
+    )
+    (workflow defaultOptions defaultConfig changed)
+  assertBool "sdist: false" (isRight $ workflow defaultOptions defaultConfig {sdist = False} changed)
 
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do

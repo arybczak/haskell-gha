@@ -295,8 +295,9 @@ entry.
 The reader ignores all other fields. cabal reads them, so the workflow gets
 them without changes.
 
-The reader also ignores `import:` lines. cabal reads the imported files in
-CI, but the tool does not see a package that only an imported file lists.
+The reader does not read the files of `import:` lines. cabal reads the
+imported files in CI, but the tool does not see a package that only an
+imported file lists.
 Such a package gets no `ghc-options` stanza and no `tested-with` check. If
 all test suites are in such packages, the workflow has no test step, and CI
 does not run the tests. This is a known limit.
@@ -320,7 +321,8 @@ A `packages:` entry can be a directory, a `.cabal` file or a glob. A
 directory must contain exactly one `.cabal` file. A tarball or a URL is an
 error. An absolute path, or a path that starts with `~/`, is also an error.
 The workflow uses the path on the runner, where it does not exist.
-A relative path outside the project directory, e.g. `../other`, is legal.
+If `sdist` is false, a relative path outside the project directory, e.g.
+`../other`, is legal.
 The glob syntax is the cabal syntax. Parse it with the `Parsec` instance of
 `RootedGlob` from `Distribution.Simple.FileMonitor.Types`, and match it with
 `matchGlob` from `Distribution.Simple.Glob`. Both are in `Cabal` 3.14 and
@@ -705,12 +707,20 @@ for a hook that uses `git diff`.
 
 A project must set `sdist: false` in these cases:
 
-- `cabal.project` has an `import:` line. The step does not copy the
-  imported file.
+- `cabal.project` has an `import:` line with a local file. The step does
+  not copy the imported file. cabal fetches an import from a URL, so such
+  an import works.
 - `cabal.project` lists a package outside the project directory, e.g.
-  `../other`. The relative path does not exist in `$RUNNER_TEMP/haskell-gha`.
+  `../other`. The unpack step keeps the relative path, so the package
+  lands outside `$RUNNER_TEMP/haskell-gha`, where other files can be.
 - A hook makes a file that a later cabal step needs. The hook runs in the
   checkout, so the cabal step does not see the file.
+
+If `sdist` is true, the tool stops with an error for the first two cases.
+The reader records each `import:` line with its position for this check.
+If a `..` component of a package directory leads above the project
+directory, the package is outside. Thus `a/../b` is legal. The tool
+cannot find the third case.
 
 The versions of the actions are fields of the configuration, with the
 current major versions as defaults. Thus a user can take a new major

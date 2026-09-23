@@ -8,6 +8,7 @@ module HaskellGha.Workflow
   , renderWorkflow
   ) where
 
+import Control.Monad
 import Data.Char
 import Data.Foldable
 import Data.Functor
@@ -71,6 +72,41 @@ workflow opts config project = runCheck $ checks $> root
     checks =
       traverse_ checkGhcValue (matrixGhcValues config)
         *> for_ config.doctest (\d -> traverse_ (checkDoctestRange d) entries *> traverse_ checkSkip d.skip)
+        *> when config.sdist (traverse_ checkImport project.imports *> traverse_ checkInside project.packages)
+
+    -- cabal fetches an import from a URL, so only a local file is missing
+    -- from the copy.
+    checkImport :: Import -> Check ()
+    checkImport i
+      | "://" `L.isInfixOf` i.target = pure ()
+      | otherwise =
+          failure $
+            i.location
+              ++ "the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file "
+              ++ i.target
+              ++ ". Set sdist: false in the configuration."
+
+    -- The unpack step keeps the path of each package relative to the
+    -- project directory, so a path with .. leads out of the copy.
+    checkInside :: Package -> Check ()
+    checkInside p
+      | outside p.directory =
+          failure $
+            "Package "
+              ++ p.name
+              ++ " is in "
+              ++ p.directory
+              ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
+      | otherwise = pure ()
+      where
+        outside :: FilePath -> Bool
+        outside = any (< 0) . scanl (+) (0 :: Int) . map depth . splitDirectories
+
+        depth :: FilePath -> Int
+        depth = \case
+          ".." -> -1
+          "." -> 0
+          _ -> 1
 
     checkDoctestRange :: Doctest -> GhcEntry -> Check ()
     checkDoctestRange d = fromEither . void . decideRange ("The range " ++ prettyShow d.ghc ++ " of the field doctest.ghc") d.ghc

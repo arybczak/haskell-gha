@@ -18,6 +18,7 @@ projectTests =
     [ testCase "a single package without cabal.project" test_single
     , testCase "a conditional block" test_conditional
     , testCase "elif and else" test_elifElse
+    , testCase "import lines" test_imports
     , testCase "globs" test_globs
     , testCase "optional packages" test_optional
     , testCase "exact and series entries" test_exactAndSeries
@@ -67,6 +68,20 @@ test_elifElse = do
       , ("c/c.cabal", cabal "c" "GHC ^>= 9.12" False)
       ]
   assertEqual "matrix" [(v [9, 6, 7], ["a"]), (s 9 10, ["b"]), (s 9 12, ["c"])] (matrixOf project)
+
+test_imports :: Assertion
+test_imports = do
+  project <-
+    readOk
+      [ ("cabal.project", "packages: a\nimport: base.project\n\nif impl(ghc >= 9.12)\n  import: new.project\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  assertEqual
+    "imports"
+    [ Import "PROJECT/cabal.project:2:1: " "base.project"
+    , Import "PROJECT/cabal.project:5:3: " "new.project"
+    ]
+    project.imports
 
 test_globs :: Assertion
 test_globs = do

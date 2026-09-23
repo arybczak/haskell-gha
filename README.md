@@ -255,10 +255,13 @@ The hooks still run in the checkout.
 
 Set `sdist: false` in these cases:
 
-- `cabal.project` imports another file with `import:`.
+- `cabal.project` imports a local file with `import:`.
 - `cabal.project` lists a package outside the project directory, e.g.
   `../other`.
 - A hook makes a file that the build or the tests need.
+
+The tool finds the first two cases and stops with an error. It cannot find
+the third case.
 
 ## Doctest
 
@@ -322,10 +325,10 @@ code as the release `v2.4.10`. When a new release comes out, set
 
 ## Known limits
 
-- The tool ignores `import:` lines in `cabal.project`. cabal reads the
-  imported files in CI, but the tool does not see a package that only an
-  imported file lists. Such a package gets no `ghc-options` and no
-  `tested-with` check.
+- The tool does not read the files of `import:` lines in `cabal.project`.
+  cabal reads the imported files in CI, but the tool does not see a
+  package that only an imported file lists. Such a package gets no
+  `ghc-options` and no `tested-with` check.
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on
   x86_64. It assumes that no project selects its packages by operating
   system or architecture.

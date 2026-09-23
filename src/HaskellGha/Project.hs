@@ -8,6 +8,7 @@ module HaskellGha.Project
     Project (..)
   , Package (..)
   , MatrixEntry (..)
+  , Import (..)
 
     -- * Reading
   , readProject
@@ -70,6 +71,16 @@ data Project = Project
   -- ^ All local packages.
   , matrix :: [MatrixEntry]
   -- ^ In version order.
+  , imports :: [Import]
+  -- ^ In all conditional blocks.
+  }
+  deriving stock (Eq, Show)
+
+-- | An @import:@ line of @cabal.project@.
+data Import = Import
+  { location :: String
+  -- ^ The prefix of the error messages, with the file and the position.
+  , target :: String
   }
   deriving stock (Eq, Show)
 
@@ -78,6 +89,7 @@ data Part
   = -- | A @packages:@ or @optional-packages:@ field. The flag is true for
     -- @packages:@.
     Packages Bool [String]
+  | ImportLine Import
   | -- | An @if@ section with its @elif@ and @else@ sections.
     Conditional Position (Condition ConfVar) [Part] [Part]
 
@@ -111,6 +123,7 @@ readProject dir = do
     allTokens :: [Part] -> [(Bool, String)]
     allTokens = concatMap $ \case
       Packages required ts -> map (required,) ts
+      ImportLine _ -> []
       Conditional _ _ yes no -> allTokens yes ++ allTokens no
 
 projectDescription :: Bool -> FilePath -> String
@@ -129,9 +142,10 @@ parseProjectFile file input = case readFields input of
     parts :: [Field Position] -> Check [Part]
     parts = \case
       [] -> pure []
-      Field (Name _ n) ls : rest
+      Field (Name pos n) ls : rest
         | n == "packages" -> (:) (Packages True (fieldTokens ls)) <$> parts rest
         | n == "optional-packages" -> (:) (Packages False (fieldTokens ls)) <$> parts rest
+        | n == "import" -> (:) (ImportLine (Import (at pos "") (unwords (fieldTokens ls)))) <$> parts rest
         | otherwise -> parts rest
       Section (Name pos n) args body : rest
         | n == "if" -> conditional pos args body rest
@@ -319,8 +333,14 @@ projectFrom
 projectFrom exists dir packages byToken parts =
   traverse (\p -> fromErrors $ entriesFromRange p.name p.ghcRange) packages `andThen` \entries ->
     let axis = L.sort (L.nub (concat entries))
-    in fmap (Project packages) . dedupe $ traverse matrixEntry axis
+    in (\m -> Project packages m (imports parts)) <$> dedupe (traverse matrixEntry axis)
   where
+    imports :: [Part] -> [Import]
+    imports = concatMap $ \case
+      Packages _ _ -> []
+      ImportLine i -> [i]
+      Conditional _ _ yes no -> imports yes ++ imports no
+
     matrixEntry :: GhcEntry -> Check MatrixEntry
     matrixEntry entry =
       included entry parts `andThen` \pkgs ->
@@ -336,6 +356,7 @@ projectFrom exists dir packages byToken parts =
         . traverse
           ( \case
               Packages _ ts -> pure (concatMap byToken ts)
+              ImportLine _ -> pure []
               Conditional pos c yes no ->
                 evaluate entry pos c `andThen` \b -> included entry (if b then yes else no)
           )
