@@ -31,6 +31,7 @@ jobs:
         - '9.8'
         - '9.10'
         - '9.12'
+        - '9.14'
     steps:
     - uses: actions/checkout@v7
 
@@ -66,7 +67,7 @@ jobs:
         EOF
 
     - name: Enable the GHC job semaphore
-      if: contains(fromJSON('["9.8","9.10","9.12"]'), matrix.ghc)
+      if: contains(fromJSON('["9.8","9.10","9.12","9.14"]'), matrix.ghc)
       run: |
         echo 'semaphore: True' >> cabal.project.local
 
