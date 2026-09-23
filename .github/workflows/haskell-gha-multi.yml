@@ -3,7 +3,7 @@
 # To regenerate it, run:
 #   haskell-gha --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
 #
-# Version: 0.1.0.0
+# Version: 1.0
 #
 # For more information, see https://github.com/arybczak/haskell-gha
 name: CI (multi)

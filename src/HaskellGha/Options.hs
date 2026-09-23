@@ -30,10 +30,13 @@ defaultOptions =
     }
 
 -- | The parser of the options.
-optionsParser :: ParserInfo Options
-optionsParser =
+optionsParser
+  :: String
+  -- ^ The version of the tool.
+  -> ParserInfo Options
+optionsParser version =
   info
-    (options <**> helper)
+    (options <**> versionOption <**> helper)
     (fullDesc <> progDesc "Write a GitHub Actions workflow that builds and tests a cabal project on each GHC version from tested-with.")
   where
     options :: Parser Options
@@ -42,6 +45,9 @@ optionsParser =
       projectDir <- strOption (long "project-dir" <> metavar "DIR" <> value defaultOptions.projectDir <> showDefault <> help "The directory that contains cabal.project or the package")
       output <- strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
       pure Options {..}
+
+    versionOption :: Parser (a -> a)
+    versionOption = infoOption ("haskell-gha " ++ version) (long "version" <> short 'v' <> help "Show the version")
 
 -- | The command line that gives the options. It contains only the options that
 -- are not defaults.

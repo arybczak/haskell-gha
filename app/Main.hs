@@ -15,7 +15,7 @@ import Paths_haskell_gha
 
 main :: IO ()
 main = do
-  opts <- execParser optionsParser
+  opts <- execParser (optionsParser (showVersion version))
   generate opts >>= \case
     Left errors -> do
       hPutStr stderr (unlines errors)

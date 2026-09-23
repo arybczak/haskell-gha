@@ -3,7 +3,7 @@
 # To regenerate it, run:
 #   haskell-gha
 #
-# Version: 0.1.0.0
+# Version: 1.0
 #
 # For more information, see https://github.com/arybczak/haskell-gha
 name: CI
