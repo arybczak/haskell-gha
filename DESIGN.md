@@ -90,6 +90,19 @@ add later:
 - All tool paths come from the outputs of `haskell-actions/setup`, not from
   Linux paths in the code.
 
+The default `runs-on` is `ubuntu-26.04`, not `ubuntu-latest`. GitHub moves
+`ubuntu-latest` to a new Ubuntu release over some weeks. During that time,
+the jobs of one workflow run on different images. The tool already pins the
+versions of the actions, and a new version needs a new release of the tool.
+A pinned image follows the same rule. Thus the workflow only changes with a
+new release of the tool.
+
+The cache key contains the image of the runner, from the environment
+variable `ImageOS`, e.g. `ubuntu26`. A cabal store from another image can
+link against system libraries that the new image does not have. The key
+does not contain `ImageVersion`, because GitHub updates the image each
+week, and each update would start a new cache.
+
 The default `cabal-version` is `3.16.1.0`. For `latest`, the action now
 selects cabal `3.18.1.0`. That version has a bug in the GHC job semaphore:
 [cabal issue 12306][issue-12306].
@@ -150,7 +163,7 @@ the field. This finds typing errors.
 ```yaml
 name: CI
 cabal-version: 3.16.1.0
-runs-on: ubuntu-latest
+runs-on: ubuntu-26.04
 branches: [master, main]
 matrix:
   postgres: ['15', '18']
@@ -190,7 +203,7 @@ haddock: true
 |---|---|---|
 | `name` | `CI` | The name of the workflow. |
 | `cabal-version` | `3.16.1.0` | The cabal version for `haskell-actions/setup`. `latest` is also valid. See [Decisions](#decisions). |
-| `runs-on` | `ubuntu-latest` | The name of the runner image, e.g. `ubuntu-24.04`. A list of labels is an error. |
+| `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. A list of labels is an error. See [Decisions](#decisions). |
 | `branches` | `[master, main]` | The branches for the `push` trigger. An empty list is an error. |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
@@ -350,6 +363,7 @@ on:
     - master
     - main
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 concurrency:
@@ -363,8 +377,7 @@ defaults:
 jobs:
   build:
     name: GHC ${{ matrix.ghc }}
-  merge_group:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -382,10 +395,12 @@ jobs:
         cabal-version: '3.16.1.0'
 
     - name: Show the versions
+      id: versions
       run: |
         ghc --version
         cabal --version
-        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}" >> "$GITHUB_STEP_SUMMARY"
+        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
+        echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
     - name: Configure the project
       run: |
@@ -419,8 +434,8 @@ jobs:
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
-        restore-keys: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+        restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-
 
     - name: Build the dependencies
       run: |
@@ -458,6 +473,11 @@ A sequence under a key has no indent. See
 
 The rules for each part follow.
 
+The `merge_group` trigger runs the workflow for a merge queue. Without it,
+a merge queue waits for the required checks of this workflow, and they
+never start. The trigger does nothing in a repository without a merge
+queue, so the workflow always has it.
+
 The `name` of the job contains each extra axis, e.g.
 `GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}`.
 
@@ -471,13 +491,12 @@ summary. The cache key also uses the selected version, from the
 `ghc-version` output of the action. Thus a new minor release starts a new
 cache, and the job does not restore a store for the old minor release.
 
+An expression cannot read an environment variable of the runner, e.g.
+`ImageOS`. Thus the step `Show the versions` writes the image to its output
+`image`, and the cache key reads it from there.
+
 The `jobs` field sets the parallel work, and its default is 4, because the
 standard Linux runners of GitHub have 4 CPUs. The configuration step always
-The `merge_group` trigger runs the workflow for a merge queue. Without it,
-a merge queue waits for the required checks of this workflow, and they
-never start. The trigger does nothing in a repository without a merge
-queue, so the workflow always has it.
-
 writes `jobs: <N>`, so cabal builds up to N packages at the same time. The
 other part depends on the GHC version:
 

@@ -146,7 +146,7 @@ workflow opts config project = runCheck $ checks *> pure root
         [ [item $ mapping [("uses", plain "actions/checkout@v7")]]
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
         , [item setupStep]
-        , [item $ runStep "Show the versions" Nothing showVersions]
+        , [item versionsStep]
         , [item $ runStep "Configure the project" Nothing configureScript]
         , [ item $ runStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
           | (group, pkgs) <- parallelGroups
@@ -246,12 +246,23 @@ workflow opts config project = runCheck $ checks *> pure root
       CabalLatest -> "latest"
       CabalVersion v -> T.pack (prettyShow v)
 
-    showVersions :: T.Text
-    showVersions =
-      T.unlines
-        [ "ghc --version"
-        , "cabal --version"
-        , "echo \"GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}\" >> \"$GITHUB_STEP_SUMMARY\""
+    -- An expression cannot read the environment variable ImageOS of the
+    -- runner, so the step gives it to the cache key as an output.
+    versionsStep :: Node
+    versionsStep =
+      mapping
+        [ ("name", plain "Show the versions")
+        , ("id", plain "versions")
+        ,
+          ( "run"
+          , literal $
+              T.unlines
+                [ "ghc --version"
+                , "cabal --version"
+                , "echo \"GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion\" >> \"$GITHUB_STEP_SUMMARY\""
+                , "echo \"image=$ImageOS\" >> \"$GITHUB_OUTPUT\""
+                ]
+          )
         ]
 
     configureScript :: T.Text
@@ -315,11 +326,16 @@ workflow opts config project = runCheck $ checks *> pure root
           ( "with"
           , mapping
               [ ("path", plain "${{ steps.setup.outputs.cabal-store }}")
-              , ("key", plain $ "${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('" <> planJson <> "') }}")
-              , ("restore-keys", plain "${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-")
+              , ("key", plain $ cachePrefix <> "${{ hashFiles('" <> planJson <> "') }}")
+              , ("restore-keys", plain cachePrefix)
               ]
           )
         ]
+
+    -- A store from another image can link against system libraries that
+    -- this image does not have.
+    cachePrefix :: T.Text
+    cachePrefix = "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-"
 
     planJson :: T.Text
     planJson = T.pack $ if projectDir == "." then "dist-newstyle/cache/plan.json" else projectDir </> "dist-newstyle/cache/plan.json"

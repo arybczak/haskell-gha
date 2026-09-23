@@ -85,7 +85,7 @@ defaultConfig =
   Config
     { name = plain "CI"
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
-    , runsOn = plain "ubuntu-latest"
+    , runsOn = plain "ubuntu-26.04"
     , branches = [plain "master", plain "main"]
     , matrix = []
     , apt = []

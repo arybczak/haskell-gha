@@ -23,7 +23,7 @@ defaults:
 jobs:
   build:
     name: GHC ${{ matrix.ghc }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -41,10 +41,12 @@ jobs:
         cabal-version: '3.16.1.0'
 
     - name: Show the versions
+      id: versions
       run: |
         ghc --version
         cabal --version
-        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}" >> "$GITHUB_STEP_SUMMARY"
+        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
+        echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
     - name: Configure the project
       run: |
@@ -72,8 +74,8 @@ jobs:
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
-        restore-keys: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+        restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-
 
     - name: Build the dependencies
       run: |

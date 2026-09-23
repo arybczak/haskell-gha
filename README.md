@@ -107,7 +107,7 @@ error. This example shows all fields:
 ```yaml
 name: CI
 cabal-version: 3.16.1.0
-runs-on: ubuntu-latest
+runs-on: ubuntu-26.04
 branches: [master, main]
 matrix:
   postgres: ['15', '18']
@@ -147,7 +147,7 @@ haddock: true
 |---|---|---|
 | `name` | `CI` | The name of the workflow. Two workflows in one repository must have different names, because workflows with the same name cancel each other. |
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
-| `runs-on` | `ubuntu-latest` | The name of the runner image, e.g. `ubuntu-24.04`. |
+| `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
