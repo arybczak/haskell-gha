@@ -932,9 +932,10 @@ after `HASKELL_GHA_ACCEPT=1` wrote the expected file.
 
 The writer writes `Comment` events, so the tool writes the header comment as
 events. The writer cannot write empty lines. The tool adds them to the output
-text. It puts an empty line before each top-level key except the first, and
-before each step except the first. The workflow has one job, so each step
-starts with `- ` in the same column.
+text. It puts an empty line before each top-level key and each job, except
+the first one. It also puts an empty line before each step of a job, except
+the first step. All jobs are at the same depth, so each step starts with `- `
+in the same column.
 
 The first round-trip test of stage 1 makes sure that the writer behaves as
 this section says. It also shows the indent of a sequence under a key. If
