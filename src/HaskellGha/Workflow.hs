@@ -8,7 +8,9 @@ module HaskellGha.Workflow
   , renderWorkflow
   ) where
 
+import Data.Char
 import Data.Foldable
+import Data.Functor
 import Data.List qualified as L
 import Data.Text qualified as T
 import Distribution.Pretty
@@ -57,6 +59,15 @@ workflow opts config project = runCheck $ checks *> pure root
     checks :: Check ()
     checks =
       traverse_ checkGhcValue (matrixGhcValues config)
+        *> for_ config.doctest (\d -> traverse_ (checkDoctestRange d) entries *> traverse_ checkSkip d.skip)
+
+    checkDoctestRange :: Doctest -> GhcEntry -> Check ()
+    checkDoctestRange d = fromEither . void . decideRange ("The range " ++ prettyShow d.ghc ++ " of the field doctest.ghc") d.ghc
+
+    checkSkip :: T.Text -> Check ()
+    checkSkip p
+      | T.unpack p `elem` map (.name) project.packages = pure ()
+      | otherwise = failure $ "The field doctest.skip names the package " ++ T.unpack p ++ ", but the project has no such local package."
 
     checkGhcValue :: T.Text -> Check ()
     checkGhcValue value
@@ -145,6 +156,10 @@ workflow opts config project = runCheck $ checks *> pure root
         , [item $ runStep "Make the build plan" Nothing "cabal build all --dry-run\n"]
         , [item cacheRestore]
         , [item $ runStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
+        , [ item $ runStep "Install doctest" (Just doctestEntries) (installDoctest d)
+          | Just d <- [config.doctest]
+          , not (null doctestEntries)
+          ]
         , [item cacheSave]
         , config.hooks.beforeBuild
         , [item $ runStep "Build" Nothing "cabal build all\n"]
@@ -153,7 +168,36 @@ workflow opts config project = runCheck $ checks *> pure root
           | config.tests
           , not (null testEntries)
           ]
+        , [ item $ runStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript d p)
+          | Just d <- [config.doctest]
+          , p <- project.packages
+          , T.pack p.name `notElem` d.skip
+          , not (null p.doctestArgs)
+          , let es = [e.ghc | e <- project.matrix, e.ghc `elem` doctestEntries, p.directory `elem` map (.directory) e.packages]
+          , not (null es)
+          ]
         ]
+
+    -- The entries in the range of doctest.ghc.
+    doctestEntries :: [GhcEntry]
+    doctestEntries = case config.doctest of
+      Just d -> [e | e <- entries, decide d.ghc e == Included]
+      Nothing -> []
+
+    -- The cache step after this step saves doctest with the dependencies.
+    installDoctest :: Doctest -> T.Text
+    installDoctest d =
+      T.unlines
+        [ "cabal install doctest --ignore-project --installdir=\"$HOME/.local/bin\" --overwrite-policy=always"
+            <> maybe "" (\r -> " --constraint=" <> shellQuote ("doctest " <> T.pack (prettyShow r))) d.version
+        , "echo \"$HOME/.local/bin\" >> \"$GITHUB_PATH\""
+        ]
+
+    doctestScript :: Doctest -> Package -> T.Text
+    doctestScript d p =
+      T.unlines $
+        ["cd " <> shellQuote (T.pack p.directory) | p.directory /= "."]
+          ++ [T.unwords ("doctest" : map shellQuote (d.options ++ map T.pack args)) | args <- p.doctestArgs]
 
     -- A step with a script. The script runs for the given matrix entries,
     -- or for all of them.
@@ -202,6 +246,7 @@ workflow opts config project = runCheck $ checks *> pure root
           [ ["jobs: " <> tshow config.jobs]
           , ["tests: True" | config.tests]
           , ["benchmarks: True" | config.benchmarks]
+          , ["write-ghc-environment-files: always" | not (null doctestEntries)]
           ]
           ++ concat
             [ "" : stanza p ("ghc-options: " <> config.ghcOptions)
@@ -283,7 +328,9 @@ workflow opts config project = runCheck $ checks *> pure root
         ]
 
     shellQuote :: T.Text -> T.Text
-    shellQuote t = "'" <> T.replace "'" "'\\''" t <> "'"
+    shellQuote t
+      | not (T.null t) && T.all (\c -> isAsciiLower c || isAsciiUpper c || isDigit c || c `elem` ("-_./=:+@%," :: String)) t = t
+      | otherwise = "'" <> T.replace "'" "'\\''" t <> "'"
 
     tshow :: Int -> T.Text
     tshow = T.pack . show

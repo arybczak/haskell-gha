@@ -533,16 +533,21 @@ lists packages that the workflow does not test with doctest. A name in
 `skip` that is not a local package is an error. The `options` field lists
 extra arguments for doctest.
 
-The method is not decided yet. Stage 5 starts with an experiment.
+The experiment of stage 5 tested two methods with doctest 0.25.0 and GHC
+9.10.3. The method from the doctest README is
+`cabal repl --with-compiler=doctest` for each package. It works for a
+package without local dependencies, with cabal 3.14 and 3.16. It fails in
+two cases:
 
-First, try the method from the doctest README:
-`cabal repl --with-compiler=doctest` for each package. In an earlier test,
-this method did not work for the project owner. If it does not work in a
-small test project, use the second method.
+- A package depends on another local package. cabal then builds the
+  dependency with doctest as the compiler, and that build fails.
+- cabal 3.18.1.0 gives the option `--interactive` to the compiler, and
+  doctest rejects it.
 
-The second method is the haskell-ci method, which the project owner knows
-works. See the doctest steps in `haskell-ci/src/HaskellCI/GitHub.hs` and
-`doctestArgs` in `haskell-ci/src/HaskellCI/Tools.hs`. The steps are these:
+Thus the workflow uses the haskell-ci method. See the doctest steps in
+`haskell-ci/src/HaskellCI/GitHub.hs` and `doctestArgs` in
+`haskell-ci/src/HaskellCI/Tools.hs`. The experiment showed that it works in
+both cases above. The steps are these:
 
 1. Make cabal write GHC environment files, which tell doctest where the
    dependencies are. If doctest is enabled, the configuration step adds
@@ -550,10 +555,19 @@ works. See the doctest steps in `haskell-ci/src/HaskellCI/GitHub.hs` and
 2. Install doctest with the GHC of the job, e.g.
    `cabal install doctest --ignore-project --installdir="$HOME/.local/bin" --overwrite-policy=always`.
    doctest uses the GHC API, so it must be built with the same GHC. If
-   `doctest.version` is set, add `--constraint='doctest <version>'`.
+   `doctest.version` is set, add `--constraint='doctest <version>'`. The
+   step also adds `$HOME/.local/bin` to `GITHUB_PATH`. It comes before the
+   step that saves the cache, so the cache keeps doctest.
 3. In each package directory, run `doctest` with the `hs-source-dirs`, the
    `default-language` and the `default-extensions` of the library and of
    each sublibrary as arguments.
+
+A library without `hs-source-dirs`, or with only `.`, is different from
+haskell-ci. The package directory can also contain other components, e.g.
+the tests, so the tool does not give `.` to doctest. haskell-ci gives the
+names of the exposed modules instead. But then GHC takes the compiled
+module from the environment file, and doctest finds no examples without an
+error. Thus the tool gives the files of the exposed modules, e.g. `A/B.hs`.
 
 Each doctest step for a package has an `if:` condition. The condition lists
 the GHC versions that are in the `doctest.ghc` range and that include the

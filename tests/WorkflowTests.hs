@@ -14,13 +14,32 @@ workflowTests =
   testGroup
     "Workflow"
     [ testCase "a ghc value of the matrix that is not in the axis" test_unknownGhcValue
+    , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
+    , testCase "an unknown package in doctest.skip" test_unknownSkip
     ]
 
 test_unknownGhcValue :: Assertion
-test_unknownGhcValue = do
-  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack "matrix:\n  x: [a, b]\n  exclude:\n    - ghc: '9.8'\n      x: a\n"
+test_unknownGhcValue =
+  assertErrors
+    "matrix:\n  x: [a, b]\n  exclude:\n    - ghc: '9.8'\n      x: a\n"
+    ["The matrix of the configuration refers to GHC 9.8, but the ghc axis contains only 9.6.7, 9.10, 9.12."]
+
+test_partialDoctestRange :: Assertion
+test_partialDoctestRange =
+  assertErrors
+    "doctest:\n  ghc: '>=9.10.2'\n"
+    ["The range >=9.10.2 of the field doctest.ghc includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+
+test_unknownSkip :: Assertion
+test_unknownSkip =
+  assertErrors
+    "doctest:\n  skip: [other]\n"
+    ["The field doctest.skip names the package other, but the project has no such local package."]
+
+-- | The errors for a configuration and the project of the golden test
+-- @single@.
+assertErrors :: String -> [String] -> Assertion
+assertErrors input expected = do
+  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack input
   project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
-  assertEqual
-    "errors"
-    (Left ["The matrix of the configuration refers to GHC 9.8, but the ghc axis contains only 9.6.7, 9.10, 9.12."])
-    (workflow defaultOptions config project)
+  assertEqual "errors" (Left expected) (workflow defaultOptions config project)

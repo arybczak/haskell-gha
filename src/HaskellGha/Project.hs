@@ -19,17 +19,21 @@ import Data.Char
 import Data.Either
 import Data.Foldable
 import Data.List qualified as L
+import Data.Maybe
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Distribution.Compiler
 import Distribution.Fields
+import Distribution.ModuleName qualified as ModuleName
 import Distribution.PackageDescription
+import Distribution.PackageDescription.Configuration hiding (parseCondition)
 import Distribution.PackageDescription.Parsec
 import Distribution.Parsec
 import Distribution.Pretty
 import Distribution.Simple.FileMonitor.Types
 import Distribution.Simple.Glob
 import Distribution.System
+import Distribution.Utils.Path qualified as Path
 import Distribution.Version
 import System.Directory
 import System.FilePath
@@ -46,7 +50,8 @@ data Package = Package
   , ghcRange :: VersionRange
   -- ^ The union of the GHC entries of @tested-with@.
   , hasTestSuite :: Bool
-  , description :: GenericPackageDescription
+  , doctestArgs :: [[String]]
+  -- ^ The doctest arguments for the library and each sublibrary.
   }
   deriving stock (Eq, Show)
 
@@ -248,11 +253,12 @@ readPackage
   -> IO (Either [String] Package)
 readPackage path relative = do
   input <- BS.readFile path
-  pure $ do
-    gpd <- runCabalParser path (parseGenericPackageDescription input)
-    let pd = packageDescription gpd
-        pkgName' = unPackageName (pkgName (package pd))
-    case [r | (GHC, r) <- testedWith pd] of
+  case runCabalParser path (parseGenericPackageDescription input) of
+    Left errors -> pure $ Left errors
+    Right gpd -> packageFrom gpd <$> doctestArguments (flattenPackageDescription gpd)
+  where
+    packageFrom :: GenericPackageDescription -> [[String]] -> Either [String] Package
+    packageFrom gpd args = case [r | (GHC, r) <- testedWith pd] of
       [] -> Left ["Package " ++ pkgName' ++ " has no GHC version in tested-with."]
       r : rs ->
         Right
@@ -261,8 +267,37 @@ readPackage path relative = do
             , directory = takeDirectory relative
             , ghcRange = foldl' unionVersionRanges r rs
             , hasTestSuite = not (null (condTestSuites gpd))
-            , description = gpd
+            , doctestArgs = args
             }
+      where
+        pd :: PackageDescription
+        pd = packageDescription gpd
+
+        pkgName' :: String
+        pkgName' = unPackageName (pkgName (package pd))
+
+    -- The arguments are the language, the extensions and the sources, as in
+    -- haskell-ci. The description is flattened, so the fields of all
+    -- conditional blocks count.
+    doctestArguments :: PackageDescription -> IO [[String]]
+    doctestArguments pd = fmap (L.nub . filter (not . null)) . forM (toList (library pd) ++ subLibraries pd) $ \lib -> do
+      let bi = libBuildInfo lib
+      -- The package directory can also contain other components, e.g. the
+      -- tests, so it gives the files of the exposed modules instead.
+      sources <- case filter (/= ".") . map (normalise . Path.getSymbolicPath) $ hsSourceDirs bi of
+        [] -> mapM moduleFile (exposedModules lib)
+        dirs -> pure dirs
+      pure $
+        if null sources
+          then []
+          else ["-X" ++ prettyShow l | Just l <- [defaultLanguage bi]] ++ ["-X" ++ prettyShow e | e <- defaultExtensions bi] ++ sources
+
+    -- For a module name, GHC takes the compiled module from the GHC
+    -- environment file, and doctest finds no examples. A file name works.
+    moduleFile :: ModuleName.ModuleName -> IO FilePath
+    moduleFile m = do
+      found <- filterM (doesFileExist . (takeDirectory path </>)) [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
+      pure $ fromMaybe (prettyShow m) (listToMaybe found)
 
 ----------------------------------------
 -- Matrix
