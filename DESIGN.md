@@ -673,7 +673,7 @@ The style applies to the code only. The tool does not depend on
 The tests use `tasty` and `tasty-hunit`.
 
 Golden tests (tests that compare the output with a stored file) cover the
-generated workflow. Each fixture is a directory under `test/golden/` with a
+generated workflow. Each fixture is a directory under `tests/golden/` with a
 project, an optional configuration file and the expected workflow. When the
 environment variable `HASKELL_GHA_ACCEPT=1` is set, the tests write the new
 output to the expected file. The comparison ignores the header comment, so
