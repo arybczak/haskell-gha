@@ -9,6 +9,7 @@ module HaskellGha.Workflow
   ) where
 
 import Control.Monad
+import Control.Monad.Trans.Except
 import Data.Char
 import Data.Foldable
 import Data.Functor
@@ -32,13 +33,10 @@ generate
   -- ^ The root of the repository. The paths of the options are relative to it.
   -> Options
   -> IO (Either [String] Node)
-generate root opts =
-  readConfig root opts.config >>= \case
-    Left errors -> pure $ Left errors
-    Right config ->
-      readProject root opts.projectDir >>= \case
-        Left errors -> pure $ Left errors
-        Right project -> pure $ workflow opts config project
+generate root opts = runExceptT $ do
+  config <- ExceptT $ readConfig root opts.config
+  project <- ExceptT $ readProject root opts.projectDir
+  except $ workflow opts config project
 
 -- | Render the workflow with its header comment.
 renderWorkflow

@@ -15,6 +15,8 @@ module HaskellGha.Project
   ) where
 
 import Control.Monad
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.Char
@@ -101,37 +103,41 @@ readProject
   -> FilePath
   -- ^ The project directory, relative to the root.
   -> IO (Either [String] Project)
-readProject root dir = do
-  let projectFile = dir </> "cabal.project"
-  exists <- doesFileExist (root </> projectFile)
-  parts <-
-    if exists
-      then parseProjectFile projectFile <$> BS.readFile (root </> projectFile)
-      else
+readProject root dir = runExceptT $ do
+  exists <- lift $ doesFileExist (root </> projectFile)
+  parts <- ExceptT $ readParts exists
+  found <- ExceptT $ locatePackages parts
+  let cabalFiles = L.nub (concatMap snd found)
+  when (null cabalFiles) $
+    throwE ["There are no packages in " ++ projectDescription exists dir ++ "."]
+  packages <- ExceptT $ runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (dir </> f) f)
+  except . runCheck $ projectFrom exists dir packages (byToken found packages) parts
+  where
+    projectFile :: FilePath
+    projectFile = dir </> "cabal.project"
+
+    readParts :: Bool -> IO (Either [String] [Part])
+    readParts = \case
+      True -> parseProjectFile projectFile <$> BS.readFile (root </> projectFile)
+      False ->
         doesDirectoryExist (root </> dir) <&> \case
           True -> Right [Packages True ["./*.cabal"]]
           False -> Left ["The project directory " ++ show dir ++ " does not exist."]
-  case parts of
-    Left errors -> pure $ Left errors
-    Right ps -> do
-      let tokens = L.nub [(required, t) | (required, t) <- allTokens ps]
-      locations <- forM tokens $ \(required, t) -> (t,) <$> findPackages (root </> dir) required t
-      case runCheck $ traverse (\(t, r) -> (t,) <$> fromErrors r) locations of
-        Left errors -> pure $ Left errors
-        Right found -> do
-          let cabalFiles = L.nub (concatMap snd found)
-          if null cabalFiles
-            then pure $ Left ["There are no packages in " ++ projectDescription exists dir ++ "."]
-            else do
-              pkgs <- forM cabalFiles $ \f -> readPackage root (dir </> f) f
-              pure . runCheck $
-                -- A package is known by its directory. If two .cabal files in
-                -- one directory are listed by name, both entries give the first
-                -- package. Such a layout is rare, so the tool accepts this.
-                traverse fromErrors pkgs `andThen` \packages ->
-                  let byToken t = [p | f <- concat (lookup t found), Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]]
-                  in projectFrom exists dir packages byToken ps
-  where
+
+    -- The .cabal files of each entry of packages:, relative to the project
+    -- directory.
+    locatePackages :: [Part] -> IO (Either [String] [(String, [FilePath])])
+    locatePackages parts = do
+      locations <- forM (L.nub (allTokens parts)) $ \(required, t) -> (t,) <$> findPackages (root </> dir) required t
+      pure . runCheck $ traverse (\(t, r) -> (t,) <$> fromErrors r) locations
+
+    -- A package is known by its directory. If two .cabal files in one
+    -- directory are listed by name, both entries give the first package. Such
+    -- a layout is rare, so the tool accepts this.
+    byToken :: [(String, [FilePath])] -> [Package] -> String -> [Package]
+    byToken found packages t =
+      [p | f <- concat (lookup t found), Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]]
+
     allTokens :: [Part] -> [(Bool, String)]
     allTokens = concatMap $ \case
       Packages required ts -> map (required,) ts
