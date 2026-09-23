@@ -148,7 +148,7 @@ workflow opts config project = runCheck $ checks *> pure root
                           ( "with"
                           , mapping $
                               [("version", singleQuoted (T.pack (prettyShow f.version)))]
-                                ++ [("pattern", literal (T.unlines f.pattern)) | not (null f.pattern)]
+                                ++ [("pattern", literal (T.unlines f.patterns)) | not (null f.patterns)]
                                 -- The defaults of run do not apply to an action.
                                 ++ [("working-directory", plain (T.pack projectDir)) | projectDir /= "."]
                           )

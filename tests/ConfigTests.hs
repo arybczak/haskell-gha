@@ -109,7 +109,7 @@ test_example = do
   assertEqual "check" False config.check
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
-  assertEqual "fourmolu" (Just Fourmolu {version = mkVersion [0, 19, 0, 1], pattern = ["src/**/*.hs"]}) config.fourmolu
+  assertEqual "fourmolu" (Just Fourmolu {version = mkVersion [0, 19, 0, 1], patterns = ["src/**/*.hs"]}) config.fourmolu
   assertEqual "actions" (Actions {checkout = "v8", setup = "v2", cache = "0123abc", runFourmolu = "v12"}) config.actions
 
 test_emptyDoctest :: Assertion

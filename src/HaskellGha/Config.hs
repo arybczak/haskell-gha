@@ -66,7 +66,7 @@ data Config = Config
 -- | The configuration of the fourmolu job.
 data Fourmolu = Fourmolu
   { version :: Version
-  , pattern :: [T.Text]
+  , patterns :: [T.Text]
   -- ^ The files to check. An empty list gives the default of the action.
   }
   deriving stock (Eq, Show)
@@ -134,7 +134,7 @@ defaultFourmolu :: Fourmolu
 defaultFourmolu =
   Fourmolu
     { version = mkVersion [0, 20, 1, 0]
-    , pattern = []
+    , patterns = []
     }
 
 -- | The doctest configuration of an empty @doctest@ field.
@@ -230,7 +230,7 @@ configFromNode = \case
           *> ( fmap Just $
                  Fourmolu
                    <$> field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
-                   <*> field' fs "fourmolu.pattern" "pattern" defaultFourmolu.pattern textList
+                   <*> field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns textList
              )
       Just _ -> expected "fourmolu" "a mapping"
 
