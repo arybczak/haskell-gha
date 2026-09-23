@@ -39,6 +39,7 @@ common language
                         NoStarIsType
                         OverloadedRecordDot
                         RoleAnnotations
+                        StrictData
                         TypeFamilies
                         UndecidableInstances
 
