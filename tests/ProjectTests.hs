@@ -220,6 +220,17 @@ test_testedWithErrors = do
     shortVersion
   noGhc <- readErrors [("a.cabal", cabal "a" "GHCJS == 8.10.7" False)]
   assertEqual "no GHC" ["Package a has no GHC version in tested-with."] noGhc
+  oldGhc <- readErrors [("a.cabal", cabal "a" "GHC == 8.8.4 || ^>= 9.0 || ^>= 8.6" False)]
+  assertEqual
+    "old GHC"
+    [ "Package a lists GHC 8.6 in tested-with. The tool supports only GHC 8.10 and later. Remove the version from tested-with."
+    , "Package a lists GHC 8.8.4 in tested-with. The tool supports only GHC 8.10 and later. Remove the version from tested-with."
+    ]
+    oldGhc
+  oldestExact <- readOk [("a.cabal", cabal "a" "GHC == 8.10.7" False)]
+  assertEqual "oldest exact GHC" [(v [8, 10, 7], ["a"])] (matrixOf oldestExact)
+  oldestSeries <- readOk [("a.cabal", cabal "a" "GHC ^>= 8.10" False)]
+  assertEqual "oldest GHC series" [(s 8 10, ["a"])] (matrixOf oldestSeries)
 
 test_emptyEntry :: Assertion
 test_emptyEntry = do

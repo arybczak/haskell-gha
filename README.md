@@ -91,8 +91,9 @@ upgrade the tool, run it again and commit the file.
 
 ## GHC versions
 
-The `tested-with` field of each package gives the GHC versions. Each part of
-the field must be one of these two forms:
+The `tested-with` field of each package gives the GHC versions. The tool
+supports GHC 8.10 and later, and an older version in `tested-with` is an
+error. Each part of the field must be one of these two forms:
 
 - An exact version with three parts, e.g. `GHC == 9.10.3`. The job uses
   this version. A shorter version, e.g. `GHC == 9.10`, is an error, because

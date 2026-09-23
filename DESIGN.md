@@ -200,6 +200,12 @@ series, because the matrix needs a finite list. An exact version must have
 three parts. For `== 9.10`, the action selects the newest release of the
 series, but the tool would decide the conditions for 9.10.0.
 
+A GHC version older than 8.10 is an error. The bindists of old versions link
+against system libraries that new Ubuntu releases can lack, and nobody
+tests them on the current runner images. A hard limit gives a clear error
+before CI runs. The limit for cabal is 3.12, because of the GHC job
+semaphore.
+
 A matrix entry has a version range. A series entry `X.Y` has the range
 `>= X.Y.1 && < X.(Y+1)`, because the first release of a GHC series is
 `X.Y.1`. The tool uses this range for every decision about a matrix entry,
@@ -502,6 +508,7 @@ copy of the source tarballs. The hook thus gets the binary with
 The tool does not support these features:
 
 - A job container.
+- GHC older than 8.10.
 - macOS and Windows.
 - GHC prereleases and GHC head.
 - head.hackage.

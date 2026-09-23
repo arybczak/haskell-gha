@@ -57,10 +57,23 @@ entriesFromRange
   -- ^ The name of the package for the error messages.
   -> VersionRange
   -> Either [String] [GhcEntry]
-entriesFromRange package range = case partitionEithers . map entry $ asVersionIntervals range of
+entriesFromRange package range = case partitionEithers . map (\i -> entry i >>= supported) $ asVersionIntervals range of
   ([], entries) -> Right entries
   (bad, _) -> Left bad
   where
+    -- Nobody tests older versions on the current runner images, which can
+    -- lack the system libraries of their bindists.
+    supported :: GhcEntry -> Either String GhcEntry
+    supported e
+      | decide (orLaterVersion (mkVersion [8, 10])) e == Included = Right e
+      | otherwise =
+          Left $
+            "Package "
+              ++ package
+              ++ " lists GHC "
+              ++ T.unpack (entryText e)
+              ++ " in tested-with. The tool supports only GHC 8.10 and later. Remove the version from tested-with."
+
     entry :: VersionInterval -> Either String GhcEntry
     entry i@(VersionInterval lower upper) = case (lower, upper) of
       (LowerBound v InclusiveBound, UpperBound w InclusiveBound)
