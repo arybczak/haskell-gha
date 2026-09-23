@@ -17,6 +17,14 @@ extra-doc-files:
   CHANGELOG.md
   README.md
 
+-- The fixtures of the golden tests.
+extra-source-files:
+  tests/golden/**/*.cabal
+  tests/golden/**/*.hs
+  tests/golden/**/*.project
+  tests/golden/**/*.yml
+  tests/golden/**/args
+
 tested-with: GHC ^>= { 9.6, 9.8, 9.10, 9.12, 9.14 }
 
 bug-reports:   https://github.com/arybczak/haskell-gha/issues

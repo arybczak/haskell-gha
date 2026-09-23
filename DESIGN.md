@@ -136,9 +136,7 @@ The tool accepts these options:
 
 All paths are relative to the current directory, which is the root of the
 repository. If `--project-dir` is not `.`, the workflow sets
-`defaults.run.working-directory` to that directory. The paths in `hashFiles`
-are then relative to the root of the repository, because GitHub evaluates
-`hashFiles` from the root.
+`defaults.run.working-directory` to that directory.
 
 The generated file starts with this comment. The command line in the comment
 contains all options that are not defaults.
@@ -222,7 +220,7 @@ haddock: true
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
 | `check` | `true` | Run `cabal check` for each local package. |
-| `sdist` | `true` | Run `cabal sdist all`. |
+| `sdist` | `true` | Build and test the content of the source tarballs. See [The source tarballs](#the-source-tarballs). |
 | `haddock` | `true` | Build the documentation for Hackage. |
 
 A value of the wrong type is an error, and the message names the field.
@@ -412,7 +410,17 @@ jobs:
         echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
         echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
+    - name: Unpack the source tarballs
+      run: |
+        cabal sdist all --output-directory="$RUNNER_TEMP"/haskell-gha-sdist
+        mkdir "$RUNNER_TEMP"/haskell-gha
+        for f in cabal.project cabal.project.freeze cabal.project.local; do
+          if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP"/haskell-gha; fi
+        done
+        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/example-[0-9]*.tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha
+
     - name: Configure the project
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
         jobs: 4
@@ -425,6 +433,7 @@ jobs:
 
     - name: Enable parallel module builds for the local packages
       if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
         package example
@@ -433,21 +442,26 @@ jobs:
 
     - name: Enable the GHC job semaphore
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         echo 'semaphore: True' >> cabal.project.local
 
     - name: Make the build plan
+      id: plan
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all --dry-run
+        echo "hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
     - uses: actions/cache/restore@v6
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ steps.plan.outputs.hash }}
         restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-
 
     - name: Build the dependencies
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all --only-dependencies
 
@@ -458,22 +472,22 @@ jobs:
         key: ${{ steps.cache.outputs.cache-primary-key }}
 
     - name: Build
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all
 
     - name: Run the tests
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal test all --test-show-details=direct
 
     - name: Check the packages
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal check
 
-    - name: Make the source tarballs
-      run: |
-        cabal sdist all
-
     - name: Build the documentation
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage
 ```
@@ -578,19 +592,15 @@ A `test-suite` section counts, whatever its conditions are. Take a project
 whose test suites all have `buildable: False` for a GHC version. Then the
 test step fails for that version. This is a known limit.
 
-The last three steps check the packages for a Hackage release. They come
+The last two steps check the packages for a Hackage release. They come
 after the tests and doctest, so a build error or a test error shows first.
-Each step has a field of the configuration, and all three are true by
-default.
+Each step has a field of the configuration, and both are true by default.
 
 - If `check` is true, the step `Check the packages` runs `cabal check` in
-  the directory of each local package, on all GHC versions. `cabal check`
-  exits with 1 for an error, and a warning does not fail the step.
-- If `sdist` is true, the step `Make the source tarballs` runs
-  `cabal sdist all`. If a file or a pattern of the `.cabal` file, e.g. in
-  `extra-source-files`, matches no file, the command fails. The build
-  ignores such fields, and `cabal check` only gives a warning. The step does
-  not build from the tarballs. See [Out of scope](#out-of-scope).
+  the directory of each local package. `cabal check` exits with 1 for an
+  error, and a warning does not fail the step. If the packages of the
+  project differ between GHC versions, the tool makes one step for each
+  group of versions with the same packages.
 - If `haddock` is true, the step `Build the documentation` runs
   `cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage`.
   `--disable-documentation` prevents a rebuild of the dependencies with
@@ -601,8 +611,59 @@ default.
   e.g. with hyperlinked source.
 
 If `--project-dir` is not `.`, the workflow gets
-`defaults.run.working-directory`. The `hashFiles` path becomes
-`<project-dir>/dist-newstyle/cache/plan.json`.
+`defaults.run.working-directory`.
+
+The build plan step writes the SHA-256 hash of
+`dist-newstyle/cache/plan.json` to its output `hash`, and the cache key
+reads it. `hashFiles` cannot read the plan, because it only reads files in
+the workspace, and the content of the tarballs is outside it.
+
+### The source tarballs
+
+A Hackage user gets only the files of the source tarball. The build or the
+tests can use a file that the `.cabal` file does not list, e.g. a header
+for CPP, a file for Template Haskell or a test fixture. Then the checkout
+has the file, but the tarball does not. cabal gives no warning for such a
+file, and `cabal check` and `cabal sdist` succeed. Only a build from the
+content of the tarball fails.
+
+If `sdist` is true, the workflow thus builds the content of the tarballs
+and not the checkout. The step `Unpack the source tarballs` comes after the
+step `Show the versions`:
+
+1. It runs `cabal sdist all --output-directory="$RUNNER_TEMP"/haskell-gha-sdist`.
+2. It copies each of `cabal.project`, `cabal.project.freeze` and
+   `cabal.project.local` that exists to `$RUNNER_TEMP/haskell-gha`.
+3. It unpacks the tarball of each local package into `$RUNNER_TEMP/haskell-gha`, at
+   the relative path of the package in the project directory.
+
+The copy of `cabal.project` thus finds the packages at the same paths, and
+the build reads the same project as a local build. The tool does not
+rewrite `cabal.project`. `cabal sdist all` makes a tarball only for the
+packages of the project, so the step unpacks only those. If the packages
+differ between GHC versions, the tool makes one step for each group of
+versions with the same packages.
+
+All later steps that run cabal get
+`working-directory: ${{ runner.temp }}/haskell-gha`. The install step of doctest
+does not get it, because it ignores the project. The hooks do not get it,
+so they run in the checkout. Thus a hook can use files of the repository,
+e.g. a script, and it can compare the checkout with `git diff`.
+
+The unpack step does not delete files in the checkout. An earlier design
+replaced the files of each package directory with the content of its
+tarball. That design fails for a package in the root of the repository,
+because the package directory is then the whole repository. It also fails
+for a hook that uses `git diff`.
+
+A project must set `sdist: false` in these cases:
+
+- `cabal.project` has an `import:` line. The step does not copy the
+  imported file.
+- `cabal.project` lists a package outside the project directory, e.g.
+  `../other`. The relative path does not exist in `$RUNNER_TEMP/haskell-gha`.
+- A hook makes a file that a later cabal step needs. The hook runs in the
+  checkout, so the cabal step does not see the file.
 
 The tool knows the action versions `actions/checkout@v7`,
 `actions/cache/restore@v6` and `actions/cache/save@v6` as constants. A new major version of those
@@ -849,7 +910,6 @@ The first version does not support these features:
 - macOS and Windows.
 - GHC prereleases and GHC head.
 - head.hackage.
-- Builds and tests from the content of the `sdist` tarballs.
 - A job that tests the lower bounds with `--prefer-oldest`.
 - `before-test` and `after-test` hooks.
 - Benchmark runs.

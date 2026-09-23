@@ -152,29 +152,33 @@ workflow opts config project = runCheck $ checks *> pure root
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
         , [item setupStep]
         , [item versionsStep]
-        , [item $ runStep "Configure the project" Nothing configureScript]
-        , [ item $ runStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
-          | (group, pkgs) <- parallelGroups
+        , [ item $ runStep "Unpack the source tarballs" (Just group) (unpackScript pkgs)
+          | config.sdist
+          , (group, pkgs) <- packageGroups project.matrix
           ]
-        , [ item $ runStep "Enable the GHC job semaphore" (Just semaphoreEntries) "echo 'semaphore: True' >> cabal.project.local\n"
+        , [item $ sourceStep "Configure the project" Nothing configureScript]
+        , [ item $ sourceStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
+          | (group, pkgs) <- packageGroups [e | e <- project.matrix, not (hasSemaphore e.ghc)]
+          ]
+        , [ item $ sourceStep "Enable the GHC job semaphore" (Just semaphoreEntries) "echo 'semaphore: True' >> cabal.project.local\n"
           | not (null semaphoreEntries)
           ]
-        , [item $ runStep "Make the build plan" Nothing "cabal build all --dry-run\n"]
+        , [item planStep]
         , [item cacheRestore]
-        , [item $ runStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
+        , [item $ sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
         , [ item $ runStep "Install doctest" (Just doctestEntries) (installDoctest d)
           | Just d <- [config.doctest]
           , not (null doctestEntries)
           ]
         , [item cacheSave]
         , config.hooks.beforeBuild
-        , [item $ runStep "Build" Nothing "cabal build all\n"]
+        , [item $ sourceStep "Build" Nothing "cabal build all\n"]
         , config.hooks.afterBuild
-        , [ item $ runStep "Run the tests" (Just testEntries) "cabal test all --test-show-details=direct\n"
+        , [ item $ sourceStep "Run the tests" (Just testEntries) "cabal test all --test-show-details=direct\n"
           | config.tests
           , not (null testEntries)
           ]
-        , [ item $ runStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript d p)
+        , [ item $ sourceStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript d p)
           | Just d <- [config.doctest]
           , p <- project.packages
           , T.pack p.name `notElem` d.skip
@@ -182,9 +186,11 @@ workflow opts config project = runCheck $ checks *> pure root
           , let es = [e.ghc | e <- project.matrix, e.ghc `elem` doctestEntries, p.directory `elem` map (.directory) e.packages]
           , not (null es)
           ]
-        , [item $ runStep "Check the packages" Nothing checkScript | config.check]
-        , [item $ runStep "Make the source tarballs" Nothing "cabal sdist all\n" | config.sdist]
-        , [ item $ runStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage\n"
+        , [ item $ sourceStep "Check the packages" (Just group) (checkScript pkgs)
+          | config.check
+          , (group, pkgs) <- packageGroups project.matrix
+          ]
+        , [ item $ sourceStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage\n"
           | config.haddock
           ]
         ]
@@ -212,21 +218,73 @@ workflow opts config project = runCheck $ checks *> pure root
 
     -- cabal check works on the package in the current directory. All lines
     -- run in one shell, so a subshell keeps each cd to its own line.
-    checkScript :: T.Text
-    checkScript =
+    checkScript :: [Package] -> T.Text
+    checkScript pkgs =
       T.unlines
         [ if p.directory == "." then "cabal check" else "(cd " <> shellQuote (T.pack p.directory) <> " && cabal check)"
-        | p <- project.packages
+        | p <- pkgs
         ]
+
+    -- The content of the tarballs, at the same relative paths as in the
+    -- project directory.
+    sourceDir :: T.Text
+    sourceDir = "\"$RUNNER_TEMP\"/haskell-gha"
+
+    -- The step makes the tarballs of the packages of the matrix entry, so a
+    -- package that is not in the project has no tarball.
+    unpackScript :: [Package] -> T.Text
+    unpackScript pkgs =
+      T.unlines $
+        [ "cabal sdist all --output-directory=\"$RUNNER_TEMP\"/haskell-gha-sdist"
+        , "mkdir " <> sourceDir
+        , "for f in cabal.project cabal.project.freeze cabal.project.local; do"
+        , "  if [ -f \"$f\" ]; then cp \"$f\" " <> sourceDir <> "; fi"
+        , "done"
+        ]
+          ++ concat
+            [ ["mkdir -p " <> dir | p.directory /= "."]
+                ++ ["tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/" <> T.pack p.name <> "-[0-9]*.tar.gz --strip-components=1 -C " <> dir]
+            | p <- pkgs
+            , let dir = if p.directory == "." then sourceDir else sourceDir <> "/" <> shellQuote (T.pack p.directory)
+            ]
 
     -- A step with a script. The script runs for the given matrix entries,
     -- or for all of them.
     runStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
-    runStep name only script =
+    runStep = step False
+
+    -- A step that runs in the content of the tarballs, if sdist is true.
+    sourceStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
+    sourceStep = step config.sdist
+
+    step :: Bool -> T.Text -> Maybe [GhcEntry] -> T.Text -> Node
+    step inSource name only script =
       mapping $
         [("name", plain name)]
           ++ [("if", plain (condition es)) | Just es <- [only], es /= entries]
+          ++ [sourceWorkingDirectory | inSource]
           ++ [("run", literal script)]
+
+    sourceWorkingDirectory :: (T.Text, Node)
+    sourceWorkingDirectory = ("working-directory", plain "${{ runner.temp }}/haskell-gha")
+
+    -- hashFiles only reads files in the workspace, and the content of the
+    -- tarballs is outside it. Thus the step gives the hash of the plan to the
+    -- cache key as an output.
+    planStep :: Node
+    planStep =
+      mapping $
+        [("name", plain "Make the build plan"), ("id", plain "plan")]
+          ++ [sourceWorkingDirectory | config.sdist]
+          ++ [
+               ( "run"
+               , literal $
+                   T.unlines
+                     [ "cabal build all --dry-run"
+                     , "echo \"hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)\" >> \"$GITHUB_OUTPUT\""
+                     ]
+               )
+             ]
 
     condition :: [GhcEntry] -> T.Text
     condition es =
@@ -298,16 +356,13 @@ workflow opts config project = runCheck $ checks *> pure root
     heredoc :: [T.Text] -> T.Text
     heredoc ls = T.unlines $ ["cat >> cabal.project.local <<'EOF'"] ++ ls ++ ["EOF"]
 
-    -- The entries without the GHC job semaphore, grouped by their packages.
-    parallelGroups :: [([GhcEntry], [Package])]
-    parallelGroups =
-      [ ([e.ghc | e <- oldEntries, names e.packages == names pkgs], pkgs)
-      | pkgs <- L.nubBy (\a b -> names a == names b) (map (.packages) oldEntries)
+    -- The matrix entries, grouped by their packages.
+    packageGroups :: [MatrixEntry] -> [([GhcEntry], [Package])]
+    packageGroups es =
+      [ ([e.ghc | e <- es, names e.packages == names pkgs], pkgs)
+      | pkgs <- L.nubBy (\a b -> names a == names b) (map (.packages) es)
       ]
       where
-        oldEntries :: [MatrixEntry]
-        oldEntries = [e | e <- project.matrix, not (hasSemaphore e.ghc)]
-
         names :: [Package] -> [String]
         names = map (.name)
 
@@ -331,7 +386,7 @@ workflow opts config project = runCheck $ checks *> pure root
           ( "with"
           , mapping
               [ ("path", plain "${{ steps.setup.outputs.cabal-store }}")
-              , ("key", plain $ cachePrefix <> "${{ hashFiles('" <> planJson <> "') }}")
+              , ("key", plain $ cachePrefix <> "${{ steps.plan.outputs.hash }}")
               , ("restore-keys", plain cachePrefix)
               ]
           )
@@ -341,9 +396,6 @@ workflow opts config project = runCheck $ checks *> pure root
     -- this image does not have.
     cachePrefix :: T.Text
     cachePrefix = "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-"
-
-    planJson :: T.Text
-    planJson = T.pack $ if projectDir == "." then "dist-newstyle/cache/plan.json" else projectDir </> "dist-newstyle/cache/plan.json"
 
     cacheSave :: Node
     cacheSave =

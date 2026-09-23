@@ -161,7 +161,7 @@ haddock: true
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
 | `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
-| `sdist` | `true` | Run `cabal sdist all`. If the `.cabal` file of a package lists a file that does not exist, the job fails. |
+| `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
 | `haddock` | `true` | Build the documentation as for a Hackage upload. |
 
 The tool copies `matrix`, `services` and the hooks to the workflow without
@@ -205,6 +205,27 @@ empty `doctest:` field enables doctest with the defaults.
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on
   x86_64. It assumes that no project selects its packages by operating
   system or architecture.
+## Source tarballs
+
+A user who installs a package from Hackage gets only the files of its
+source tarball. If the build or the tests need a file that the `.cabal`
+file does not list, e.g. a CPP header or a test fixture, the package fails
+for that user. A build of the checkout does not find this error, because
+the checkout has the file.
+
+Thus the workflow makes the tarballs with `cabal sdist all` and unpacks
+them into a separate directory. It copies `cabal.project`,
+`cabal.project.freeze` and `cabal.project.local` next to them. The build,
+the tests, doctest, `cabal check` and haddock then run in that directory.
+The hooks still run in the checkout.
+
+Set `sdist: false` in these cases:
+
+- `cabal.project` imports another file with `import:`.
+- `cabal.project` lists a package outside the project directory, e.g.
+  `../other`.
+- A hook makes a file that the build or the tests need.
+
 - A test suite counts, whatever its conditions are. If all test suites of a
   project have `buildable: False` for a GHC version, the test step fails for
   that version.

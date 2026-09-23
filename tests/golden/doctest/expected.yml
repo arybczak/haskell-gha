@@ -53,7 +53,22 @@ jobs:
         echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
         echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
+    - name: Unpack the source tarballs
+      run: |
+        cabal sdist all --output-directory="$RUNNER_TEMP"/haskell-gha-sdist
+        mkdir "$RUNNER_TEMP"/haskell-gha
+        for f in cabal.project cabal.project.freeze cabal.project.local; do
+          if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP"/haskell-gha; fi
+        done
+        mkdir -p "$RUNNER_TEMP"/haskell-gha/a
+        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/a-[0-9]*.tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha/a
+        mkdir -p "$RUNNER_TEMP"/haskell-gha/b
+        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/b-[0-9]*.tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha/b
+        mkdir -p "$RUNNER_TEMP"/haskell-gha/c
+        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/c-[0-9]*.tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha/c
+
     - name: Configure the project
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
         jobs: 4
@@ -73,6 +88,7 @@ jobs:
 
     - name: Enable parallel module builds for the local packages
       if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
         package a
@@ -87,21 +103,26 @@ jobs:
 
     - name: Enable the GHC job semaphore
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         echo 'semaphore: True' >> cabal.project.local
 
     - name: Make the build plan
+      id: plan
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all --dry-run
+        echo "hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
     - uses: actions/cache/restore@v6
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ steps.plan.outputs.hash }}
         restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-
 
     - name: Build the dependencies
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all --only-dependencies
 
@@ -118,11 +139,13 @@ jobs:
         key: ${{ steps.cache.outputs.cache-primary-key }}
 
     - name: Build
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all
 
     - name: Run doctest for a
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cd a
         doctest --fast -XGHC2021 -XLambdaCase -XOverloadedStrings src
@@ -130,20 +153,19 @@ jobs:
 
     - name: Run doctest for b
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cd b
         doctest --fast B.hs
 
     - name: Check the packages
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         (cd a && cabal check)
         (cd b && cabal check)
         (cd c && cabal check)
 
-    - name: Make the source tarballs
-      run: |
-        cabal sdist all
-
     - name: Build the documentation
+      working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage

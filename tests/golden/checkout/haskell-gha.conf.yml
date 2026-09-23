@@ -1,0 +1,2 @@
+# The workflow builds the checkout, not the content of the tarballs.
+sdist: false
