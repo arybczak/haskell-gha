@@ -243,7 +243,7 @@ configFromNode = \case
     services <- field entries "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
     permissions <- field entries "permissions" defaultConfig.permissions permissionsField
     hooks <- field entries "hooks" defaultConfig.hooks hooksField
-    ghcOptions <- field entries "ghc-options" defaultConfig.ghcOptions text
+    ghcOptions <- field entries "ghc-options" defaultConfig.ghcOptions oneLine
     cabalProjectLocal <- field entries "cabal-project-local" defaultConfig.cabalProjectLocal projectText
     jobs <- field entries "jobs" defaultConfig.jobs positiveInt
     tests <- field entries "tests" defaultConfig.tests bool
@@ -328,6 +328,14 @@ configFromNode = \case
         if "EOF" `elem` T.lines t
           then failure $ "field " ++ show path ++ ": a line must not be EOF"
           else pure t
+
+    -- The workflow writes the text as one field of a package stanza.
+    oneLine :: String -> Node -> Check T.Text
+    oneLine path n =
+      text path n `andThen` \t ->
+        if T.any (`elem` ['\n', '\r']) (T.dropWhileEnd isSpace t)
+          then failure $ "field " ++ show path ++ ": the value must be one line"
+          else pure (T.strip t)
 
     hooksField :: String -> Node -> Check Hooks
     hooksField path = \case

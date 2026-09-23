@@ -231,7 +231,7 @@ actions:
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`: a mapping, `read-all` or `write-all`. The tool copies the value to the top-level `permissions`. |
 | `hooks.before-build` | `[]` | Steps before the build of the local packages. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
-| `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
+| `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add at the end of `cabal.project.local`. A line `EOF` is an error. |
 | `jobs` | `4` | The number of parallel build jobs, a positive integer. See [The generated workflow](#the-generated-workflow). |
 | `tests` | `true` | Build and run the test suites. |
@@ -593,9 +593,11 @@ The configuration step writes all its configuration to
 locally. If `tests` is false, the step omits `tests: True`. If `benchmarks`
 is false, the step omits `benchmarks: True`. If `ghc-options` is not an
 empty string, the step adds one `package` stanza with the options for each
-local package. The default is `-Werror`, so a warning in a local package
-fails the build. The dependencies do not get the options, so their warnings
-do not fail the build. A new GHC release often adds new warnings, and then
+local package. The options are one field of the stanza, so a value with
+more than one line is an error. A folded scalar (`>`) gives one line. The
+default is `-Werror`, so a warning in a local package fails the build. The
+dependencies do not get the options, so their warnings do not fail the
+build. A new GHC release often adds new warnings, and then
 the job for that GHC version fails until the code is fixed.
 
 The text of `cabal-project-local` comes last in the configuration step,

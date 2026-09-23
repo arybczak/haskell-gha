@@ -197,7 +197,7 @@ actions:
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
 | `hooks.before-build` | `[]` | Steps before the build of the local packages. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
-| `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
+| `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add at the end of `cabal.project.local`, e.g. package flags or constraints. |
 | `jobs` | `4` | The number of parallel build jobs. |
 | `tests` | `true` | Build and run the test suites. |

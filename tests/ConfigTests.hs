@@ -23,6 +23,7 @@ configTests =
     , testCase "an empty doctest field enables doctest" test_emptyDoctest
     , testCase "a null value gives the default" test_null
     , testCase "cabal-version latest" test_latest
+    , testCase "a folded ghc-options value" test_foldedGhcOptions
     , testCase "errors" test_errors
     , testCase "all errors are collected" test_allErrors
     ]
@@ -133,6 +134,11 @@ test_null = do
   config <- parseOk "jobs: ~\nhooks:\n"
   assertEqual "config" defaultConfig config
 
+test_foldedGhcOptions :: Assertion
+test_foldedGhcOptions = do
+  config <- parseOk "ghc-options: >\n  -Wall\n  -Werror\n"
+  assertEqual "ghc-options" "-Wall -Werror" config.ghcOptions
+
 test_latest :: Assertion
 test_latest = do
   config <- parseOk "cabal-version: latest\n"
@@ -168,6 +174,7 @@ test_errors = do
   assertError "hlint fail-on" "field \"hlint.fail-on\": expected one of never, status, warning, suggestion, error" "hlint:\n  fail-on: warnings\n"
   assertError "unknown fourmolu field" "unknown field \"fourmolu.extra-args\"" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" "field \"actions.setup\": expected a Git ref, e.g. v7" "actions:\n  setup: 'v 2'\n"
+  assertError "ghc-options lines" "field \"ghc-options\": the value must be one line" "ghc-options: |\n  -Wall\n  -Werror\n"
   assertError "cabal-project-local type" "field \"cabal-project-local\": expected a string" "cabal-project-local: [tests]\n"
   where
     assertError :: String -> String -> T.Text -> Assertion
