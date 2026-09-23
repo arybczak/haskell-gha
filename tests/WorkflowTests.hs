@@ -4,6 +4,7 @@ import Data.ByteString.Lazy.Char8 qualified as BL8
 import Data.Either
 import Data.List qualified as L
 import Data.Text qualified as T
+import Options.Applicative
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -23,7 +24,15 @@ workflowTests =
     , testCase "the command line in the header" test_headerCommandLine
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
+    , testCase "a project directory outside the repository" test_projectDirOutside
     ]
+
+test_projectDirOutside :: Assertion
+test_projectDirOutside = do
+  let parse dir = getParseResult $ execParserPure defaultPrefs (optionsParser "TEST") ["--project-dir", dir]
+  assertEqual "sub" (Just "a/../b") ((.projectDir) <$> parse "a/../b")
+  assertEqual "absolute" Nothing (parse "/tmp/project")
+  assertEqual "parent" Nothing (parse "a/../../b")
 
 test_sdistNamePrefix :: Assertion
 test_sdistNamePrefix = do

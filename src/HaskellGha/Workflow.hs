@@ -90,7 +90,7 @@ workflow opts config project = runCheck $ checks $> root
     -- directory, so a path with .. leads out of the copy.
     checkInside :: Package -> Check ()
     checkInside p
-      | outside p.directory =
+      | leadsAbove p.directory =
           failure $
             "Package "
               ++ p.name
@@ -98,15 +98,6 @@ workflow opts config project = runCheck $ checks $> root
               ++ p.directory
               ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
       | otherwise = pure ()
-      where
-        outside :: FilePath -> Bool
-        outside = any (< 0) . scanl (+) (0 :: Int) . map depth . splitDirectories
-
-        depth :: FilePath -> Int
-        depth = \case
-          ".." -> -1
-          "." -> 0
-          _ -> 1
 
     checkDoctestRange :: Doctest -> GhcEntry -> Check ()
     checkDoctestRange d = fromEither . void . decideRange ("The range " ++ prettyShow d.ghc ++ " of the field doctest.ghc") d.ghc
