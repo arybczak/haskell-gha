@@ -143,3 +143,13 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage
+
+  fourmolu:
+    name: Fourmolu
+    runs-on: ubuntu-26.04
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: haskell-actions/run-fourmolu@v13
+      with:
+        version: '0.20.1.0'

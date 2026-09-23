@@ -7,3 +7,5 @@ hooks:
         cabal run haskell-gha
         cabal run haskell-gha -- --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
         git diff --exit-code
+fourmolu:
+  version: 0.20.1.0
