@@ -74,8 +74,8 @@ test_sdistOutside = do
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do
   let opts = defaultOptions {projectDir = "my project", output = "it's.yml"}
-      header = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (Mapping [] []))
-  assertEqual "command line" (Just "#   haskell-gha --project-dir 'my project' --output 'it'\\''s.yml'") header
+      line = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (Mapping [] []))
+  assertEqual "command line" (Just "#   haskell-gha --project-dir 'my project' --output 'it'\\''s.yml'") line
 
 test_unknownGhcValue :: Assertion
 test_unknownGhcValue =
