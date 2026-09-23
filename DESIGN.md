@@ -170,6 +170,9 @@ hooks:
       run: psql --version
   after-build: []
 ghc-options: -Werror
+cabal-project-local: |
+  package some-package
+    flags: +extra-benchmarks
 jobs: 4
 tests: true
 benchmarks: true
@@ -192,6 +195,7 @@ doctest:
 | `hooks.before-build` | `[]` | Steps before the build of the local packages. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
+| `cabal-project-local` | none | Text to add at the end of `cabal.project.local`. A line `EOF` is an error. |
 | `jobs` | `4` | The number of parallel build jobs, a positive integer. See [The generated workflow](#the-generated-workflow). |
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
@@ -477,6 +481,13 @@ local package. The default is `-Werror`, so a warning in a local package
 fails the build. The dependencies do not get the options, so their warnings
 do not fail the build. A new GHC release often adds new warnings, and then
 the job for that GHC version fails until the code is fixed.
+
+The text of `cabal-project-local` comes last in the configuration step,
+without changes. It can then add to the stanzas of the tool, e.g. more
+`ghc-options`. The step comes before the build plan, so the cache key
+includes the dependencies that the text adds, e.g. with a package flag.
+The step writes the text with a quoted heredoc, so the shell does not
+expand it. A line `EOF` ends the heredoc, so such a line is an error.
 
 The configuration step writes the `package` stanzas for all local packages
 on all GHC versions. Take a package that is not in the project for a GHC

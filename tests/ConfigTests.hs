@@ -58,6 +58,9 @@ test_example = do
         , "      run: psql --version"
         , "  after-build: []"
         , "ghc-options: -Werror -Wno-unused"
+        , "cabal-project-local: |"
+        , "  package a"
+        , "    flags: +b"
         , "jobs: 2"
         , "tests: false"
         , "benchmarks: False"
@@ -78,6 +81,7 @@ test_example = do
   assertEqual "before-build" 1 (length config.hooks.beforeBuild)
   assertEqual "after-build" 0 (length config.hooks.afterBuild)
   assertEqual "ghc-options" "-Werror -Wno-unused" config.ghcOptions
+  assertEqual "cabal-project-local" "package a\n  flags: +b\n" config.cabalProjectLocal
   assertEqual "jobs" 2 config.jobs
   assertEqual "tests" False config.tests
   assertEqual "benchmarks" False config.benchmarks
@@ -130,6 +134,8 @@ test_errors = do
   assertError "step" "field \"hooks.before-build item\": expected a mapping" "hooks:\n  before-build:\n    - make\n"
   assertError "doctest range" "field \"doctest.ghc\": expected a version range" "doctest:\n  ghc: nine\n"
   assertError "apt" "field \"apt\": expected a list of strings" "apt: libpq-dev\n"
+  assertError "cabal-project-local" "field \"cabal-project-local\": a line must not be EOF" "cabal-project-local: |\n  tests: True\n  EOF\n"
+  assertError "cabal-project-local type" "field \"cabal-project-local\": expected a string" "cabal-project-local: [tests]\n"
   where
     assertError :: String -> String -> T.Text -> Assertion
     assertError preface expected input =

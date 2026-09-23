@@ -127,6 +127,9 @@ hooks:
       run: psql --version
   after-build: []
 ghc-options: -Werror
+cabal-project-local: |
+  package some-package
+    flags: +extra-benchmarks
 jobs: 4
 tests: true
 benchmarks: true
@@ -149,6 +152,7 @@ doctest:
 | `hooks.before-build` | `[]` | Steps before the build of the local packages. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
+| `cabal-project-local` | none | Text to add at the end of `cabal.project.local`, e.g. package flags or constraints. |
 | `jobs` | `4` | The number of parallel build jobs. |
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
@@ -161,6 +165,12 @@ key `ghc`, because the tool makes that axis. A `ghc` value in `include` or
 `exclude` must be a quoted string, e.g. `'9.10'`, and it must be an entry of
 the axis. Each key of an `exclude` entry must be `ghc` or an axis of the
 `matrix` field.
+
+The workflow writes the text of `cabal-project-local` to
+`cabal.project.local` before it makes the build plan. Thus the cache of
+each job contains the dependencies that the text adds. The text comes
+after the `ghc-options` stanzas, so it can add more options. A line of the
+text must not be `EOF`. You can use GitHub expressions in the text.
 
 The default `cabal-version` is not `latest`. Now `latest` selects cabal
 3.18.1.0, and that version has a bug in the GHC job semaphore.

@@ -29,6 +29,11 @@ hooks:
     - name: Check the documentation
       run: cabal haddock all
 ghc-options: -Werror -Wno-unused-imports
+cabal-project-local: |
+  package config
+    flags: +postgres
+
+  constraints: postgresql-libpq >= 0.10
 jobs: 2
 tests: false
 benchmarks: false

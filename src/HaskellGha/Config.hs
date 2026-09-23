@@ -45,6 +45,8 @@ data Config = Config
   , services :: Maybe Node
   , hooks :: Hooks
   , ghcOptions :: T.Text
+  , cabalProjectLocal :: T.Text
+  -- ^ Extra text for @cabal.project.local@.
   , jobs :: Int
   , tests :: Bool
   , benchmarks :: Bool
@@ -87,6 +89,7 @@ defaultConfig =
     , services = Nothing
     , hooks = Hooks [] []
     , ghcOptions = "-Werror"
+    , cabalProjectLocal = ""
     , jobs = 4
     , tests = True
     , benchmarks = True
@@ -160,6 +163,7 @@ configFromNode = \case
              <*> field entries "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
              <*> field entries "hooks" defaultConfig.hooks hooksField
              <*> field entries "ghc-options" defaultConfig.ghcOptions text
+             <*> field entries "cabal-project-local" defaultConfig.cabalProjectLocal projectText
              <*> field entries "jobs" defaultConfig.jobs positiveInt
              <*> field entries "tests" defaultConfig.tests bool
              <*> field entries "benchmarks" defaultConfig.benchmarks bool
@@ -169,7 +173,15 @@ configFromNode = \case
   where
     fields :: [T.Text]
     fields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "jobs", "tests", "benchmarks", "doctest"]
+      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest"]
+
+    -- The workflow writes the text with a heredoc that ends at the line EOF.
+    projectText :: String -> Node -> Check T.Text
+    projectText path n =
+      text path n `andThen` \t ->
+        if "EOF" `elem` T.lines t
+          then failure $ "field " ++ show path ++ ": a line must not be EOF"
+          else pure t
 
     hooksField :: String -> Node -> Check Hooks
     hooksField path = \case

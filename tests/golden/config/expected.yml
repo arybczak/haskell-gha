@@ -71,6 +71,11 @@ jobs:
 
         package config
           ghc-options: -Werror -Wno-unused-imports
+
+        package config
+          flags: +postgres
+
+        constraints: postgresql-libpq >= 0.10
         EOF
 
     - name: Enable the GHC job semaphore

@@ -253,6 +253,9 @@ workflow opts config project = runCheck $ checks *> pure root
             | not (T.null config.ghcOptions)
             , p <- project.packages
             ]
+          ++ case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal) of
+            [] -> []
+            ls -> "" : ls
 
     parallelScript :: [Package] -> T.Text
     parallelScript pkgs =
