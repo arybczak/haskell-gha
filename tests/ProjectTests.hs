@@ -178,7 +178,10 @@ test_testedWithErrors = do
     ["Package a lists the GHC range >=9.10 in tested-with. The matrix needs a finite list of versions. Write an exact version, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."]
     openRange
   minorRange <- readErrors [("a.cabal", cabal "a" "GHC ^>= 9.10.2" False)]
-  assertEqual "minor range" 1 (length minorRange)
+  assertEqual
+    "minor range"
+    ["Package a lists the GHC range >=9.10.2 && <9.11 in tested-with. A range must be a whole major series with two version parts, e.g. ^>= 9.10 or == 9.10.*. Write the series, or an exact version, e.g. == 9.10.3."]
+    minorRange
   shortVersion <- readErrors [("a.cabal", cabal "a" "GHC == 9.10" False)]
   assertEqual
     "short version"

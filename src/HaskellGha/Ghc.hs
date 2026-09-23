@@ -72,7 +72,8 @@ entriesFromRange package range = case partitionEithers . map entry $ asVersionIn
         | [x, y] <- versionNumbers v
         , versionNumbers w == [x, y + 1] ->
             Right (GhcSeries x y)
-      _ -> Left (openRange (fromInterval i))
+      (_, NoUpperBound) -> Left (openRange (fromInterval i))
+      _ -> Left (partialSeries (fromInterval i))
 
     openRange :: VersionRange -> String
     openRange r =
@@ -81,6 +82,14 @@ entriesFromRange package range = case partitionEithers . map entry $ asVersionIn
         ++ " lists the GHC range "
         ++ prettyShow r
         ++ " in tested-with. The matrix needs a finite list of versions. Write an exact version, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."
+
+    partialSeries :: VersionRange -> String
+    partialSeries r =
+      "Package "
+        ++ package
+        ++ " lists the GHC range "
+        ++ prettyShow r
+        ++ " in tested-with. A range must be a whole major series with two version parts, e.g. ^>= 9.10 or == 9.10.*. Write the series, or an exact version, e.g. == 9.10.3."
 
     shortVersion :: Version -> String
     shortVersion v =
