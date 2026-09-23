@@ -191,6 +191,10 @@ services:
     env:
       POSTGRES_PASSWORD: postgres
     ports: ['5432:5432']
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 5s
+      --health-retries 10
 permissions:
   contents: read
 hooks:
@@ -684,9 +688,11 @@ the source tarballs does not exist yet for the `after-setup` hooks.
 
 Other hook points, e.g. after the dependencies or after the tests, have no
 known use, so the tool does not have them. They can come later without a
-breaking change. A step that needs a service or a system library belongs in
-`after-setup`, because the service containers start before the first step.
-A code generator from a dependency belongs in `build-tool-depends`.
+breaking change. A step that installs a system library belongs in
+`after-setup`. A code generator from a dependency belongs in
+`build-tool-depends`. A service needs no step that waits for it. A service
+can have a health check, e.g. `--health-cmd pg_isready` in `options`. The
+runner then waits for a healthy service before it starts the steps.
 
 If `tests` is false or no local package has a test suite, the workflow has
 no test step. If only some GHC versions have a package with a test suite,

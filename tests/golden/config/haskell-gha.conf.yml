@@ -17,6 +17,11 @@ services:
     env:
       POSTGRES_PASSWORD: postgres # Only for CI.
     ports: ['5432:5432']
+    # The runner starts the steps when the database accepts connections.
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 5s
+      --health-retries 10
 permissions:
   contents: read
   # For the annotations of the test results.
@@ -25,12 +30,6 @@ hooks:
   after-setup:
     - name: Show the Postgres version
       run: psql --version
-    # Wait until the database accepts connections.
-    - name: Wait for Postgres
-      run: |
-        until pg_isready -h localhost; do
-          sleep 1
-        done
   after-build:
     - name: Show the executables
       run: cabal list-bin all

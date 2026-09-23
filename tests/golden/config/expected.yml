@@ -41,6 +41,8 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
         - '5432:5432'
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-retries 10
     strategy:
       fail-fast: false
       matrix:
@@ -79,12 +81,6 @@ jobs:
 
     - name: Show the Postgres version
       run: psql --version
-
-    - name: Wait for Postgres
-      run: |
-        until pg_isready -h localhost; do
-          sleep 1
-        done
 
     - name: Unpack the source tarballs
       run: |

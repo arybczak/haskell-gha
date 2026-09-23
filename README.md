@@ -159,6 +159,10 @@ services:
     env:
       POSTGRES_PASSWORD: postgres
     ports: ['5432:5432']
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 5s
+      --health-retries 10
 permissions:
   contents: read
 hooks:
@@ -240,6 +244,11 @@ field must not contain the key `ghc`, because the tool makes that axis. A
 `ghc` value in `include` or `exclude` must be a quoted string, e.g.
 `'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
 entry must be `ghc` or an axis of the `matrix` field.
+
+If a service has a health check, the runner starts the steps only when the
+service is healthy. Thus the workflow needs no step that waits for the
+service. The `postgres` image has no health check of its own, so the
+example gives one in `options`.
 
 A `run` step of a hook starts in the project directory of the checkout. A
 `uses` step starts in the root of the repository, because GitHub applies
