@@ -248,11 +248,12 @@ workflow opts config project = runCheck $ checks $> root
         , [item planStep]
         , [item cacheRestore]
         , [item $ sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
-        , [ item $ runStep "Install doctest" (Just doctestEntries) (installDoctest d)
-          | not (null doctestEntries)
-          , Just d <- [config.doctest]
-          ]
         , [item cacheSave]
+        , concat
+            [ doctestSteps d
+            | not (null doctestEntries)
+            , Just d <- [config.doctest]
+            ]
         , config.hooks.beforeBuild
         , [item $ sourceStep "Build" Nothing "cabal build all\n"]
         , config.hooks.afterBuild
@@ -283,20 +284,62 @@ workflow opts config project = runCheck $ checks $> root
       Just d -> [e | e <- entries, decide d.ghc e == Included]
       Nothing -> []
 
-    -- The cache step after this step saves doctest with the dependencies.
-    installDoctest :: Doctest -> T.Text
-    installDoctest d =
-      T.unlines
-        [ "cabal install doctest --ignore-project --installdir=\"$HOME/.local/bin\" --overwrite-policy=always"
-            <> maybe "" (\r -> " --constraint=" <> shellQuote ("doctest " <> T.pack (prettyShow r))) d.version
-        , "echo \"$HOME/.local/bin\" >> \"$GITHUB_PATH\""
+    -- The key of the main cache does not depend on the doctest version, so
+    -- doctest has its own cache with only the binary.
+    doctestSteps :: Doctest -> [Item Node]
+    doctestSteps d =
+      map
+        item
+        [ mapping $
+            [("name", plain "Find the doctest version"), ("id", plain "doctest")]
+              ++ doctestIf []
+              ++ [("run", literal findDoctest)]
+        , mapping $
+            [("uses", plain ("actions/cache@" <> config.actions.cache)), ("id", plain "doctest-cache")]
+              ++ doctestIf []
+              ++ [
+                   ( "with"
+                   , mapping
+                       [ ("path", plain "~/.local/bin/doctest")
+                       , ("key", plain "${{ runner.os }}-${{ steps.versions.outputs.image }}-doctest-${{ steps.doctest.outputs.version }}-ghc-${{ steps.setup.outputs.ghc-version }}")
+                       ]
+                   )
+                 ]
+        , mapping $
+            [("name", plain "Install doctest")]
+              ++ doctestIf ["steps.doctest-cache.outputs.cache-hit != 'true'"]
+              ++ [
+                   ( "run"
+                   , literal "cabal install doctest --ignore-project --install-method=copy --installdir=\"$HOME/.local/bin\" --overwrite-policy=always --constraint='doctest ==${{ steps.doctest.outputs.version }}'\n"
+                   )
+                 ]
         ]
+      where
+        doctestIf :: [T.Text] -> [(T.Text, Node)]
+        doctestIf extra = case [condition doctestEntries | doctestEntries /= entries] ++ extra of
+          [] -> []
+          cs -> [("if", plain (T.intercalate " && " cs))]
+
+        -- A store that already contains doctest gives a plan without it, so
+        -- the dry run uses an empty store.
+        findDoctest :: T.Text
+        findDoctest =
+          T.unlines
+            [ "version=$(cabal --store-dir=\"$RUNNER_TEMP\"/doctest-store install doctest --ignore-project --dry-run"
+                <> maybe "" (\r -> " --constraint=" <> shellQuote ("doctest " <> T.pack (prettyShow r))) d.version
+                <> " | sed -n 's/^ - doctest-\\([0-9.]*\\) (exe:doctest).*/\\1/p')"
+            , "if [ -z \"$version\" ]; then"
+            , "  echo 'The dry run of cabal install shows no doctest version.' >&2"
+            , "  exit 1"
+            , "fi"
+            , "echo \"version=$version\" >> \"$GITHUB_OUTPUT\""
+            ]
 
     doctestScript :: Doctest -> Package -> T.Text
     doctestScript d p =
       T.unlines $
         ["cd " <> shellQuote (T.pack p.directory) | p.directory /= "."]
-          ++ [T.unwords ("doctest" : map shellQuote (d.options ++ map T.pack args)) | args <- p.doctestArgs]
+          ++ [T.unwords ("\"$HOME\"/.local/bin/doctest" : map shellQuote (d.options ++ map T.pack args)) | args <- p.doctestArgs]
 
     -- cabal check works on the package in the current directory. All lines
     -- run in one shell, so a subshell keeps each cd to its own line.

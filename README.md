@@ -257,7 +257,9 @@ Set `sdist: false` in these cases:
 
 If the configuration has a `doctest` field, the workflow installs doctest
 and runs it for the library and the sublibraries of each local package. An
-empty `doctest:` field enables doctest with the defaults.
+empty `doctest:` field enables doctest with the defaults. The workflow keeps
+the doctest binary in its own cache, so a job builds each doctest version
+only once for each GHC version.
 
 | Field | Default | Meaning |
 |---|---|---|

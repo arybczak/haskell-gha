@@ -126,17 +126,34 @@ jobs:
       run: |
         cabal build all --only-dependencies
 
-    - name: Install doctest
-      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
-      run: |
-        cabal install doctest --ignore-project --installdir="$HOME/.local/bin" --overwrite-policy=always --constraint='doctest >=0.24'
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
     - uses: actions/cache/save@v6
       if: steps.cache.outputs.cache-hit != 'true'
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
         key: ${{ steps.cache.outputs.cache-primary-key }}
+
+    - name: Find the doctest version
+      id: doctest
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      run: |
+        version=$(cabal --store-dir="$RUNNER_TEMP"/doctest-store install doctest --ignore-project --dry-run --constraint='doctest >=0.24' | sed -n 's/^ - doctest-\([0-9.]*\) (exe:doctest).*/\1/p')
+        if [ -z "$version" ]; then
+          echo 'The dry run of cabal install shows no doctest version.' >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v6
+      id: doctest-cache
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
+      with:
+        path: ~/.local/bin/doctest
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-doctest-${{ steps.doctest.outputs.version }}-ghc-${{ steps.setup.outputs.ghc-version }}
+
+    - name: Install doctest
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc) && steps.doctest-cache.outputs.cache-hit != 'true'
+      run: |
+        cabal install doctest --ignore-project --install-method=copy --installdir="$HOME/.local/bin" --overwrite-policy=always --constraint='doctest ==${{ steps.doctest.outputs.version }}'
 
     - name: Build
       working-directory: ${{ runner.temp }}/haskell-gha
@@ -148,15 +165,15 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cd a
-        doctest --fast -XGHC2021 -XLambdaCase -XOverloadedStrings src
-        doctest --fast -XHaskell2010 internal
+        "$HOME"/.local/bin/doctest --fast -XGHC2021 -XLambdaCase -XOverloadedStrings src
+        "$HOME"/.local/bin/doctest --fast -XHaskell2010 internal
 
     - name: Run doctest for b
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cd b
-        doctest --fast B.hs
+        "$HOME"/.local/bin/doctest --fast B.hs
 
     - name: Check the packages
       working-directory: ${{ runner.temp }}/haskell-gha

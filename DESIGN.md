@@ -725,13 +725,30 @@ both cases above. The steps are these:
 1. Make cabal write GHC environment files, which tell doctest where the
    dependencies are. If doctest is enabled, the configuration step adds
    `write-ghc-environment-files: always` to `cabal.project.local`.
-2. Install doctest with the GHC of the job, e.g.
-   `cabal install doctest --ignore-project --installdir="$HOME/.local/bin" --overwrite-policy=always`.
-   doctest uses the GHC API, so it must be built with the same GHC. If
-   `doctest.version` is set, add `--constraint='doctest <version>'`. The
-   step also adds `$HOME/.local/bin` to `GITHUB_PATH`. It comes before the
-   step that saves the cache, so the cache keeps doctest.
-3. In each package directory, run `doctest` with the `hs-source-dirs`, the
+2. Install doctest with the GHC of the job. doctest uses the GHC API, so it
+   must be built with the same GHC. Three steps after the step that saves
+   the main cache do this:
+   1. `Find the doctest version` runs
+      `cabal install doctest --ignore-project --dry-run` and writes the
+      doctest version of the plan to its output `version`. If
+      `doctest.version` is set, it adds `--constraint='doctest <version>'`.
+      The dry run uses an empty store with `--store-dir`, because a plan
+      for a store that already contains doctest does not list doctest.
+   2. `actions/cache` restores and saves `~/.local/bin/doctest`. The key
+      contains `runner.os`, the image, the doctest version and the GHC
+      version.
+   3. If the cache has no hit, `Install doctest` runs
+      `cabal install doctest --ignore-project --install-method=copy --installdir="$HOME/.local/bin" --overwrite-policy=always --constraint='doctest ==<version>'`.
+
+   The key of the main cache depends only on the build plan of the
+   project. If doctest were in the main store, each job would build a new
+   doctest release again until the plan changes. With its own cache, a job
+   builds each doctest version only once for each GHC version. The binary
+   is a copy and not a link into the store, so the cache needs only that
+   file.
+3. In each package directory, run `$HOME/.local/bin/doctest` by its full
+   path, because a cache hit skips the install step, and no step adds the
+   directory to `GITHUB_PATH`. The arguments are the `hs-source-dirs`, the
    `default-language` and the `default-extensions` of the library and of
    each sublibrary as arguments.
 
