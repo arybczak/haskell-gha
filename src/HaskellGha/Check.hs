@@ -5,6 +5,7 @@ module HaskellGha.Check
   , runCheck
   , failure
   , fromEither
+  , fromErrors
   , andThen
   ) where
 
@@ -32,6 +33,10 @@ failure e = Check (Left [e])
 -- | Convert an 'Either' with one error.
 fromEither :: Either String a -> Check a
 fromEither = Check . either (Left . pure) Right
+
+-- | Convert an 'Either' with a list of errors.
+fromErrors :: Either [String] a -> Check a
+fromErrors = Check
 
 -- | Run the second check only if the first one succeeds.
 andThen :: Check a -> (a -> Check b) -> Check b

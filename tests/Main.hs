@@ -3,6 +3,7 @@ module Main (main) where
 import Test.Tasty
 
 import ConfigTests
+import ProjectTests
 import YamlTests
 
 main :: IO ()
@@ -12,4 +13,5 @@ main =
       "haskell-gha"
       [ yamlTests
       , configTests
+      , projectTests
       ]
