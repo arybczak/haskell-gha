@@ -25,7 +25,15 @@ workflowTests =
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     , testCase "a project directory outside the repository" test_projectDirOutside
+    , testCase "a named default configuration file" test_namedDefaultConfig
     ]
+
+test_namedDefaultConfig :: Assertion
+test_namedDefaultConfig = do
+  let parse args = getParseResult $ execParserPure defaultPrefs (optionsParser "TEST") args
+  assertEqual "without --config" (Just DefaultConfigFile) ((.config) <$> parse [])
+  assertEqual "with --config" (Just (ConfigFile defaultConfigPath)) ((.config) <$> parse ["--config", defaultConfigPath])
+  assertEqual "command line" (Just ["haskell-gha", "--config", defaultConfigPath]) (commandLine <$> parse ["--config", defaultConfigPath])
 
 test_projectDirOutside :: Assertion
 test_projectDirOutside = do

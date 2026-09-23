@@ -59,7 +59,7 @@ The tool accepts these options:
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the file does not exist, all fields take their defaults. |
+| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all fields take their defaults. A file that you name with this option must exist. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
 | `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
 | `-v`, `--version` | | Show the version of the tool and exit. |

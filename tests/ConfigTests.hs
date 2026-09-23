@@ -7,6 +7,7 @@ import Data.Maybe
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Distribution.Version
+import System.Directory
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -17,7 +18,7 @@ configTests :: TestTree
 configTests =
   testGroup
     "Config"
-    [ testCase "a missing file gives the defaults" test_missingFile
+    [ testCase "a missing file" test_missingFile
     , testCase "an empty file gives the defaults" test_emptyFile
     , testCase "the example configuration" test_example
     , testCase "an empty doctest field enables doctest" test_emptyDoctest
@@ -30,8 +31,11 @@ configTests =
 
 test_missingFile :: Assertion
 test_missingFile = do
-  result <- readConfig "tests/does-not-exist.yml"
-  assertEqual "config" (Right defaultConfig) result
+  -- The directory has no default configuration file.
+  optional <- withCurrentDirectory "tests" (readConfig DefaultConfigFile)
+  assertEqual "default" (Right defaultConfig) optional
+  required <- readConfig (ConfigFile "tests/does-not-exist.yml")
+  assertEqual "named" (Left ["The configuration file tests/does-not-exist.yml does not exist."]) required
 
 test_emptyFile :: Assertion
 test_emptyFile = assertEqual "config" (Right defaultConfig) (parse "# only a comment\n")

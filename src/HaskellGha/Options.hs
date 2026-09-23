@@ -16,9 +16,11 @@ module HaskellGha.Options
 import Options.Applicative
 import System.FilePath
 
+import HaskellGha.Config
+
 -- | The command line options.
 data Options = Options
-  { config :: FilePath
+  { config :: ConfigFile
   , projectDir :: FilePath
   , output :: FilePath
   }
@@ -28,7 +30,7 @@ data Options = Options
 defaultOptions :: Options
 defaultOptions =
   Options
-    { config = ".github/haskell-gha.conf.yml"
+    { config = DefaultConfigFile
     , projectDir = "."
     , output = ".github/workflows/haskell-gha.yml"
     }
@@ -45,7 +47,7 @@ optionsParser version =
   where
     options :: Parser Options
     options = do
-      config <- strOption (long "config" <> metavar "FILE" <> value defaultOptions.config <> showDefault <> help "The configuration file")
+      config <- option (ConfigFile <$> str) (long "config" <> metavar "FILE" <> value DefaultConfigFile <> showDefaultWith (const defaultConfigPath) <> help "The configuration file")
       projectDir <- option projectDirReader (long "project-dir" <> metavar "DIR" <> value defaultOptions.projectDir <> showDefault <> help "The directory that contains cabal.project or the package")
       output <- strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
       pure Options {..}
@@ -61,20 +63,16 @@ optionsParser version =
     versionOption :: Parser (a -> a)
     versionOption = infoOption ("haskell-gha " ++ version) (long "version" <> short 'v' <> help "Show the version")
 
--- | The command line that gives the options. It contains only the options that
--- are not defaults.
+-- | The command line that gives the options. It contains @--config@ if the user
+-- gave it, and each other option that is not a default.
 commandLine :: Options -> [String]
 commandLine opts =
   "haskell-gha"
     : concat
-      [ [name, v]
-      | (name, v, def) <-
-          [ ("--project-dir", opts.projectDir, defaultOptions.projectDir)
-          , ("--config", opts.config, defaultOptions.config)
-          , ("--output", opts.output, defaultOptions.output)
-          ]
-      , v /= def
-      ]
+      ( [["--project-dir", opts.projectDir] | opts.projectDir /= defaultOptions.projectDir]
+          ++ [["--config", path] | ConfigFile path <- [opts.config]]
+          ++ [["--output", opts.output] | opts.output /= defaultOptions.output]
+      )
 
 -- | Whether the @..@ components of a relative path lead above its start, e.g.
 -- @a/../../b@.

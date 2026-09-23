@@ -22,6 +22,8 @@ module HaskellGha.Config
   , matrixGhcValues
 
     -- * Reading
+  , ConfigFile (..)
+  , defaultConfigPath
   , readConfig
   , parseConfig
   ) where
@@ -211,13 +213,33 @@ matrixGhcValues config =
 ----------------------------------------
 -- Reading
 
--- | Read the configuration file. If the file does not exist, the result is
--- 'defaultConfig'.
-readConfig :: FilePath -> IO (Either [String] Config)
-readConfig file =
+-- | The location of the configuration file.
+data ConfigFile
+  = -- | The default file. It can be missing.
+    DefaultConfigFile
+  | -- | A file that the user names. It must exist, because a typo in its name
+    -- would silently give the defaults.
+    ConfigFile FilePath
+  deriving stock (Eq, Show)
+
+-- | The path of the default configuration file.
+defaultConfigPath :: FilePath
+defaultConfigPath = ".github/haskell-gha.conf.yml"
+
+-- | Read the configuration file. If the default file does not exist, the
+-- result is 'defaultConfig'.
+readConfig :: ConfigFile -> IO (Either [String] Config)
+readConfig configFile =
   doesFileExist file >>= \case
-    False -> pure $ Right defaultConfig
     True -> parseConfig file <$> BL.readFile file
+    False -> pure $ case configFile of
+      DefaultConfigFile -> Right defaultConfig
+      ConfigFile _ -> Left ["The configuration file " ++ file ++ " does not exist."]
+  where
+    file :: FilePath
+    file = case configFile of
+      DefaultConfigFile -> defaultConfigPath
+      ConfigFile path -> path
 
 -- | Parse the configuration.
 parseConfig
