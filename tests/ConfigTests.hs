@@ -175,6 +175,8 @@ test_errors = do
   assertError "unknown fourmolu field" "unknown field \"fourmolu.extra-args\"" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" "field \"actions.setup\": expected a Git ref, e.g. v7" "actions:\n  setup: 'v 2'\n"
   assertError "ghc-options lines" "field \"ghc-options\": the value must be one line" "ghc-options: |\n  -Wall\n  -Werror\n"
+  assertError "fourmolu pattern space" "field \"fourmolu.pattern\": a pattern must be one line without spaces at the start or the end" "fourmolu:\n  pattern: [' src/**/*.hs']\n"
+  assertError "fourmolu pattern lines" "field \"fourmolu.pattern\": a pattern must be one line without spaces at the start or the end" "fourmolu:\n  pattern: [\"a.hs\\nb.hs\"]\n"
   assertError "cabal-project-local type" "field \"cabal-project-local\": expected a string" "cabal-project-local: [tests]\n"
   where
     assertError :: String -> String -> T.Text -> Assertion

@@ -291,9 +291,22 @@ configFromNode = \case
       Just (Mapping fs _) -> do
         knownFields "fourmolu." ["version", "pattern"] fs
         version <- field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
-        patterns <- field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns textList
+        patterns <- field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns patternList
         pure $ Just Fourmolu {..}
       Just _ -> expected "fourmolu" "a mapping"
+
+    -- The workflow gives the patterns to the action as a literal block with
+    -- one pattern on each line. The YAML writer breaks the block if its first
+    -- line starts with a space.
+    patternList :: String -> Node -> Check [T.Text]
+    patternList path n =
+      textList path n `andThen` \ps ->
+        if all valid ps
+          then pure ps
+          else failure $ "field " ++ show path ++ ": a pattern must be one line without spaces at the start or the end"
+      where
+        valid :: T.Text -> Bool
+        valid p = not (T.null p) && T.strip p == p && not (T.any (`elem` ['\n', '\r']) p)
 
     versionField :: String -> Node -> Check Version
     versionField path n =

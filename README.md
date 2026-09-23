@@ -291,7 +291,7 @@ project. An empty `fourmolu:` field enables the job with the defaults.
 | Field | Default | Meaning |
 |---|---|---|
 | `fourmolu.version` | `0.20.1.0` | The fourmolu version. |
-| `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. |
+| `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
 
 Set `fourmolu.version` to the version that the developers of the project
 use. A new fourmolu version can format the same code differently.
