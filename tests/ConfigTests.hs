@@ -72,9 +72,13 @@ test_example = do
         , "check: false"
         , "sdist: false"
         , "haddock: false"
+        , "fourmolu:"
+        , "  version: 0.19.0.1"
+        , "  pattern: ['src/**/*.hs']"
         , "actions:"
         , "  checkout: v8"
         , "  cache: 0123abc"
+        , "  run-fourmolu: v12"
         ]
   assertEqual "name" (plain "Tests") config.name
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
@@ -105,7 +109,8 @@ test_example = do
   assertEqual "check" False config.check
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
-  assertEqual "actions" (Actions {checkout = "v8", setup = "v2", cache = "0123abc"}) config.actions
+  assertEqual "fourmolu" (Just Fourmolu {version = mkVersion [0, 19, 0, 1], pattern = ["src/**/*.hs"]}) config.fourmolu
+  assertEqual "actions" (Actions {checkout = "v8", setup = "v2", cache = "0123abc", runFourmolu = "v12"}) config.actions
 
 test_emptyDoctest :: Assertion
 test_emptyDoctest = do
@@ -145,7 +150,9 @@ test_errors = do
   assertError "doctest range" "field \"doctest.ghc\": expected a version range" "doctest:\n  ghc: nine\n"
   assertError "apt" "field \"apt\": expected a list of strings" "apt: libpq-dev\n"
   assertError "cabal-project-local" "field \"cabal-project-local\": a line must not be EOF" "cabal-project-local: |\n  tests: True\n  EOF\n"
-  assertError "unknown action" "unknown field \"actions.run-fourmolu\"" "actions:\n  run-fourmolu: v13\n"
+  assertError "unknown action" "unknown field \"actions.run-ormolu\"" "actions:\n  run-ormolu: v17\n"
+  assertError "fourmolu version" "field \"fourmolu.version\": expected a version, e.g. 0.20.1.0" "fourmolu:\n  version: latest\n"
+  assertError "unknown fourmolu field" "unknown field \"fourmolu.extra-args\"" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" "field \"actions.setup\": expected a Git ref, e.g. v7" "actions:\n  setup: 'v 2'\n"
   assertError "cabal-project-local type" "field \"cabal-project-local\": expected a string" "cabal-project-local: [tests]\n"
   where

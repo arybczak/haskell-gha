@@ -7,9 +7,11 @@ module HaskellGha.Config
   , CabalVersion (..)
   , Hooks (..)
   , Doctest (..)
+  , Fourmolu (..)
   , Actions (..)
   , defaultConfig
   , defaultDoctest
+  , defaultFourmolu
 
     -- * Matrix
   , matrixAxes
@@ -56,7 +58,16 @@ data Config = Config
   , check :: Bool
   , sdist :: Bool
   , haddock :: Bool
+  , fourmolu :: Maybe Fourmolu
   , actions :: Actions
+  }
+  deriving stock (Eq, Show)
+
+-- | The configuration of the fourmolu job.
+data Fourmolu = Fourmolu
+  { version :: Version
+  , pattern :: [T.Text]
+  -- ^ The files to check. An empty list gives the default of the action.
   }
   deriving stock (Eq, Show)
 
@@ -66,6 +77,7 @@ data Actions = Actions
   , setup :: T.Text
   , cache :: T.Text
   -- ^ For both @actions/cache/restore@ and @actions/cache/save@.
+  , runFourmolu :: T.Text
   }
   deriving stock (Eq, Show)
 
@@ -112,7 +124,17 @@ defaultConfig =
     , check = True
     , sdist = True
     , haddock = True
-    , actions = Actions {checkout = "v7", setup = "v2", cache = "v6"}
+    , fourmolu = Nothing
+    , actions = Actions {checkout = "v7", setup = "v2", cache = "v6", runFourmolu = "v13"}
+    }
+
+-- | The fourmolu configuration of an empty @fourmolu@ field. Version 0.20
+-- and later needs run-fourmolu v13 or later.
+defaultFourmolu :: Fourmolu
+defaultFourmolu =
+  Fourmolu
+    { version = mkVersion [0, 20, 1, 0]
+    , pattern = []
     }
 
 -- | The doctest configuration of an empty @doctest@ field.
@@ -190,22 +212,43 @@ configFromNode = \case
              <*> field entries "check" defaultConfig.check bool
              <*> field entries "sdist" defaultConfig.sdist bool
              <*> field entries "haddock" defaultConfig.haddock bool
+             <*> fourmoluField entries
              <*> field entries "actions" defaultConfig.actions actionsField
          )
   _ -> failure "the configuration must be a mapping"
   where
     fields :: [T.Text]
     fields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "actions"]
+      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "actions"]
+
+    fourmoluField :: [Item (Key, Node)] -> Check (Maybe Fourmolu)
+    fourmoluField entries = case lookupKey "fourmolu" entries of
+      Nothing -> pure Nothing
+      Just n | isNull n -> pure $ Just defaultFourmolu
+      Just (Mapping fs _) ->
+        knownFields "fourmolu." ["version", "pattern"] fs
+          *> ( fmap Just $
+                 Fourmolu
+                   <$> field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
+                   <*> field' fs "fourmolu.pattern" "pattern" defaultFourmolu.pattern textList
+             )
+      Just _ -> expected "fourmolu" "a mapping"
+
+    versionField :: String -> Node -> Check Version
+    versionField path n =
+      text path n `andThen` \t -> case simpleParsec (T.unpack t) of
+        Just v -> pure v
+        Nothing -> expected path "a version, e.g. 0.20.1.0"
 
     actionsField :: String -> Node -> Check Actions
     actionsField path = \case
       Mapping as _ ->
-        knownFields "actions." ["checkout", "setup", "cache"] as
+        knownFields "actions." ["checkout", "setup", "cache", "run-fourmolu"] as
           *> ( Actions
                  <$> field' as "actions.checkout" "checkout" defaultConfig.actions.checkout ref
                  <*> field' as "actions.setup" "setup" defaultConfig.actions.setup ref
                  <*> field' as "actions.cache" "cache" defaultConfig.actions.cache ref
+                 <*> field' as "actions.run-fourmolu" "run-fourmolu" defaultConfig.actions.runFourmolu ref
              )
       _ -> expected path "a mapping"
 

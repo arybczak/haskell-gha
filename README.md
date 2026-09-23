@@ -163,10 +163,14 @@ doctest:
 check: true
 sdist: true
 haddock: true
+fourmolu:
+  version: 0.20.1.0
+  pattern: ['src/**/*.hs', '!src/Generated.hs']
 actions:
   checkout: v7
   setup: v2
   cache: v6
+  run-fourmolu: v13
 ```
 
 | Field | Default | Meaning |
@@ -189,9 +193,11 @@ actions:
 | `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
 | `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
 | `haddock` | `true` | Build the documentation as for a Hackage upload. |
+| `fourmolu` | none | Check the formatting with fourmolu. See [Fourmolu](#fourmolu). |
 | `actions.checkout` | `v7` | The version of `actions/checkout`. |
 | `actions.setup` | `v2` | The version of `haskell-actions/setup`. |
 | `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`. |
+| `actions.run-fourmolu` | `v13` | The version of `haskell-actions/run-fourmolu`. |
 
 A version in `actions` is a Git ref of the action, e.g. a tag such as
 `v8` or a commit SHA. If a new major version of an action comes out, you
@@ -250,6 +256,23 @@ empty `doctest:` field enables doctest with the defaults.
 | `doctest.version` | any version | The versions of the doctest package. |
 | `doctest.skip` | `[]` | The packages to skip. |
 | `doctest.options` | `[]` | Extra arguments for doctest. |
+
+## Fourmolu
+
+If the configuration has a `fourmolu` field, the workflow gets a second job
+that checks the formatting of the Haskell files with
+`haskell-actions/run-fourmolu`. The job needs no GHC, so it runs once, at
+the same time as the build jobs. fourmolu reads the `fourmolu.yaml` of the
+project. An empty `fourmolu:` field enables the job with the defaults.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `fourmolu.version` | `0.20.1.0` | The fourmolu version. |
+| `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. |
+
+Set `fourmolu.version` to the version that the developers of the project
+use. A new fourmolu version can format the same code differently.
+fourmolu 0.20.0.0 and later need `run-fourmolu` v13 or later.
 
 ## Known limits
 

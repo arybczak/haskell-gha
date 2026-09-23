@@ -200,10 +200,14 @@ doctest:
 check: true
 sdist: true
 haddock: true
+fourmolu:
+  version: 0.20.1.0
+  pattern: ['src/**/*.hs', '!src/Generated.hs']
 actions:
   checkout: v7
   setup: v2
   cache: v6
+  run-fourmolu: v13
 ```
 
 | Field | Default | Meaning |
@@ -226,9 +230,11 @@ actions:
 | `check` | `true` | Run `cabal check` for each local package. |
 | `sdist` | `true` | Build and test the content of the source tarballs. See [The source tarballs](#the-source-tarballs). |
 | `haddock` | `true` | Build the documentation for Hackage. |
+| `fourmolu` | none | Check the formatting. See [Fourmolu](#fourmolu). |
 | `actions.checkout` | `v7` | The Git ref of `actions/checkout`. |
 | `actions.setup` | `v2` | The Git ref of `haskell-actions/setup`. |
 | `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`. |
+| `actions.run-fourmolu` | `v13` | The Git ref of `haskell-actions/run-fourmolu`. |
 
 A value of the wrong type is an error, and the message names the field.
 
@@ -730,6 +736,34 @@ error. Thus the tool gives the files of the exposed modules, e.g. `A/B.hs`.
 Each doctest step for a package has an `if:` condition. The condition lists
 the GHC versions that are in the `doctest.ghc` range and that include the
 package in the project.
+
+## Fourmolu
+
+If the configuration has a `fourmolu` field, the workflow gets the job
+`fourmolu` after the job `build`. The formatting does not depend on the
+GHC version, so the job has no matrix, and it needs no GHC. It runs at the
+same time as the build jobs, and a failure does not stop them.
+
+The job has two steps. The first is `actions/checkout`. The second is
+`haskell-actions/run-fourmolu`, which downloads a fourmolu release binary and
+checks the files. The step gets these inputs:
+
+- `version` is always present, from `fourmolu.version`.
+- `pattern` has one pattern on each line. If `fourmolu.pattern` is empty,
+  the step has no `pattern`, and the action checks all `.hs` and `.hs-boot`
+  files.
+- `working-directory` is the project directory. If `--project-dir` is `.`,
+  the step has no `working-directory`. The `defaults.run` field of the
+  workflow does not apply to a `uses` step.
+
+The default version is `0.20.1.0`, not `latest`. The action resolves
+`latest` on each run. With `latest`, a new fourmolu release can fail CI
+without a change in the repository. A new release can also change the format of the
+release files. fourmolu 0.20.0.0 changed the binary to a zip file, and
+only `run-fourmolu` v13 and later can read it. With `latest`, the next such
+change would fail every workflow with the defaults. The defaults
+`fourmolu.version` and `actions.run-fourmolu` must work together, and a new
+release of haskell-gha changes them together.
 
 ## YAML input and output
 

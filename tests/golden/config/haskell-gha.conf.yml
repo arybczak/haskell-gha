@@ -37,7 +37,13 @@ cabal-project-local: |
 jobs: 2
 tests: false
 benchmarks: false
+fourmolu:
+  version: 0.19.0.1
+  pattern:
+    - 'src/**/*.hs'
+    - '!src/Generated.hs'
 actions:
   checkout: v6
   setup: v2.8.2
   cache: v5
+  run-fourmolu: v12

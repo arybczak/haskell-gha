@@ -93,7 +93,7 @@ workflow opts config project = runCheck $ checks *> pure root
             , ("on", triggers)
             , ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", plain "true")])
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
-            , ("jobs", mapping [("build", job)])
+            , ("jobs", Mapping (item (Key Plain "build", job) : [Item [EmptyLine] (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]) [])
             ]
         )
         []
@@ -130,6 +130,38 @@ workflow opts config project = runCheck $ checks *> pure root
         )
         []
 
+    -- The job needs no GHC, so it runs once, next to the build jobs.
+    fourmoluJob :: Fourmolu -> Node
+    fourmoluJob f =
+      mapping
+        [ ("name", plain "Fourmolu")
+        , ("runs-on", config.runsOn)
+        ,
+          ( "steps"
+          , Sequence
+              ( separate
+                  [ item checkoutStep
+                  , item $
+                      mapping
+                        [ ("uses", plain ("haskell-actions/run-fourmolu@" <> config.actions.runFourmolu))
+                        ,
+                          ( "with"
+                          , mapping $
+                              [("version", singleQuoted (T.pack (prettyShow f.version)))]
+                                ++ [("pattern", literal (T.unlines f.pattern)) | not (null f.pattern)]
+                                -- The defaults of run do not apply to an action.
+                                ++ [("working-directory", plain (T.pack projectDir)) | projectDir /= "."]
+                          )
+                        ]
+                  ]
+              )
+              []
+          )
+        ]
+
+    checkoutStep :: Node
+    checkoutStep = mapping [("uses", plain ("actions/checkout@" <> config.actions.checkout))]
+
     jobName :: Node
     jobName = case matrixAxes config of
       [] -> plain "GHC ${{ matrix.ghc }}"
@@ -148,7 +180,7 @@ workflow opts config project = runCheck $ checks *> pure root
     steps :: [Item Node]
     steps =
       concat
-        [ [item $ mapping [("uses", plain ("actions/checkout@" <> config.actions.checkout))]]
+        [ [item checkoutStep]
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
         , [item setupStep]
         , [item versionsStep]
