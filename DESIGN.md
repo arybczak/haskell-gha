@@ -174,7 +174,7 @@ number, a boolean or a null is an error.
 
 ```yaml
 name: CI
-cabal-version: 3.16.1.0
+cabal-version: '3.16.1.0'
 runs-on: ubuntu-26.04
 branches: [master, main]
 matrix:
@@ -212,7 +212,7 @@ check: true
 sdist: true
 haddock: true
 fourmolu:
-  version: 0.20.1.0
+  version: '0.20.1.0'
   pattern: ['src/**/*.hs', '!src/Generated.hs']
 hlint:
   version: '3.10'
