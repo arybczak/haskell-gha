@@ -3,7 +3,7 @@ name:          extra
 version:       0.1.0.0
 license:       BSD-3-Clause
 synopsis:      A package of the multi-package example of haskell-gha.
-tested-with:   GHC ^>= { 9.6, 9.8, 9.10, 9.12 }
+tested-with:   GHC ^>= { 9.6, 9.8, 9.10, 9.12, 9.14 }
 
 library
   hs-source-dirs:   src

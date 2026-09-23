@@ -38,6 +38,7 @@ jobs:
 
     - uses: haskell-actions/setup@v2
       id: setup
+        - '9.14'
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: '3.16.1.0'
@@ -80,7 +81,7 @@ jobs:
         EOF
 
     - name: Enable the GHC job semaphore
-      if: contains(fromJSON('["9.8","9.10","9.12"]'), matrix.ghc)
+      if: contains(fromJSON('["9.8","9.10","9.12","9.14"]'), matrix.ghc)
       run: |
         echo 'semaphore: True' >> cabal.project.local
 
@@ -100,7 +101,7 @@ jobs:
         cabal build all --only-dependencies
 
     - name: Install doctest
-      if: contains(fromJSON('["9.12"]'), matrix.ghc)
+      if: contains(fromJSON('["9.12","9.14"]'), matrix.ghc)
       run: |
         cabal install doctest --ignore-project --installdir="$HOME/.local/bin" --overwrite-policy=always
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -120,19 +121,19 @@ jobs:
         cabal test all --test-show-details=direct
 
     - name: Run doctest for core
-      if: contains(fromJSON('["9.12"]'), matrix.ghc)
+      if: contains(fromJSON('["9.12","9.14"]'), matrix.ghc)
       run: |
         cd core
         doctest -XGHC2021 src
 
     - name: Run doctest for extra
-      if: contains(fromJSON('["9.12"]'), matrix.ghc)
+      if: contains(fromJSON('["9.12","9.14"]'), matrix.ghc)
       run: |
         cd extra
         doctest -XGHC2021 src
 
     - name: Run doctest for modern
-      if: contains(fromJSON('["9.12"]'), matrix.ghc)
+      if: contains(fromJSON('["9.12","9.14"]'), matrix.ghc)
       run: |
         cd modern
         doctest -XGHC2024 -XOverloadedRecordDot src
