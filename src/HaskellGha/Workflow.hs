@@ -178,6 +178,7 @@ workflow opts config project = runCheck $ checks $> root
         ( map item $
             [ (Key Plain "name", jobName)
             , (Key Plain "runs-on", config.runsOn)
+            , (Key Plain "timeout-minutes", timeout)
             ]
               ++ [(Key Plain "services", s) | Just s <- [config.services]]
               ++ [ (Key Plain "strategy", mapping [("fail-fast", boolean False), ("matrix", matrix)])
@@ -185,12 +186,17 @@ workflow opts config project = runCheck $ checks $> root
                  ]
         )
 
+    -- GitHub needs a number, and plain would quote it.
+    timeout :: Node
+    timeout = Scalar Plain (tshow config.timeoutMinutes)
+
     -- The job needs no GHC, so it runs once, next to the build jobs.
     fourmoluJob :: Fourmolu -> Node
     fourmoluJob f =
       mapping
         [ ("name", plain "Fourmolu")
         , ("runs-on", config.runsOn)
+        , ("timeout-minutes", timeout)
         ,
           ( "steps"
           , Sequence
@@ -218,6 +224,7 @@ workflow opts config project = runCheck $ checks $> root
       mapping
         [ ("name", plain "HLint")
         , ("runs-on", config.runsOn)
+        , ("timeout-minutes", timeout)
         ,
           ( "steps"
           , Sequence

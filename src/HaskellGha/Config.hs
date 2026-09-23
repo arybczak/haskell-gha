@@ -49,6 +49,7 @@ data Config = Config
   , cabalVersion :: CabalVersion
   , runsOn :: Node
   -- ^ A scalar.
+  , timeoutMinutes :: Int
   , branches :: [Node]
   -- ^ Scalars.
   , submodules :: Submodules
@@ -142,6 +143,7 @@ defaultConfig =
     { name = plain "CI"
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
     , runsOn = plain "ubuntu-26.04"
+    , timeoutMinutes = 60
     , branches = [plain "master", plain "main"]
     , submodules = NoSubmodules
     , matrix = []
@@ -278,6 +280,7 @@ configFromNode = \case
       name <- field "name" defaultConfig.name scalar
       cabalVersion <- field "cabal-version" defaultConfig.cabalVersion cabalVersionField
       runsOn <- field "runs-on" defaultConfig.runsOn scalar
+      timeoutMinutes <- field "timeout-minutes" defaultConfig.timeoutMinutes positiveInt
       branches <- field "branches" defaultConfig.branches branchesField
       submodules <- field "submodules" defaultConfig.submodules submodulesField
       matrix <- field "matrix" defaultConfig.matrix matrixField

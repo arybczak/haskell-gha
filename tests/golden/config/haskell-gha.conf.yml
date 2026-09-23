@@ -1,6 +1,7 @@
 name: Postgres CI
 cabal-version: latest
 runs-on: ubuntu-24.04
+timeout-minutes: 90
 branches: [master, 'release/**']
 submodules: recursive
 matrix:

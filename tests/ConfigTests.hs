@@ -48,6 +48,7 @@ test_example = do
         [ "name: Tests"
         , "cabal-version: 3.14.2.0"
         , "runs-on: ubuntu-24.04"
+        , "timeout-minutes: 30"
         , "branches: [master]"
         , "submodules: true"
         , "matrix:"
@@ -95,6 +96,7 @@ test_example = do
   assertEqual "name" (plain "Tests") config.name
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
   assertEqual "runs-on" (plain "ubuntu-24.04") config.runsOn
+  assertEqual "timeout-minutes" 30 config.timeoutMinutes
   assertEqual "branches" [plain "master"] config.branches
   assertEqual "submodules" TopSubmodules config.submodules
   assertEqual "matrix axes" ["postgres"] (matrixAxes config)
@@ -163,6 +165,7 @@ test_errors = do
   assertError "unknown doctest field" "unknown field \"doctest.flags\"" "doctest:\n  flags: []\n"
   assertError "jobs" "field \"jobs\": expected a positive integer" "jobs: 0\n"
   assertError "jobs type" "field \"jobs\": expected a positive integer" "jobs: four\n"
+  assertError "timeout-minutes" "field \"timeout-minutes\": expected a positive integer" "timeout-minutes: 0\n"
   assertError "tests" "field \"tests\": expected true or false" "tests: 'true'\n"
   assertError "branches" "field \"branches\": the list must not be empty" "branches: []\n"
   assertError "submodules" "field \"submodules\": expected true, false or recursive" "submodules: 'yes'\n"

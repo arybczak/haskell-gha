@@ -176,6 +176,7 @@ number, a boolean or a null is an error.
 name: CI
 cabal-version: '3.16.1.0'
 runs-on: ubuntu-26.04
+timeout-minutes: 60
 branches: [master, main]
 submodules: false
 matrix:
@@ -233,6 +234,7 @@ actions:
 | `name` | `CI` | The name of the workflow. |
 | `cabal-version` | `3.16.1.0` | The cabal version for `haskell-actions/setup`. `latest` is also valid. See [Decisions](#decisions). |
 | `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. A list of labels is an error. See [Decisions](#decisions). |
+| `timeout-minutes` | `60` | The time limit of each job, in minutes, a positive integer. See [The generated workflow](#the-generated-workflow). |
 | `branches` | `[master, main]` | The branches for the `push` trigger. An empty list is an error. |
 | `submodules` | `false` | The Git submodules that the build jobs fetch: `true`, `false` or `recursive`. See [The generated workflow](#the-generated-workflow). |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
@@ -455,6 +457,7 @@ jobs:
   build:
     name: GHC ${{ matrix.ghc }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -571,6 +574,10 @@ The `merge_group` trigger runs the workflow for a merge queue. Without it,
 a merge queue waits for the required checks of this workflow, and they
 never start. The trigger does nothing in a repository without a merge
 queue, so the workflow always has it.
+
+Each job gets `timeout-minutes` from the configuration. Without it, GitHub
+stops a job only after six hours, so a test that hangs uses up the runner
+minutes. The default of 60 minutes leaves room for a build without a cache.
 
 The `name` of the job contains each extra axis, e.g.
 `GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}`.

@@ -33,6 +33,7 @@ jobs:
   build:
     name: 'GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}'
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     services:
       postgres:
         image: postgres:${{ matrix.postgres }}
@@ -161,6 +162,7 @@ jobs:
   fourmolu:
     name: Fourmolu
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
     - uses: actions/checkout@v6
 
@@ -174,6 +176,7 @@ jobs:
   hlint:
     name: HLint
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
     - uses: actions/checkout@v6
 

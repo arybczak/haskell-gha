@@ -144,6 +144,7 @@ number 3.1. This example shows all fields:
 name: CI
 cabal-version: '3.16.1.0'
 runs-on: ubuntu-26.04
+timeout-minutes: 60
 branches: [master, main]
 submodules: false
 matrix:
@@ -201,6 +202,7 @@ actions:
 | `name` | `CI` | The name of the workflow. Two workflows in one repository must have different names, because workflows with the same name cancel each other. |
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
 | `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. |
+| `timeout-minutes` | `60` | The time limit of each job, in minutes. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |
 | `submodules` | `false` | Fetch the Git submodules in the build jobs: `true`, `false` or `recursive`. `recursive` also fetches the submodules of each submodule. The fourmolu and HLint jobs do not fetch them. |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |

@@ -32,6 +32,7 @@ jobs:
   build:
     name: GHC ${{ matrix.ghc }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -150,6 +151,7 @@ jobs:
   fourmolu:
     name: Fourmolu
     runs-on: ubuntu-26.04
+    timeout-minutes: 60
     steps:
     - uses: actions/checkout@v7
 
@@ -160,6 +162,7 @@ jobs:
   hlint:
     name: HLint
     runs-on: ubuntu-26.04
+    timeout-minutes: 60
     steps:
     - uses: actions/checkout@v7
 
