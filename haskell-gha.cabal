@@ -43,7 +43,8 @@ common language
                         TypeFamilies
                         UndecidableInstances
 
-library
+-- A named library is private by default, so the modules are not a public API.
+library api
     import:         language
 
     build-depends:    base         >= 4.18     && < 5
@@ -75,7 +76,7 @@ executable haskell-gha
                     , bytestring
                     , directory
                     , filepath
-                    , haskell-gha
+                    , haskell-gha:api
                     , optparse-applicative
                     , text
 
@@ -95,7 +96,7 @@ test-suite test
                     , Cabal-syntax
                     , directory
                     , filepath
-                    , haskell-gha
+                    , haskell-gha:api
                     , optparse-applicative
                     , tasty        >= 1.4
                     , tasty-hunit  >= 0.10
