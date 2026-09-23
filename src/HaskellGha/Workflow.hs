@@ -101,6 +101,7 @@ workflow opts config project = runCheck $ checks *> pure root
       mapping
         [ ("push", mapping [("branches", Sequence (map item config.branches) [])])
         , ("pull_request", plain "")
+        , ("merge_group", plain "")
         , ("workflow_dispatch", plain "")
         ]
 

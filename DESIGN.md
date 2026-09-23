@@ -363,6 +363,7 @@ defaults:
 jobs:
   build:
     name: GHC ${{ matrix.ghc }}
+  merge_group:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -472,6 +473,11 @@ cache, and the job does not restore a store for the old minor release.
 
 The `jobs` field sets the parallel work, and its default is 4, because the
 standard Linux runners of GitHub have 4 CPUs. The configuration step always
+The `merge_group` trigger runs the workflow for a merge queue. Without it,
+a merge queue waits for the required checks of this workflow, and they
+never start. The trigger does nothing in a repository without a merge
+queue, so the workflow always has it.
+
 writes `jobs: <N>`, so cabal builds up to N packages at the same time. The
 other part depends on the GHC version:
 

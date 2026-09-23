@@ -9,6 +9,7 @@ on:
     - master
     - main
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 concurrency:
