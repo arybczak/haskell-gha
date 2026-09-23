@@ -37,11 +37,13 @@ instance Ord GhcEntry where
         GhcSeries x y -> (mkVersion [x, y], False)
         GhcExact v -> (v, True)
 
--- | The versions that the action can select for the entry.
+-- | The versions that the action can select for the entry. The first release
+-- of a GHC series is X.Y.1, so a condition such as @impl(ghc >= 9.10.1)@
+-- includes the whole series.
 entryRange :: GhcEntry -> VersionRange
 entryRange = \case
   GhcExact v -> thisVersion v
-  GhcSeries x y -> majorBoundVersion (mkVersion [x, y])
+  GhcSeries x y -> intersectVersionRanges (orLaterVersion (mkVersion [x, y, 1])) (earlierVersion (mkVersion [x, y + 1]))
 
 -- | The value of the entry in the matrix.
 entryText :: GhcEntry -> T.Text

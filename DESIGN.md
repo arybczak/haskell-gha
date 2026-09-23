@@ -364,8 +364,10 @@ The axis is in version order. A series entry is sorted as its lowest
 version.
 
 A matrix entry has a version range. An exact entry has one version. A
-series entry `X.Y` has the range `>= X.Y && < X.(Y+1)`. The tool uses this
-range for every decision about a matrix entry:
+series entry `X.Y` has the range `>= X.Y.1 && < X.(Y+1)`, because the first
+release of a GHC series is `X.Y.1`. Thus `impl(ghc >= 9.10.1)` includes all
+of the entry `'9.10'`. The tool uses this range for every decision about a
+matrix entry:
 
 - Conditions such as `impl(ghc >= 9.8)`, the `doctest.ghc` range, and the
   9.8 limit of the semaphore are ranges too. If such a range includes all

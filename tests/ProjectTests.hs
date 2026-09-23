@@ -25,6 +25,7 @@ projectTests =
     , testCase "an exact entry next to a series entry" test_exactNextToSeries
     , testCase "a missing conditional block" test_missingBlock
     , testCase "a condition that includes a part of a series" test_partialCondition
+    , testCase "a condition on the first release of a series" test_firstRelease
     , testCase "a flag condition" test_flagCondition
     , testCase "a condition that the other side decides" test_decidedCondition
     , testCase "os and arch conditions" test_osArch
@@ -153,6 +154,17 @@ test_partialCondition = do
   case errors of
     [e] -> assertBool e ("the condition impl(ghc >=9.10.2) includes only a part of the GHC versions of the matrix entry 9.10" `L.isInfixOf` e)
     _ -> assertFailure (unlines errors)
+
+test_firstRelease :: Assertion
+test_firstRelease = do
+  project <-
+    readOk
+      [ ("cabal.project", "packages: a\nif impl(ghc >= 9.10.1)\n  packages: b\nif impl(ghc < 9.10.1)\n  packages: c\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
+      ]
+  assertEqual "matrix" [(s 9 10, ["a", "b"])] (matrixOf project)
 
 test_flagCondition :: Assertion
 test_flagCondition = do
