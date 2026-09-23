@@ -121,6 +121,10 @@ error, because the result depends on the minor version of the job. A
 `flag(...)` condition is also an error, because the tool does not know the
 value of the flag.
 
+For the same reason, all packages must write a series in the same form. If
+one package lists `GHC ^>= 9.10` and another lists `GHC == 9.10.3`, the
+tool stops with an error. No conditional block can separate the two.
+
 ## Configuration
 
 All fields of the configuration file are optional. An unknown field is an

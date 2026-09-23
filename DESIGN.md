@@ -368,7 +368,15 @@ range for every decision about a matrix entry:
 
 For each matrix entry, a package that is in the project must support that
 entry. If it does not, the tool stops with an error that names the package
-and the version, and shows the block to add. The condition of the block is
+and the version.
+
+If the package supports only a part of the entry, no block can help. Such
+a block must include the exact entries and exclude the series entry, but
+each exact entry is a part of the series entry. The error then tells the
+user to write the series in the same form in all packages.
+
+If the package supports none of the entry, the error shows the block to
+add. The condition of the block is
 the GHC range of the package from `tested-with`, written with `prettyShow`.
 The `packages:` line gives the directory of the package, relative to the
 project directory. The original entry can be a glob that also matches other

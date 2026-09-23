@@ -104,7 +104,11 @@ test_exactNextToSeries = do
       , ("a/a.cabal", cabal "a" "GHC == 9.10.3" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       ]
-  assertEqual "errors" [missingBlock "a" "9.10" "==9.10.3" "a"] errors
+  assertEqual
+    "errors"
+    [ "Package a lists only some versions of the GHC series 9.10 in tested-with, but another package lists the whole series. A conditional block in cabal.project cannot separate the two. Write the series in the same form in all packages, e.g. ^>= 9.10 or exact versions."
+    ]
+    errors
 
 test_missingBlock :: Assertion
 test_missingBlock = do

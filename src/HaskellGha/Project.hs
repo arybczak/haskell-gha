@@ -343,7 +343,19 @@ projectFrom exists dir packages byToken parts =
     supports :: GhcEntry -> Package -> Check ()
     supports entry p = case decide p.ghcRange entry of
       Included -> pure ()
-      _ ->
+      -- The package lists exact versions of a series that another package
+      -- lists as a whole. A condition that includes the exact entries
+      -- includes a part of the series entry too, so no block can help.
+      Partial ->
+        failure $
+          "Package "
+            ++ p.name
+            ++ " lists only some versions of the GHC series "
+            ++ T.unpack (entryText entry)
+            ++ " in tested-with, but another package lists the whole series. A conditional block in cabal.project cannot separate the two. Write the series in the same form in all packages, e.g. ^>= "
+            ++ T.unpack (entryText entry)
+            ++ " or exact versions."
+      Excluded ->
         failure $
           unlines
             [ "Package "
