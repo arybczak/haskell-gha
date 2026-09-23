@@ -13,6 +13,8 @@ module HaskellGha.Yaml
 
     -- * Construction
   , plain
+  , nullValue
+  , boolean
   , singleQuoted
   , literal
   , item
@@ -36,7 +38,9 @@ import Data.Foldable
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
+import Data.YAML qualified as YAML
 import Data.YAML.Event qualified as Y
+import Data.YAML.Schema qualified as YAML
 
 -- | A YAML node.
 data Node
@@ -64,14 +68,21 @@ data Key = Key
 ----------------------------------------
 -- Construction
 
--- | A plain scalar, or a single-quoted scalar if the text is not valid as a
--- plain scalar. The writer of HsYAML writes a plain scalar without a check.
--- An empty text stays plain, because it is the null value.
+-- | A string as a plain scalar, or as a single-quoted scalar if the plain
+-- scalar is not valid or is not a string. The writer of HsYAML writes a plain
+-- scalar without a check.
 plain :: T.Text -> Node
 plain t
-  | T.null t || validPlain = Scalar Y.Plain t
+  | validPlain && isString = Scalar Y.Plain t
   | otherwise = Scalar Y.SingleQuoted t
   where
+    -- GitHub reads a plain scalar with the YAML 1.2 core schema, e.g. 1.0 is a
+    -- number.
+    isString :: Bool
+    isString = case YAML.schemaResolverScalar YAML.coreSchemaResolver Y.untagged Y.Plain t of
+      Right (YAML.SStr _) -> True
+      _ -> False
+
     -- A subset of the valid plain scalars in block context.
     validPlain :: Bool
     validPlain =
@@ -79,6 +90,14 @@ plain t
         && not (T.any (`elem` (": " :: String)) (T.takeEnd 1 t))
         && not (": " `T.isInfixOf` t || " #" `T.isInfixOf` t)
         && T.all (\c -> c >= ' ' && c /= '\DEL') t
+
+-- | The null value, as an empty plain scalar.
+nullValue :: Node
+nullValue = Scalar Y.Plain ""
+
+-- | A boolean.
+boolean :: Bool -> Node
+boolean b = Scalar Y.Plain (if b then "true" else "false")
 
 -- | A single-quoted scalar.
 singleQuoted :: T.Text -> Node

@@ -140,7 +140,7 @@ workflow opts config project = runCheck $ checks $> root
             , -- A push to a branch of the push trigger also cancels the older
               -- run. The newer run tests the newer code and saves the cache
               -- that the older run did not save.
-              ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", plain "true")])
+              ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", boolean True)])
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
             ,
               ( "jobs"
@@ -159,9 +159,9 @@ workflow opts config project = runCheck $ checks $> root
     triggers =
       mapping
         [ ("push", mapping [("branches", sequenceOf config.branches)])
-        , ("pull_request", plain "")
-        , ("merge_group", plain "")
-        , ("workflow_dispatch", plain "")
+        , ("pull_request", nullValue)
+        , ("merge_group", nullValue)
+        , ("workflow_dispatch", nullValue)
         ]
 
     workingDirectory :: [(T.Text, Node)]
@@ -178,7 +178,7 @@ workflow opts config project = runCheck $ checks $> root
             , (Key Plain "runs-on", config.runsOn)
             ]
               ++ [(Key Plain "services", s) | Just s <- [config.services]]
-              ++ [ (Key Plain "strategy", mapping [("fail-fast", plain "false"), ("matrix", matrix)])
+              ++ [ (Key Plain "strategy", mapping [("fail-fast", boolean False), ("matrix", matrix)])
                  , (Key Plain "steps", Sequence (separate steps))
                  ]
         )

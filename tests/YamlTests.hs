@@ -96,14 +96,14 @@ test_reparse = do
 
 test_plainQuotes :: Assertion
 test_plainQuotes = do
-  let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "-x", " x", "x ", "x:", "'x", "a\tb"]
+  let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "-x", " x", "x ", "x:", "'x", "a\tb", "", "~", "null", "true", "False", "1", "1.0", "0x1F", ".inf"]
       node = sequenceOf (map plain texts)
   reparsed <- parse $ renderYaml [] node
   assertEqual "texts" (Sequence [item (Scalar SingleQuoted t) | t <- texts]) reparsed
   assertEqual
     "plain"
-    [Scalar Plain t | t <- ["", "sub/dir", "a:b", "a#b", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
-    (map plain ["", "sub/dir", "a:b", "a#b", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
+    [Scalar Plain t | t <- ["sub/dir", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
+    (map plain ["sub/dir", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
 
 test_empty :: Assertion
 test_empty = do

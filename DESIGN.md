@@ -929,6 +929,10 @@ these rules:
   the job name with the extra axis names.
 - Other text that the tool makes, e.g. step names and expressions, gets its
   style in the code.
+- A string that the tool writes as a plain scalar must stay a string.
+  GitHub reads a plain scalar with the YAML 1.2 core schema. Thus the tool
+  single-quotes a string that this schema reads as a null, a boolean or a
+  number, e.g. a project directory `1.0`.
 
 Each golden test also parses the output with HsYAML and compares the result
 with the tree that the tool wrote. Thus a wrong style fails the test, also
