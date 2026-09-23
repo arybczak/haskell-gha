@@ -9,3 +9,5 @@ hooks:
         git diff --exit-code
 fourmolu:
   version: 0.20.1.0
+hlint:
+  version: 3.10
