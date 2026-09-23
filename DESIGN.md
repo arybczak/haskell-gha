@@ -244,7 +244,7 @@ actions:
 | `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
 | `actions.checkout` | `v7` | The Git ref of `actions/checkout`. |
 | `actions.setup` | `v2` | The Git ref of `haskell-actions/setup`. |
-| `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`. |
+| `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`, and of `actions/cache` for the doctest binary. |
 | `actions.run-fourmolu` | `v13` | The Git ref of `haskell-actions/run-fourmolu`. |
 | `actions.hlint-setup` | `c04631035af0a6787c85e33b3ea0128b8568b590` | The Git ref of `haskell-actions/hlint-setup`. See [HLint](#hlint). |
 | `actions.hlint-run` | `d009541bdae0b8492992416e665bb6df8a3b5cde` | The Git ref of `haskell-actions/hlint-run`. See [HLint](#hlint). |
@@ -732,8 +732,8 @@ The versions of the actions are fields of the configuration, with the
 current major versions as defaults. Thus a user can take a new major
 version of an action without a new release of haskell-gha. A new release
 of haskell-gha changes the defaults. `actions.cache` is one field for
-`actions/cache/restore` and `actions/cache/save`, because both come from one
-repository. A value is any Git ref without spaces, so a user can also pin an
+`actions/cache/restore`, `actions/cache/save` and `actions/cache`, because
+all three come from one repository. A value is any Git ref without spaces, so a user can also pin an
 action to a commit SHA.
 
 ## Doctest
