@@ -695,8 +695,9 @@ step `Show the versions`:
 1. It runs `cabal sdist all --output-directory="$RUNNER_TEMP"/haskell-gha-sdist`.
 2. It copies each of `cabal.project`, `cabal.project.freeze` and
    `cabal.project.local` that exists to `$RUNNER_TEMP/haskell-gha`.
-3. It unpacks the tarball of each local package into `$RUNNER_TEMP/haskell-gha`, at
-   the relative path of the package in the project directory.
+3. It unpacks the tarball of each local package into
+   `$RUNNER_TEMP/haskell-gha`, at the relative path of the package in the
+   project directory.
 
 The copy of `cabal.project` thus finds the packages at the same paths, and
 the build reads the same project as a local build. The tool does not
@@ -836,10 +837,10 @@ checks the files. The step gets these inputs:
 
 The default version is `0.20.1.0`, not `latest`. The action resolves
 `latest` on each run. With `latest`, a new fourmolu release can fail CI
-without a change in the repository. A new release can also change the format of the
-release files. fourmolu 0.20.0.0 changed the binary to a zip file, and
-only `run-fourmolu` v13 and later can read it. With `latest`, the next such
-change would fail every workflow with the defaults. The defaults
+without a change in the repository. A new release can also change the
+format of the release files. fourmolu 0.20.0.0 changed the binary to a zip
+file, and only `run-fourmolu` v13 and later can read it. With `latest`, the
+next such change would fail every workflow with the defaults. The defaults
 `fourmolu.version` and `actions.run-fourmolu` must work together, and a new
 release of haskell-gha changes them together.
 

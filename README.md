@@ -68,8 +68,9 @@ All paths are relative to the current directory, which must be the root of
 the repository.
 
 The first lines of the workflow file are a comment. It gives the version of
-the tool, the command that made the file and a link to this repository. If the tool finds a problem, it
-prints all problems of the step that failed and exits with code 1.
+the tool, the command that made the file and a link to this repository. If
+the tool finds a problem, it prints all problems of the step that failed
+and exits with code 1.
 
 ### Keep the workflow up to date
 
@@ -225,12 +226,12 @@ can use it without a new release of `haskell-gha`. You can also pin an
 action to a commit.
 
 The tool copies `matrix`, `services`, `permissions` and the hooks to the
-workflow without changes, together with their comments. You can use GitHub expressions in
-them, e.g. `${{ matrix.postgres }}`. The `matrix` field must not contain the
-key `ghc`, because the tool makes that axis. A `ghc` value in `include` or
-`exclude` must be a quoted string, e.g. `'9.10'`, and it must be an entry of
-the axis. Each key of an `exclude` entry must be `ghc` or an axis of the
-`matrix` field.
+workflow without changes, together with their comments. You can use GitHub
+expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix` field must
+not contain the key `ghc`, because the tool makes that axis. A `ghc` value
+in `include` or `exclude` must be a quoted string, e.g. `'9.10'`, and it
+must be an entry of the axis. Each key of an `exclude` entry must be `ghc`
+or an axis of the `matrix` field.
 
 The workflow writes the text of `cabal-project-local` to
 `cabal.project.local` before it makes the build plan. Thus the cache of
