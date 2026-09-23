@@ -37,3 +37,7 @@ cabal-project-local: |
 jobs: 2
 tests: false
 benchmarks: false
+actions:
+  checkout: v6
+  setup: v2.8.2
+  cache: v5

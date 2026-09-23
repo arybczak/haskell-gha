@@ -51,14 +51,14 @@ jobs:
         - ghc: '9.10'
           postgres: '15'
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@v6
 
     - name: Install the system packages
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends libpq-dev postgresql-client
 
-    - uses: haskell-actions/setup@v2
+    - uses: haskell-actions/setup@v2.8.2
       id: setup
       with:
         ghc-version: ${{ matrix.ghc }}
@@ -108,7 +108,7 @@ jobs:
         cabal build all --dry-run
         echo "hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
-    - uses: actions/cache/restore@v6
+    - uses: actions/cache/restore@v5
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
@@ -120,7 +120,7 @@ jobs:
       run: |
         cabal build all --only-dependencies
 
-    - uses: actions/cache/save@v6
+    - uses: actions/cache/save@v5
       if: steps.cache.outputs.cache-hit != 'true'
       with:
         path: ${{ steps.setup.outputs.cabal-store }}

@@ -148,7 +148,7 @@ workflow opts config project = runCheck $ checks *> pure root
     steps :: [Item Node]
     steps =
       concat
-        [ [item $ mapping [("uses", plain "actions/checkout@v7")]]
+        [ [item $ mapping [("uses", plain ("actions/checkout@" <> config.actions.checkout))]]
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
         , [item setupStep]
         , [item versionsStep]
@@ -293,7 +293,7 @@ workflow opts config project = runCheck $ checks *> pure root
     setupStep :: Node
     setupStep =
       mapping
-        [ ("uses", plain "haskell-actions/setup@v2")
+        [ ("uses", plain ("haskell-actions/setup@" <> config.actions.setup))
         , ("id", plain "setup")
         ,
           ( "with"
@@ -380,7 +380,7 @@ workflow opts config project = runCheck $ checks *> pure root
     cacheRestore :: Node
     cacheRestore =
       mapping
-        [ ("uses", plain "actions/cache/restore@v6")
+        [ ("uses", plain ("actions/cache/restore@" <> config.actions.cache))
         , ("id", plain "cache")
         ,
           ( "with"
@@ -400,7 +400,7 @@ workflow opts config project = runCheck $ checks *> pure root
     cacheSave :: Node
     cacheSave =
       mapping
-        [ ("uses", plain "actions/cache/save@v6")
+        [ ("uses", plain ("actions/cache/save@" <> config.actions.cache))
         , ("if", plain "steps.cache.outputs.cache-hit != 'true'")
         ,
           ( "with"

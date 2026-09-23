@@ -7,6 +7,7 @@ module HaskellGha.Config
   , CabalVersion (..)
   , Hooks (..)
   , Doctest (..)
+  , Actions (..)
   , defaultConfig
   , defaultDoctest
 
@@ -21,6 +22,7 @@ module HaskellGha.Config
 
 import Control.Monad
 import Data.ByteString.Lazy qualified as BL
+import Data.Char
 import Data.Foldable
 import Data.Text qualified as T
 import Distribution.Parsec
@@ -54,6 +56,16 @@ data Config = Config
   , check :: Bool
   , sdist :: Bool
   , haddock :: Bool
+  , actions :: Actions
+  }
+  deriving stock (Eq, Show)
+
+-- | The versions of the actions, i.e. the Git refs after the @\@@ in @uses@.
+data Actions = Actions
+  { checkout :: T.Text
+  , setup :: T.Text
+  , cache :: T.Text
+  -- ^ For both @actions/cache/restore@ and @actions/cache/save@.
   }
   deriving stock (Eq, Show)
 
@@ -100,6 +112,7 @@ defaultConfig =
     , check = True
     , sdist = True
     , haddock = True
+    , actions = Actions {checkout = "v7", setup = "v2", cache = "v6"}
     }
 
 -- | The doctest configuration of an empty @doctest@ field.
@@ -177,12 +190,31 @@ configFromNode = \case
              <*> field entries "check" defaultConfig.check bool
              <*> field entries "sdist" defaultConfig.sdist bool
              <*> field entries "haddock" defaultConfig.haddock bool
+             <*> field entries "actions" defaultConfig.actions actionsField
          )
   _ -> failure "the configuration must be a mapping"
   where
     fields :: [T.Text]
     fields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock"]
+      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "actions"]
+
+    actionsField :: String -> Node -> Check Actions
+    actionsField path = \case
+      Mapping as _ ->
+        knownFields "actions." ["checkout", "setup", "cache"] as
+          *> ( Actions
+                 <$> field' as "actions.checkout" "checkout" defaultConfig.actions.checkout ref
+                 <*> field' as "actions.setup" "setup" defaultConfig.actions.setup ref
+                 <*> field' as "actions.cache" "cache" defaultConfig.actions.cache ref
+             )
+      _ -> expected path "a mapping"
+
+    ref :: String -> Node -> Check T.Text
+    ref path n =
+      text path n `andThen` \t ->
+        if T.null t || T.any isSpace t
+          then expected path "a Git ref, e.g. v7"
+          else pure t
 
     -- The workflow writes the text with a heredoc that ends at the line EOF.
     projectText :: String -> Node -> Check T.Text

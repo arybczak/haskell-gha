@@ -93,9 +93,9 @@ add later:
 The default `runs-on` is `ubuntu-26.04`, not `ubuntu-latest`. GitHub moves
 `ubuntu-latest` to a new Ubuntu release over some weeks. During that time,
 the jobs of one workflow run on different images. The tool already pins the
-versions of the actions, and a new version needs a new release of the tool.
-A pinned image follows the same rule. Thus the workflow only changes with a
-new release of the tool.
+versions of the actions by default, and a pinned image follows the same
+rule. Thus the workflow only changes with a new release of the tool or a
+change of the configuration.
 
 The cache key contains the image of the runner, from the environment
 variable `ImageOS`, e.g. `ubuntu26`. A cabal store from another image can
@@ -200,6 +200,10 @@ doctest:
 check: true
 sdist: true
 haddock: true
+actions:
+  checkout: v7
+  setup: v2
+  cache: v6
 ```
 
 | Field | Default | Meaning |
@@ -222,6 +226,9 @@ haddock: true
 | `check` | `true` | Run `cabal check` for each local package. |
 | `sdist` | `true` | Build and test the content of the source tarballs. See [The source tarballs](#the-source-tarballs). |
 | `haddock` | `true` | Build the documentation for Hackage. |
+| `actions.checkout` | `v7` | The Git ref of `actions/checkout`. |
+| `actions.setup` | `v2` | The Git ref of `haskell-actions/setup`. |
+| `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`. |
 
 A value of the wrong type is an error, and the message names the field.
 
@@ -665,9 +672,13 @@ A project must set `sdist: false` in these cases:
 - A hook makes a file that a later cabal step needs. The hook runs in the
   checkout, so the cabal step does not see the file.
 
-The tool knows the action versions `actions/checkout@v7`,
-`actions/cache/restore@v6` and `actions/cache/save@v6` as constants. A new major version of those
-actions needs a new release of haskell-gha. Such releases are rare.
+The versions of the actions are fields of the configuration, with the
+current major versions as defaults. Thus a user can take a new major
+version of an action without a new release of haskell-gha. A new release
+of haskell-gha changes the defaults. `actions.cache` is one field for
+`actions/cache/restore` and `actions/cache/save`, because both come from one
+repository. A value is any Git ref without spaces, so a user can also pin an
+action to a commit SHA.
 
 ## Doctest
 

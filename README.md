@@ -163,6 +163,10 @@ doctest:
 check: true
 sdist: true
 haddock: true
+actions:
+  checkout: v7
+  setup: v2
+  cache: v6
 ```
 
 | Field | Default | Meaning |
@@ -185,6 +189,14 @@ haddock: true
 | `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
 | `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
 | `haddock` | `true` | Build the documentation as for a Hackage upload. |
+| `actions.checkout` | `v7` | The version of `actions/checkout`. |
+| `actions.setup` | `v2` | The version of `haskell-actions/setup`. |
+| `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`. |
+
+A version in `actions` is a Git ref of the action, e.g. a tag such as
+`v8` or a commit SHA. If a new major version of an action comes out, you
+can use it without a new release of `haskell-gha`. You can also pin an
+action to a commit.
 
 The tool copies `matrix`, `services` and the hooks to the workflow without
 changes, together with their comments. You can use GitHub expressions in
