@@ -1047,10 +1047,15 @@ outdated workflow file fails:
 ```yaml
 - name: Make sure that the workflows are up to date
   run: |
-    cabal run haskell-gha
-    cabal run haskell-gha -- --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
+    bin=$(cd "$RUNNER_TEMP"/haskell-gha && cabal list-bin haskell-gha)
+    "$bin"
+    "$bin" --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
     git diff --exit-code
 ```
+
+The hook runs in the checkout, but the step `Build` built the tool in the
+copy of the source tarballs. `cabal list-bin` in the copy gives the path of
+that binary. Thus the hook does not build the tool a second time.
 
 ## Stages
 

@@ -1,11 +1,14 @@
 hooks:
   after-build:
     # The tool makes both workflows of the repository. A pull request that
-    # changes the output must also change the workflows.
+    # changes the output must also change the workflows. The hook runs in the
+    # checkout, but the build ran in the copy of the source tarballs, so the
+    # hook takes the binary from there.
     - name: Make sure that the workflows are up to date
       run: |
-        cabal run haskell-gha
-        cabal run haskell-gha -- --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
+        bin=$(cd "$RUNNER_TEMP"/haskell-gha && cabal list-bin haskell-gha)
+        "$bin"
+        "$bin" --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
         git diff --exit-code
 fourmolu:
   version: 0.20.1.0
