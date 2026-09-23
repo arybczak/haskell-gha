@@ -339,7 +339,10 @@ entry is an error.
 The reader splits the range into its intervals with `asVersionIntervals`.
 Each interval must be one of these two kinds:
 
-- An exact version, e.g. `== 9.10.3`. The matrix entry is `'9.10.3'`.
+- An exact version, e.g. `== 9.10.3`. The matrix entry is `'9.10.3'`. The
+  version must have at least three parts. For `== 9.10`, the action selects
+  the newest release of the series, but the tool decides the conditions for
+  9.10.0.
 - A major series, i.e. `>= X.Y && < X.(Y+1)`. The matrix entry is `'X.Y'`,
   and the action selects the newest release of the series. Users write it
   as `^>= 9.10` or `== 9.10.*`.

@@ -57,25 +57,38 @@ entriesFromRange
   -> Either [String] [GhcEntry]
 entriesFromRange package range = case partitionEithers . map entry $ asVersionIntervals range of
   ([], entries) -> Right entries
-  (bad, _) -> Left (map message bad)
+  (bad, _) -> Left bad
   where
-    message :: VersionRange -> String
-    message r =
+    entry :: VersionInterval -> Either String GhcEntry
+    entry i@(VersionInterval lower upper) = case (lower, upper) of
+      (LowerBound v InclusiveBound, UpperBound w InclusiveBound)
+        | v == w ->
+            -- haskell-actions/setup selects the newest release of the
+            -- series for such a version, e.g. 9.10.3 for 9.10.
+            if length (versionNumbers v) < 3
+              then Left (shortVersion v)
+              else Right (GhcExact v)
+      (LowerBound v InclusiveBound, UpperBound w ExclusiveBound)
+        | [x, y] <- versionNumbers v
+        , versionNumbers w == [x, y + 1] ->
+            Right (GhcSeries x y)
+      _ -> Left (openRange (fromInterval i))
+
+    openRange :: VersionRange -> String
+    openRange r =
       "Package "
         ++ package
         ++ " lists the GHC range "
         ++ prettyShow r
         ++ " in tested-with. The matrix needs a finite list of versions. Write an exact version, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."
 
-    entry :: VersionInterval -> Either VersionRange GhcEntry
-    entry i@(VersionInterval lower upper) = case (lower, upper) of
-      (LowerBound v InclusiveBound, UpperBound w InclusiveBound)
-        | v == w -> Right (GhcExact v)
-      (LowerBound v InclusiveBound, UpperBound w ExclusiveBound)
-        | [x, y] <- versionNumbers v
-        , versionNumbers w == [x, y + 1] ->
-            Right (GhcSeries x y)
-      _ -> Left (fromInterval i)
+    shortVersion :: Version -> String
+    shortVersion v =
+      "Package "
+        ++ package
+        ++ " lists GHC == "
+        ++ prettyShow v
+        ++ " in tested-with. No GHC release has this version. Write an exact version with three parts, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."
 
     fromInterval :: VersionInterval -> VersionRange
     fromInterval (VersionInterval (LowerBound v lb) upper) =

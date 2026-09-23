@@ -92,7 +92,9 @@ upgrade the tool, run it again and commit the file.
 The `tested-with` field of each package gives the GHC versions. Each part of
 the field must be one of these two forms:
 
-- An exact version, e.g. `GHC == 9.10.3`. The job uses this version.
+- An exact version with three parts, e.g. `GHC == 9.10.3`. The job uses
+  this version. A shorter version, e.g. `GHC == 9.10`, is an error, because
+  no GHC release has it.
 - A major series, e.g. `GHC ^>= 9.10` or `GHC == 9.10.*`. The job uses the
   newest release of the series that `haskell-actions/setup` knows.
 

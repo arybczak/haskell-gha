@@ -179,6 +179,11 @@ test_testedWithErrors = do
     openRange
   minorRange <- readErrors [("a.cabal", cabal "a" "GHC ^>= 9.10.2" False)]
   assertEqual "minor range" 1 (length minorRange)
+  shortVersion <- readErrors [("a.cabal", cabal "a" "GHC == 9.10" False)]
+  assertEqual
+    "short version"
+    ["Package a lists GHC == 9.10 in tested-with. No GHC release has this version. Write an exact version with three parts, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."]
+    shortVersion
   noGhc <- readErrors [("a.cabal", cabal "a" "GHCJS == 8.10.7" False)]
   assertEqual "no GHC" ["Package a has no GHC version in tested-with."] noGhc
 
