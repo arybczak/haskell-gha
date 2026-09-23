@@ -26,7 +26,19 @@ workflowTests =
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     , testCase "a project directory outside the repository" test_projectDirOutside
     , testCase "a named default configuration file" test_namedDefaultConfig
+    , testCase "an hlint path outside the repository" test_hlintPathOutside
     ]
+
+test_hlintPathOutside :: Assertion
+test_hlintPathOutside = do
+  assertErrors
+    "hlint:\n  path: [../x, /abs, a/../src]\n"
+    [ "The field hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
+    , "The field hlint.path contains the path /abs, which is not in the repository. Give a path relative to the project directory."
+    ]
+  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack "hlint:\n  path: [../x]\n"
+  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} config project)
 
 test_namedDefaultConfig :: Assertion
 test_namedDefaultConfig = do

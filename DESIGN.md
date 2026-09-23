@@ -865,6 +865,10 @@ result is `.`, the step has no `path` input, because `.` is the default of
 the action. For more than one path, the input is a JSON array, e.g.
 `'["src", "test"]'`.
 
+A path of `hlint.path` must be in the repository, because the action gets
+it on the runner. An absolute path, or a path whose `..` parts lead above
+the root of the repository, is an error.
+
 HLint reads `.hlint.yaml` from its working directory, not from the
 directory that it checks. The implementation tested this. Thus, with
 `--project-dir`, HLint only reads a `.hlint.yaml` in the root of the

@@ -73,6 +73,18 @@ workflow opts config project = runCheck $ checks $> root
       traverse_ checkGhcValue (matrixGhcValues config)
         *> for_ config.doctest (\d -> traverse_ (checkDoctestRange d) entries *> traverse_ checkSkip d.skip)
         *> when config.sdist (traverse_ checkImport project.imports *> traverse_ checkInside project.packages)
+        *> for_ config.hlint (traverse_ checkHLintPath . (.path))
+
+    -- The action gets the path on the runner, where only the repository
+    -- exists.
+    checkHLintPath :: T.Text -> Check ()
+    checkHLintPath p
+      | isAbsolute (T.unpack p) || leadsAbove (projectDir </> T.unpack p) =
+          failure $
+            "The field hlint.path contains the path "
+              ++ T.unpack p
+              ++ ", which is not in the repository. Give a path relative to the project directory."
+      | otherwise = pure ()
 
     -- cabal fetches an import from a URL, so only a local file is missing from
     -- the copy.

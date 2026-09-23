@@ -315,7 +315,7 @@ request. An empty `hlint:` field enables the job with the defaults.
 |---|---|---|
 | `hlint.version` | `3.10` | The HLint version. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
-| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. |
+| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository. |
 
 By default, every hint fails the job. To turn off a hint that the project
 does not want, add an `ignore` entry to `.hlint.yaml`, e.g.
