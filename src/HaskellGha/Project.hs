@@ -407,8 +407,15 @@ projectFrom exists dir packages byToken parts =
       Var (PackageFlag f) -> failure $ location pos ++ "the condition flag(" ++ unFlagName f ++ ") is not supported, because the tool does not know the value of the flag."
       Lit b -> pure b
       CNot c -> not <$> evaluate entry pos c
-      COr a b -> (||) <$> evaluate entry pos a <*> evaluate entry pos b
-      CAnd a b -> (&&) <$> evaluate entry pos a <*> evaluate entry pos b
+      COr a b -> absorb True (evaluate entry pos a) (evaluate entry pos b)
+      CAnd a b -> absorb False (evaluate entry pos a) (evaluate entry pos b)
+
+    -- If one side of || is true or one side of && is false, cabal ignores the
+    -- other side, so an error in it does not count.
+    absorb :: Bool -> Check Bool -> Check Bool -> Check Bool
+    absorb z a b
+      | Right z `elem` [runCheck a, runCheck b] = pure z
+      | otherwise = (if z then (||) else (&&)) <$> a <*> b
 
     location :: Position -> String
     location pos = showPError (dir </> "cabal.project") (PError pos "")

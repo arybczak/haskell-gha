@@ -26,6 +26,7 @@ projectTests =
     , testCase "a missing conditional block" test_missingBlock
     , testCase "a condition that includes a part of a series" test_partialCondition
     , testCase "a flag condition" test_flagCondition
+    , testCase "a condition that the other side decides" test_decidedCondition
     , testCase "os and arch conditions" test_osArch
     , testCase "tested-with errors" test_testedWithErrors
     , testCase "no packages for a matrix entry" test_emptyEntry
@@ -158,6 +159,17 @@ test_flagCondition = do
   case errors of
     [e] -> assertBool e ("the condition flag(dev) is not supported" `L.isInfixOf` e)
     _ -> assertFailure (unlines errors)
+
+test_decidedCondition :: Assertion
+test_decidedCondition = do
+  project <-
+    readOk
+      [ ("cabal.project", "packages: a\nif os(windows) && impl(ghc >= 9.10.2)\n  packages: b\nif flag(dev) || os(linux)\n  packages: c\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
+      ]
+  assertEqual "matrix" [(s 9 10, ["a", "c"])] (matrixOf project)
 
 test_osArch :: Assertion
 test_osArch = do

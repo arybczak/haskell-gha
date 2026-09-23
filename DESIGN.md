@@ -314,6 +314,10 @@ For conditions, `impl(ghc <range>)` is decided with the matrix entry. See
 architectures are false. `flag(...)` is an error, because the tool does not
 know the flag value. An `impl` for a compiler other than GHC is false.
 
+If one side of `||` is true or one side of `&&` is false, the other side
+cannot change the result. An error in the other side then does not count,
+e.g. `flag(dev)` in `os(linux) || flag(dev)`.
+
 The tool assumes that no project selects its packages by operating system
 or architecture. Thus the fixed values for `os` and `arch` do not change the
 list of packages, also on a runner that is not x86_64.

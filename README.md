@@ -122,7 +122,8 @@ A condition must include all versions of a matrix entry or none of them. If
 the matrix has the entry `9.10`, the condition `impl(ghc >= 9.10.2)` is an
 error, because the result depends on the minor version of the job. A
 `flag(...)` condition is also an error, because the tool does not know the
-value of the flag.
+value of the flag. These errors do not apply to a part of a condition that
+cannot change the result, e.g. `flag(dev)` in `os(linux) || flag(dev)`.
 
 For the same reason, all packages must write a series in the same form. If
 one package lists `GHC ^>= 9.10` and another lists `GHC == 9.10.3`, the
