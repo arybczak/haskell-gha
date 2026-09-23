@@ -1,0 +1,34 @@
+name: Postgres CI
+cabal-version: latest
+runs-on: ubuntu-24.04
+branches: [master, 'release/**']
+matrix:
+  postgres: ['15', '18']
+  exclude:
+    - ghc: '9.10'
+      postgres: '15'
+apt: [libpq-dev, postgresql-client]
+services:
+  # The database for the tests.
+  postgres:
+    image: postgres:${{ matrix.postgres }}
+    env:
+      POSTGRES_PASSWORD: postgres # Only for CI.
+    ports: ['5432:5432']
+hooks:
+  before-build:
+    - name: Show the Postgres version
+      run: psql --version
+    # Wait until the database accepts connections.
+    - name: Wait for Postgres
+      run: |
+        until pg_isready -h localhost; do
+          sleep 1
+        done
+  after-build:
+    - name: Check the documentation
+      run: cabal haddock all
+ghc-options: -Werror -Wno-unused-imports
+jobs: 2
+tests: false
+benchmarks: false

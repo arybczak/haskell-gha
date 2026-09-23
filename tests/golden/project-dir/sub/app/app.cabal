@@ -1,0 +1,7 @@
+cabal-version: 3.0
+name:          app
+version:       0
+tested-with:   GHC ^>= 9.12
+
+executable app
+  main-is: Main.hs

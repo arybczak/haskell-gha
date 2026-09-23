@@ -52,7 +52,10 @@ jobs:
         tests: True
         benchmarks: True
 
-        package example
+        package core
+          ghc-options: -Werror
+
+        package new
           ghc-options: -Werror
         EOF
 
@@ -60,7 +63,7 @@ jobs:
       if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
       run: |
         cat >> cabal.project.local <<'EOF'
-        package example
+        package core
           ghc-options: -j4
         EOF
 
@@ -95,5 +98,6 @@ jobs:
         cabal build all
 
     - name: Run the tests
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       run: |
         cabal test all --test-show-details=direct

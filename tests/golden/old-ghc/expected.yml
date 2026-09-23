@@ -27,9 +27,9 @@ jobs:
       fail-fast: false
       matrix:
         ghc:
+        - '9.2.8'
+        - '9.4.8'
         - '9.6.7'
-        - '9.10'
-        - '9.12'
     steps:
     - uses: actions/checkout@v7
 
@@ -52,22 +52,16 @@ jobs:
         tests: True
         benchmarks: True
 
-        package example
+        package old
           ghc-options: -Werror
         EOF
 
     - name: Enable parallel module builds for the local packages
-      if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
       run: |
         cat >> cabal.project.local <<'EOF'
-        package example
+        package old
           ghc-options: -j4
         EOF
-
-    - name: Enable the GHC job semaphore
-      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
-      run: |
-        echo 'semaphore: True' >> cabal.project.local
 
     - name: Make the build plan
       run: |

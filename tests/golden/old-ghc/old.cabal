@@ -1,0 +1,11 @@
+cabal-version: 3.0
+name:          old
+version:       0
+tested-with:   GHC == { 9.2.8, 9.4.8, 9.6.7 }
+
+library
+  exposed-modules: Old
+
+test-suite test
+  type:    exitcode-stdio-1.0
+  main-is: Main.hs

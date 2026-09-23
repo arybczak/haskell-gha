@@ -1,0 +1,4 @@
+packages: core
+
+if impl(ghc >= 9.10)
+  packages: new

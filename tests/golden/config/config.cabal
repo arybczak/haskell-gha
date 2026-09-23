@@ -1,0 +1,11 @@
+cabal-version: 3.0
+name:          config
+version:       0
+tested-with:   GHC ^>= 9.10 || ^>= 9.12
+
+library
+  exposed-modules: Config
+
+test-suite test
+  type:    exitcode-stdio-1.0
+  main-is: Main.hs
