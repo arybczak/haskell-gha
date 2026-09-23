@@ -26,8 +26,8 @@ hooks:
           sleep 1
         done
   after-build:
-    - name: Check the documentation
-      run: cabal haddock all
+    - name: Show the executables
+      run: cabal list-bin all
 ghc-options: -Werror -Wno-unused-imports
 cabal-project-local: |
   package config

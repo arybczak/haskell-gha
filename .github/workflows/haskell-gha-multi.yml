@@ -133,3 +133,17 @@ jobs:
       run: |
         cd modern
         doctest -XGHC2024 -XOverloadedRecordDot src
+
+    - name: Check the packages
+      run: |
+        (cd core && cabal check)
+        (cd extra && cabal check)
+        (cd modern && cabal check)
+
+    - name: Make the source tarballs
+      run: |
+        cabal sdist all
+
+    - name: Build the documentation
+      run: |
+        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage

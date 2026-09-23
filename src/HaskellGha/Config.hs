@@ -51,6 +51,9 @@ data Config = Config
   , tests :: Bool
   , benchmarks :: Bool
   , doctest :: Maybe Doctest
+  , check :: Bool
+  , sdist :: Bool
+  , haddock :: Bool
   }
   deriving stock (Eq, Show)
 
@@ -94,6 +97,9 @@ defaultConfig =
     , tests = True
     , benchmarks = True
     , doctest = Nothing
+    , check = True
+    , sdist = True
+    , haddock = True
     }
 
 -- | The doctest configuration of an empty @doctest@ field.
@@ -168,12 +174,15 @@ configFromNode = \case
              <*> field entries "tests" defaultConfig.tests bool
              <*> field entries "benchmarks" defaultConfig.benchmarks bool
              <*> doctestField entries
+             <*> field entries "check" defaultConfig.check bool
+             <*> field entries "sdist" defaultConfig.sdist bool
+             <*> field entries "haddock" defaultConfig.haddock bool
          )
   _ -> failure "the configuration must be a mapping"
   where
     fields :: [T.Text]
     fields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest"]
+      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock"]
 
     -- The workflow writes the text with a heredoc that ends at the line EOF.
     projectText :: String -> Node -> Check T.Text

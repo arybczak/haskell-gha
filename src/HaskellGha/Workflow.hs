@@ -176,6 +176,11 @@ workflow opts config project = runCheck $ checks *> pure root
           , let es = [e.ghc | e <- project.matrix, e.ghc `elem` doctestEntries, p.directory `elem` map (.directory) e.packages]
           , not (null es)
           ]
+        , [item $ runStep "Check the packages" Nothing checkScript | config.check]
+        , [item $ runStep "Make the source tarballs" Nothing "cabal sdist all\n" | config.sdist]
+        , [ item $ runStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage\n"
+          | config.haddock
+          ]
         ]
 
     -- The entries in the range of doctest.ghc.
@@ -198,6 +203,15 @@ workflow opts config project = runCheck $ checks *> pure root
       T.unlines $
         ["cd " <> shellQuote (T.pack p.directory) | p.directory /= "."]
           ++ [T.unwords ("doctest" : map shellQuote (d.options ++ map T.pack args)) | args <- p.doctestArgs]
+
+    -- cabal check works on the package in the current directory. All lines
+    -- run in one shell, so a subshell keeps each cd to its own line.
+    checkScript :: T.Text
+    checkScript =
+      T.unlines
+        [ if p.directory == "." then "cabal check" else "(cd " <> shellQuote (T.pack p.directory) <> " && cabal check)"
+        | p <- project.packages
+        ]
 
     -- A step with a script. The script runs for the given matrix entries,
     -- or for all of them.

@@ -101,3 +101,16 @@ jobs:
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       run: |
         cabal test all --test-show-details=direct
+
+    - name: Check the packages
+      run: |
+        (cd core && cabal check)
+        (cd new && cabal check)
+
+    - name: Make the source tarballs
+      run: |
+        cabal sdist all
+
+    - name: Build the documentation
+      run: |
+        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage

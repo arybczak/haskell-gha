@@ -69,6 +69,9 @@ test_example = do
         , "  version: '>=0.24'"
         , "  skip: [some-package]"
         , "  options: [--fast]"
+        , "check: false"
+        , "sdist: false"
+        , "haddock: false"
         ]
   assertEqual "name" (plain "Tests") config.name
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
@@ -96,6 +99,9 @@ test_example = do
           }
     )
     config.doctest
+  assertEqual "check" False config.check
+  assertEqual "sdist" False config.sdist
+  assertEqual "haddock" False config.haddock
 
 test_emptyDoctest :: Assertion
 test_emptyDoctest = do

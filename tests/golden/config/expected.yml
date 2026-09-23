@@ -117,5 +117,17 @@ jobs:
       run: |
         cabal build all
 
-    - name: Check the documentation
-      run: cabal haddock all
+    - name: Show the executables
+      run: cabal list-bin all
+
+    - name: Check the packages
+      run: |
+        cabal check
+
+    - name: Make the source tarballs
+      run: |
+        cabal sdist all
+
+    - name: Build the documentation
+      run: |
+        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage

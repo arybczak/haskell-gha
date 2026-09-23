@@ -97,3 +97,15 @@ jobs:
     - name: Run the tests
       run: |
         cabal test all --test-show-details=direct
+
+    - name: Check the packages
+      run: |
+        cabal check
+
+    - name: Make the source tarballs
+      run: |
+        cabal sdist all
+
+    - name: Build the documentation
+      run: |
+        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage

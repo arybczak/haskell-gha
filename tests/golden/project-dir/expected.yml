@@ -83,3 +83,15 @@ jobs:
     - name: Build
       run: |
         cabal build all
+
+    - name: Check the packages
+      run: |
+        (cd app && cabal check)
+
+    - name: Make the source tarballs
+      run: |
+        cabal sdist all
+
+    - name: Build the documentation
+      run: |
+        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage

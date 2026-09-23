@@ -181,6 +181,9 @@ doctest:
   version: '>=0.24'
   skip: [some-package]
   options: [--fast]
+check: true
+sdist: true
+haddock: true
 ```
 
 | Field | Default | Meaning |
@@ -200,6 +203,9 @@ doctest:
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
+| `check` | `true` | Run `cabal check` for each local package. |
+| `sdist` | `true` | Run `cabal sdist all`. |
+| `haddock` | `true` | Build the documentation for Hackage. |
 
 A value of the wrong type is an error, and the message names the field.
 
@@ -432,6 +438,18 @@ jobs:
     - name: Run the tests
       run: |
         cabal test all --test-show-details=direct
+
+    - name: Check the packages
+      run: |
+        cabal check
+
+    - name: Make the source tarballs
+      run: |
+        cabal sdist all
+
+    - name: Build the documentation
+      run: |
+        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage
 ```
 
 A sequence under a key has no indent. See
@@ -524,6 +542,28 @@ test suites, `cabal test all` fails. Thus the condition is necessary.
 A `test-suite` section counts, whatever its conditions are. Take a project
 whose test suites all have `buildable: False` for a GHC version. Then the
 test step fails for that version. This is a known limit.
+
+The last three steps check the packages for a Hackage release. They come
+after the tests and doctest, so a build error or a test error shows first.
+Each step has a field of the configuration, and all three are true by
+default.
+
+- If `check` is true, the step `Check the packages` runs `cabal check` in
+  the directory of each local package, on all GHC versions. `cabal check`
+  exits with 1 for an error, and a warning does not fail the step.
+- If `sdist` is true, the step `Make the source tarballs` runs
+  `cabal sdist all`. If a file or a pattern of the `.cabal` file, e.g. in
+  `extra-source-files`, matches no file, the command fails. The build
+  ignores such fields, and `cabal check` only gives a warning. The step does
+  not build from the tarballs. See [Out of scope](#out-of-scope).
+- If `haddock` is true, the step `Build the documentation` runs
+  `cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage`.
+  `--disable-documentation` prevents a rebuild of the dependencies with
+  documentation, which would bypass the cache. `--haddock-all` adds the
+  executables, the test suites and the benchmarks that are in the build
+  plan. If `tests` is false, it does not add the test suites.
+  `--haddock-for-hackage` makes the same documentation as a Hackage upload,
+  e.g. with hyperlinked source.
 
 If `--project-dir` is not `.`, the workflow gets
 `defaults.run.working-directory`. The `hashFiles` path becomes
@@ -774,7 +814,7 @@ The first version does not support these features:
 - macOS and Windows.
 - GHC prereleases and GHC head.
 - head.hackage.
-- Builds from `sdist` tarballs, `cabal check` and haddock.
+- Builds and tests from the content of the `sdist` tarballs.
 - A job that tests the lower bounds with `--prefer-oldest`.
 - `before-test` and `after-test` hooks.
 - Benchmark runs.

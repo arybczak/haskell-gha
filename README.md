@@ -138,6 +138,9 @@ doctest:
   version: '>=0.24'
   skip: [some-package]
   options: [--fast]
+check: true
+sdist: true
+haddock: true
 ```
 
 | Field | Default | Meaning |
@@ -157,6 +160,9 @@ doctest:
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
+| `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
+| `sdist` | `true` | Run `cabal sdist all`. If the `.cabal` file of a package lists a file that does not exist, the job fails. |
+| `haddock` | `true` | Build the documentation as for a Hackage upload. |
 
 The tool copies `matrix`, `services` and the hooks to the workflow without
 changes, together with their comments. You can use GitHub expressions in
