@@ -410,7 +410,7 @@ configFromNode = \case
         t -> case simpleParsec (T.unpack t) of
           Just v
             | take 2 (versionNumbers v) < [3, 12] ->
-                failure $ "field " ++ show path ++ ": the GHC job semaphore needs cabal 3.12 or later"
+                failure $ "field " ++ show path ++ ": the tool supports only cabal 3.12 and later"
             | otherwise -> pure $ CabalVersion v
           Nothing -> expected path "latest or a version"
 

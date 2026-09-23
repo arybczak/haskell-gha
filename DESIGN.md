@@ -104,9 +104,11 @@ release of haskell-gha.
 
 [issue-12306]: https://github.com/haskell/cabal/issues/12306
 
-The `semaphore` field needs cabal 3.12 or later, so an older `cabal-version`
-is an error. The tool compares only the first two parts of the version, so
-`3.10` and `3.10.3.0` are both errors.
+A `cabal-version` older than 3.12 is always an error. The `semaphore` field
+needs cabal 3.12, but only the jobs for GHC 9.8 and later use it. One limit
+for all jobs is simpler than a limit for each GHC version. Also, nobody
+tests older cabal versions with the tool. The tool compares only the first
+two parts of the version, so `3.10` and `3.10.3.0` are both errors.
 
 The versions of the actions are fields of the configuration, with the
 current major versions as defaults. Thus a user can take a new major version
@@ -203,8 +205,7 @@ series, but the tool would decide the conditions for 9.10.0.
 A GHC version older than 8.10 is an error. The bindists of old versions link
 against system libraries that new Ubuntu releases can lack, and nobody
 tests them on the current runner images. A hard limit gives a clear error
-before CI runs. The limit for cabal is 3.12, because of the GHC job
-semaphore.
+before CI runs. cabal has a similar limit, see [Decisions](#decisions).
 
 A matrix entry has a version range. A series entry `X.Y` has the range
 `>= X.Y.1 && < X.(Y+1)`, because the first release of a GHC series is
