@@ -758,6 +758,8 @@ the tests, so the tool does not give `.` to doctest. haskell-ci gives the
 names of the exposed modules instead. But then GHC takes the compiled
 module from the environment file, and doctest finds no examples without an
 error. Thus the tool gives the files of the exposed modules, e.g. `A/B.hs`.
+If `hs-source-dirs` contains `.` and other directories, the tool gives the
+other directories and the files of the exposed modules in `.`.
 
 Each doctest step for a package has an `if:` condition. The condition lists
 the GHC versions that are in the `doctest.ghc` range and that include the

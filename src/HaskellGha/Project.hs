@@ -288,9 +288,12 @@ readPackage path relative = do
       let bi = libBuildInfo lib
       -- The package directory can also contain other components, e.g. the
       -- tests, so it gives the files of the exposed modules instead.
-      sources <- case filter (/= ".") . map (normalise . Path.getSymbolicPath) $ hsSourceDirs bi of
-        [] -> mapM moduleFile (exposedModules lib)
-        dirs -> pure dirs
+      sources <- case map (normalise . Path.getSymbolicPath) $ hsSourceDirs bi of
+        dirs
+          | all (== ".") dirs -> mapM moduleFile (exposedModules lib)
+          | otherwise -> fmap concat . forM dirs $ \case
+              "." -> catMaybes <$> mapM findModuleFile (exposedModules lib)
+              dir -> pure [dir]
       pure $
         if null sources
           then []
@@ -299,9 +302,12 @@ readPackage path relative = do
     -- For a module name, GHC takes the compiled module from the GHC
     -- environment file, and doctest finds no examples. A file name works.
     moduleFile :: ModuleName.ModuleName -> IO FilePath
-    moduleFile m = do
-      found <- filterM (doesFileExist . (takeDirectory path </>)) [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
-      pure $ fromMaybe (prettyShow m) (listToMaybe found)
+    moduleFile m = fromMaybe (prettyShow m) <$> findModuleFile m
+
+    -- The file of a module in the package directory.
+    findModuleFile :: ModuleName.ModuleName -> IO (Maybe FilePath)
+    findModuleFile m =
+      listToMaybe <$> filterM (doesFileExist . (takeDirectory path </>)) [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
 
 ----------------------------------------
 -- Matrix

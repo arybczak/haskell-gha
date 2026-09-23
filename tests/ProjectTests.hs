@@ -29,6 +29,7 @@ projectTests =
     , testCase "tested-with errors" test_testedWithErrors
     , testCase "no packages for a matrix entry" test_emptyEntry
     , testCase "package location errors" test_locationErrors
+    , testCase "doctest sources in the package directory and a subdirectory" test_doctestRootAndSubdirectory
     ]
 
 test_single :: Assertion
@@ -191,6 +192,28 @@ test_locationErrors = do
     errors
   noPackages <- readErrors [("README", "")]
   assertEqual "no packages" 1 (length noPackages)
+
+test_doctestRootAndSubdirectory :: Assertion
+test_doctestRootAndSubdirectory = do
+  project <-
+    readOk
+      [
+        ( "a.cabal"
+        , unlines
+            [ "cabal-version: 3.0"
+            , "name: a"
+            , "version: 0"
+            , "tested-with: GHC ^>= 9.10"
+            , "library"
+            , "  hs-source-dirs: . src"
+            , "  exposed-modules: Root Inner"
+            ]
+        )
+      , ("Root.hs", "")
+      , ("src/Inner.hs", "")
+      , ("test/Main.hs", "")
+      ]
+  assertEqual "doctest arguments" [[["Root.hs", "src"]]] (map (.doctestArgs) project.packages)
 
 ----------------------------------------
 -- Helpers
