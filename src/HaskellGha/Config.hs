@@ -122,7 +122,7 @@ data Submodules
 
 -- | The steps that the tool puts in the workflow.
 data Hooks = Hooks
-  { beforeBuild :: [Item Node]
+  { afterSetup :: [Item Node]
   , afterBuild :: [Item Node]
   }
   deriving stock (Eq, Show)
@@ -379,7 +379,7 @@ configFromNode = \case
 
     hooksFields :: Fields Hooks
     hooksFields = do
-      beforeBuild <- field "before-build" [] steps
+      afterSetup <- field "after-setup" [] steps
       afterBuild <- field "after-build" [] steps
       pure Hooks {..}
 

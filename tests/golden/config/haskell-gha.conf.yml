@@ -22,7 +22,7 @@ permissions:
   # For the annotations of the test results.
   checks: write
 hooks:
-  before-build:
+  after-setup:
     - name: Show the Postgres version
       run: psql --version
     # Wait until the database accepts connections.

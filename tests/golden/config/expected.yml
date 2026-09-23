@@ -77,6 +77,15 @@ jobs:
         echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
         echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
+    - name: Show the Postgres version
+      run: psql --version
+
+    - name: Wait for Postgres
+      run: |
+        until pg_isready -h localhost; do
+          sleep 1
+        done
+
     - name: Unpack the source tarballs
       run: |
         shopt -s extglob
@@ -131,15 +140,6 @@ jobs:
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
         key: ${{ steps.cache.outputs.cache-primary-key }}
-
-    - name: Show the Postgres version
-      run: psql --version
-
-    - name: Wait for Postgres
-      run: |
-        until pg_isready -h localhost; do
-          sleep 1
-        done
 
     - name: Build
       working-directory: ${{ runner.temp }}/haskell-gha

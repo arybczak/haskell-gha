@@ -162,7 +162,7 @@ services:
 permissions:
   contents: read
 hooks:
-  before-build:
+  after-setup:
     - name: Show the Postgres version
       run: psql --version
   after-build: []
@@ -209,8 +209,7 @@ actions:
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers, as in GitHub Actions. |
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
-| `hooks.before-build` | `[]` | Steps before the build of the local packages. |
-| `hooks.after-build` | `[]` | Steps after the build and before the tests. |
+| `hooks.after-setup` | `[]` | Steps after the installation of GHC and cabal, and before the source tarballs and the build plan. A hook can install a library that the dependencies need, e.g. one that `apt` does not have. || `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add at the end of `cabal.project.local`, e.g. package flags or constraints. |
 | `jobs` | `4` | The number of parallel build jobs. |
@@ -242,6 +241,13 @@ field must not contain the key `ghc`, because the tool makes that axis. A
 `'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
 entry must be `ghc` or an axis of the `matrix` field.
 
+A `run` step of a hook starts in the project directory of the checkout. A
+`uses` step starts in the root of the repository, because GitHub applies
+the run defaults only to `run` steps. A `working-directory` of a hook
+step is relative to the root of the repository. The copy of the source
+tarballs is in `${{ runner.temp }}/haskell-gha`. The `after-build` hooks
+can use it, but it does not exist yet for the `after-setup` hooks.
+
 The workflow writes the text of `cabal-project-local` to
 `cabal.project.local` before it makes the build plan. Thus the cache of
 each job contains the dependencies that the text adds. The text comes
@@ -272,10 +278,12 @@ Set `sdist: false` in these cases:
 - `cabal.project` imports a local file with `import:`.
 - `cabal.project` lists a package outside the project directory, e.g.
   `../other`.
-- A hook makes a file that the build or the tests need.
+- An `after-setup` hook makes a file that the build or the tests need, and
+  the `.cabal` file does not list the file.
+- An `after-build` hook makes a file in the checkout that the tests need.
 
 The tool finds the first two cases and stops with an error. It cannot find
-the third case.
+the hook cases.
 
 ## Doctest
 

@@ -291,6 +291,9 @@ workflow opts config project = runCheck $ checks $> root
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
         , [item setupStep]
         , [item versionsStep]
+        , -- A hook can install a library that the build plan needs, and the
+          -- tarballs can contain a file that a hook makes.
+          config.hooks.afterSetup
         , [ item $ runStep "Unpack the source tarballs" (Just group) (unpackScript pkgs)
           | config.sdist
           , (group, pkgs) <- packageGroups project.matrix
@@ -311,7 +314,6 @@ workflow opts config project = runCheck $ checks $> root
             | not (null doctestEntries)
             , Just d <- [config.doctest]
             ]
-        , config.hooks.beforeBuild
         , [item $ sourceStep "Build" Nothing "cabal build all\n"]
         , config.hooks.afterBuild
         , [ item $ sourceStep "Run the tests" (Just testEntries) "cabal test all --test-show-details=direct\n"

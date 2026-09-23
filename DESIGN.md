@@ -194,7 +194,7 @@ services:
 permissions:
   contents: read
 hooks:
-  before-build:
+  after-setup:
     - name: Show the Postgres version
       run: psql --version
   after-build: []
@@ -241,8 +241,7 @@ actions:
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers. The tool copies the map to `jobs.build.services`. |
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`: a mapping, `read-all` or `write-all`. The tool copies the value to the top-level `permissions`. |
-| `hooks.before-build` | `[]` | Steps before the build of the local packages. |
-| `hooks.after-build` | `[]` | Steps after the build and before the tests. |
+| `hooks.after-setup` | `[]` | Steps before the source tarballs and the build plan. See [The generated workflow](#the-generated-workflow). || `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add at the end of `cabal.project.local`. A line `EOF` is an error. |
 | `jobs` | `4` | The number of parallel build jobs, a positive integer. See [The generated workflow](#the-generated-workflow). |
@@ -659,15 +658,35 @@ If `apt` is not empty, a step after the checkout runs
 
 If `submodules` is `true` or `recursive`, the checkout step of the build job
 gets `with: submodules: <value>`. `actions/checkout` does not fetch the
-submodules by default. A hook cannot fetch them, because the source
-tarballs, the build plan and the dependencies come before the first hook.
-The fourmolu and HLint jobs do not fetch the submodules, because the files
+submodules by default. The fourmolu and HLint jobs do not fetch the submodules, because the files
 of a submodule are not the code of the project, e.g. a vendored C library.
 
 If `services` is set, the tool puts it in `jobs.build.services`.
 
-The `before-build` hooks come before the step `Build`. The `after-build`
-hooks come after it.
+Each hook is named after the point in the job that it follows, so the name
+tells the user what the job already did.
+
+The `after-setup` hooks come after the step `Show the versions`, so GHC and
+cabal are available. They come before the step
+`Unpack the source tarballs` and the build plan. Thus a hook can install a
+library that the build plan or the dependencies need, e.g. a library that
+`apt` does not have. A hook can also make a file that the `.cabal` file
+lists, and the tarball then contains it.
+
+The `after-build` hooks come after the step `Build` and before the tests.
+Thus a hook can use the built local packages, e.g. to run an executable of
+the project.
+
+The hooks copy the defaults of the workflow. A `run` step starts in the
+project directory of the checkout. A `uses` step starts in the root of the
+repository, because `defaults.run` only applies to `run` steps. The copy of
+the source tarballs does not exist yet for the `after-setup` hooks.
+
+Other hook points, e.g. after the dependencies or after the tests, have no
+known use, so the tool does not have them. They can come later without a
+breaking change. A step that needs a service or a system library belongs in
+`after-setup`, because the service containers start before the first step.
+A code generator from a dependency belongs in `build-tool-depends`.
 
 If `tests` is false or no local package has a test suite, the workflow has
 no test step. If only some GHC versions have a package with a test suite,
@@ -751,8 +770,11 @@ A project must set `sdist: false` in these cases:
 - `cabal.project` lists a package outside the project directory, e.g.
   `../other`. The unpack step keeps the relative path, so the package
   lands outside `$RUNNER_TEMP/haskell-gha`, where other files can be.
-- A hook makes a file that a later cabal step needs. The hook runs in the
-  checkout, so the cabal step does not see the file.
+- A hook makes a file that a later cabal step needs, and the file is not in
+  a tarball. The hook runs in the checkout, so the cabal step does not see
+  the file. An `after-setup` hook comes before the unpack step, so a file
+  that the `.cabal` file lists is in the tarball. A file that a later hook
+  makes in the checkout is never in the copy.
 
 If `sdist` is true, the tool stops with an error for the first two cases.
 The reader records each `import:` line with its position for this check.
@@ -1110,7 +1132,7 @@ The first version does not support these features:
 - GHC prereleases and GHC head.
 - head.hackage.
 - A job that tests the lower bounds with `--prefer-oldest`.
-- `before-test` and `after-test` hooks.
+- A hook after the dependencies or after the tests.
 - Benchmark runs.
 - stack.
 

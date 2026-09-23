@@ -62,7 +62,7 @@ test_example = do
         , "    image: postgres:${{ matrix.postgres }}"
         , "permissions: read-all"
         , "hooks:"
-        , "  before-build:"
+        , "  after-setup:"
         , "    - name: Show the Postgres version"
         , "      run: psql --version"
         , "  after-build: []"
@@ -104,7 +104,7 @@ test_example = do
   assertEqual "apt" ["libpq-dev"] config.apt
   assertBool "services" (isJust config.services)
   assertEqual "permissions" (plain "read-all") config.permissions
-  assertEqual "before-build" 1 (length config.hooks.beforeBuild)
+  assertEqual "after-setup" 1 (length config.hooks.afterSetup)
   assertEqual "after-build" 0 (length config.hooks.afterBuild)
   assertEqual "ghc-options" "-Werror -Wno-unused" config.ghcOptions
   assertEqual "cabal-project-local" "package a\n  flags: +b\n" config.cabalProjectLocal
@@ -161,7 +161,7 @@ test_errors :: Assertion
 test_errors = do
   assertError "not a mapping" "the configuration must be a mapping" "- a\n"
   assertError "unknown field" "unknown field \"job\"" "job: 4\n"
-  assertError "unknown hooks field" "unknown field \"hooks.before-test\"" "hooks:\n  before-test: []\n"
+  assertError "unknown hooks field" "unknown field \"hooks.before-build\"" "hooks:\n  before-build: []\n"
   assertError "unknown doctest field" "unknown field \"doctest.flags\"" "doctest:\n  flags: []\n"
   assertError "jobs" "field \"jobs\": expected a positive integer" "jobs: 0\n"
   assertError "jobs type" "field \"jobs\": expected a positive integer" "jobs: four\n"
@@ -182,7 +182,7 @@ test_errors = do
   assertError "services" "field \"services\": expected a mapping" "services: [postgres]\n"
   assertError "permissions" "field \"permissions\": expected a mapping, read-all or write-all" "permissions: [contents]\n"
   assertError "permissions scalar" "field \"permissions\": expected a mapping, read-all or write-all" "permissions: read\n"
-  assertError "step" "field \"hooks.before-build item\": expected a mapping" "hooks:\n  before-build:\n    - make\n"
+  assertError "step" "field \"hooks.after-setup item\": expected a mapping" "hooks:\n  after-setup:\n    - make\n"
   assertError "doctest range" "field \"doctest.ghc\": expected a version range" "doctest:\n  ghc: nine\n"
   assertError "apt" "field \"apt\": expected a list of strings" "apt: libpq-dev\n"
   assertError "cabal-project-local" "field \"cabal-project-local\": a line must not be EOF" "cabal-project-local: |\n  tests: True\n  EOF\n"
