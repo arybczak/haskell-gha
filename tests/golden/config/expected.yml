@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  # For the annotations of the test results.
   checks: write
 
 concurrency:
@@ -34,13 +33,11 @@ jobs:
   build:
     name: 'GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}'
     runs-on: ubuntu-24.04
-    # The database for the tests.
     services:
       postgres:
         image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_PASSWORD: postgres
-          # Only for CI.
         ports:
         - '5432:5432'
     strategy:
@@ -135,7 +132,6 @@ jobs:
     - name: Show the Postgres version
       run: psql --version
 
-    # Wait until the database accepts connections.
     - name: Wait for Postgres
       run: |
         until pg_isready -h localhost; do

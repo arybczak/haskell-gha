@@ -229,12 +229,12 @@ can use it without a new release of `haskell-gha`. You can also pin an
 action to a commit.
 
 The tool copies `matrix`, `services`, `permissions` and the hooks to the
-workflow without changes, together with their comments. You can use GitHub
-expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix` field must
-not contain the key `ghc`, because the tool makes that axis. A `ghc` value
-in `include` or `exclude` must be a quoted string, e.g. `'9.10'`, and it
-must be an entry of the axis. Each key of an `exclude` entry must be `ghc`
-or an axis of the `matrix` field.
+workflow without changes, but it does not copy their comments. You can use
+GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
+field must not contain the key `ghc`, because the tool makes that axis. A
+`ghc` value in `include` or `exclude` must be a quoted string, e.g.
+`'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
+entry must be `ghc` or an axis of the `matrix` field.
 
 The workflow writes the text of `cabal-project-local` to
 `cabal.project.local` before it makes the build plan. Thus the cache of
@@ -353,6 +353,4 @@ code as the release `v2.4.10`. When a new release comes out, set
   system of the runner can then link against system libraries that the
   runner no longer has. If you change the system of a self-hosted runner,
   delete the caches of the repository.
-- A comment at the end of a line moves to its own line. A comment before
-  the first entry of a mapping or a list moves before the key of that
-  mapping or list.
+- The workflow does not contain the comments of the configuration file.

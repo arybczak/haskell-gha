@@ -908,7 +908,7 @@ literal block with its chomping indicator and indent. The output writes all
 sequences and mappings in the block style. A flow sequence in the input,
 e.g. `[master, main]`, thus becomes a block sequence.
 
-The tree has only mappings, sequences, scalars and comments. An anchor, an
+The tree has only mappings, sequences and scalars. An anchor, an
 alias, a tag or a duplicate key is an error, and the message gives its
 position.
 
@@ -935,8 +935,10 @@ with the tree that the tool wrote. Thus a wrong style fails the test, also
 after `HASKELL_GHA_ACCEPT=1` wrote the expected file.
 
 The writer writes `Comment` events, so the tool writes the header comment as
-events. The writer cannot write empty lines. The tool adds them to the output
-text. It puts an empty line before each top-level key and each job, except
+events. The writer cannot write empty lines. The tool writes a comment with
+a marker in place of each empty line, and then replaces the marker lines in
+the output text. The writer cannot write a comment before the first entry
+of a mapping or a sequence, so that entry never gets an empty line. It puts an empty line before each top-level key and each job, except
 the first one. It also puts an empty line before each step of a job, except
 the first step. All jobs are at the same depth, so each step starts with `- `
 in the same column.
@@ -946,19 +948,10 @@ this section says. It also shows the indent of a sequence under a key. If
 the indent is different from the example in
 [The generated workflow](#the-generated-workflow), change the example.
 
-The tool keeps the YAML comments in the copied fragments. The HsYAML parser
-gives each comment as a `Comment` event. The tree keeps each comment at its
-position in a mapping or a sequence. The writer writes it back at the same
-position. The configuration reader skips the comments in the tree.
-
-The round-trip tests of stage 1 include comments on their own lines and
-comments at the end of a line. If the writer moves an end-of-line comment
-to its own line, that is acceptable. The comment must stay next to the same
-entry.
-
-The writer cannot put a comment before the first entry of a mapping or a
-sequence. It writes a complex key or a lone `-` there. Thus the tool moves
-such a comment up, before the entry that contains the collection.
+The parser drops the YAML comments, so the workflow does not contain the
+comments of the copied fragments. The configuration file keeps them. A
+comment near a key or at the end of a list can belong to more than one
+place. Thus a correct copy of the comments needs much code.
 
 ## Dependencies
 
@@ -1013,8 +1006,7 @@ generated workflow. Each fixture is a directory under `tests/golden/` with a
 project, an optional configuration file and the expected workflow. When the
 environment variable `HASKELL_GHA_ACCEPT=1` is set, the tests write the new
 output to the expected file. The comparison ignores the header comment, so
-a new tool version does not change the result. It does not ignore the
-comments that the tool copies from the configuration.
+a new tool version does not change the result.
 
 Make these fixtures:
 
@@ -1022,7 +1014,8 @@ Make these fixtures:
   in [The generated workflow](#the-generated-workflow).
 - A multi-package project with an `if impl(ghc ...)` block.
 - A project with `services`, `matrix`, `apt`, `hooks` and `ghc-options`.
-  The configuration contains comments in `services` and `hooks`.
+  The configuration contains comments in `services` and `hooks`, and the
+  workflow does not contain them.
 - A project with doctest.
 - A project with `--project-dir`.
 

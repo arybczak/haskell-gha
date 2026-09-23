@@ -144,24 +144,21 @@ workflow opts config project = runCheck $ checks $> root
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
             ,
               ( "jobs"
-              , Mapping
-                  ( item (Key Plain "build", job)
-                      : [Item [EmptyLine] (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
-                      ++ [Item [EmptyLine] (Key Plain "hlint", hlintJob h) | Just h <- [config.hlint]]
-                  )
-                  []
+              , Mapping $
+                  item (Key Plain "build", job)
+                    : [Item True (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
+                    ++ [Item True (Key Plain "hlint", hlintJob h) | Just h <- [config.hlint]]
               )
             ]
         )
-        []
 
     topLevel :: [(T.Text, Node)] -> [Item (Key, Node)]
-    topLevel = zipWith (\i (k, v) -> Item [EmptyLine | i > (0 :: Int)] (Key Plain k, v)) [0 ..]
+    topLevel = zipWith (\i (k, v) -> Item (i > (0 :: Int)) (Key Plain k, v)) [0 ..]
 
     triggers :: Node
     triggers =
       mapping
-        [ ("push", mapping [("branches", Sequence (map item config.branches) [])])
+        [ ("push", mapping [("branches", sequenceOf config.branches)])
         , ("pull_request", plain "")
         , ("merge_group", plain "")
         , ("workflow_dispatch", plain "")
@@ -182,10 +179,9 @@ workflow opts config project = runCheck $ checks $> root
             ]
               ++ [(Key Plain "services", s) | Just s <- [config.services]]
               ++ [ (Key Plain "strategy", mapping [("fail-fast", plain "false"), ("matrix", matrix)])
-                 , (Key Plain "steps", Sequence (separate steps) [])
+                 , (Key Plain "steps", Sequence (separate steps))
                  ]
         )
-        []
 
     -- The job needs no GHC, so it runs once, next to the build jobs.
     fourmoluJob :: Fourmolu -> Node
@@ -212,7 +208,6 @@ workflow opts config project = runCheck $ checks $> root
                         ]
                   ]
               )
-              []
           )
         ]
 
@@ -238,7 +233,6 @@ workflow opts config project = runCheck $ checks $> root
                         ]
                   ]
               )
-              []
           )
         ]
 
@@ -268,13 +262,11 @@ workflow opts config project = runCheck $ checks $> root
 
     matrix :: Node
     matrix =
-      Mapping
-        (item (Key Plain "ghc", sequenceOf (map (singleQuoted . entryText) entries)) : config.matrix)
-        []
+      Mapping (item (Key Plain "ghc", sequenceOf (map (singleQuoted . entryText) entries)) : config.matrix)
 
     -- An empty line before each step except the first.
     separate :: [Item Node] -> [Item Node]
-    separate = zipWith (\i s -> if i > (0 :: Int) then s {comments = EmptyLine : s.comments} else s) [0 ..]
+    separate = zipWith (\i s -> s {emptyLine = i > (0 :: Int)}) [0 ..]
 
     steps :: [Item Node]
     steps =

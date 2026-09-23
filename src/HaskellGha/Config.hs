@@ -204,9 +204,9 @@ matrixAxes config =
 matrixGhcValues :: Config -> [T.Text]
 matrixGhcValues config =
   [ v
-  | Item _ (k, Sequence entries _) <- config.matrix
+  | Item _ (k, Sequence entries) <- config.matrix
   , k.name `elem` ["include", "exclude"]
-  , Item _ (Mapping fields _) <- entries
+  , Item _ (Mapping fields) <- entries
   , Just (Scalar _ v) <- [lookupKey "ghc" fields]
   ]
 
@@ -254,7 +254,7 @@ parseConfig file input = case parseYaml input of
 
 configFromNode :: Node -> Check Config
 configFromNode = \case
-  Mapping entries _ -> runFields "" configFields entries
+  Mapping entries -> runFields "" configFields entries
   _ -> failure "the configuration must be a mapping"
   where
     configFields :: Fields Config
@@ -396,37 +396,37 @@ configFromNode = \case
 
     branchesField :: String -> Node -> Check [Node]
     branchesField path = \case
-      Sequence [] _ -> failure $ "field " ++ show path ++ ": the list must not be empty"
-      Sequence items _ -> traverse (scalar path . (.value)) items
+      Sequence [] -> failure $ "field " ++ show path ++ ": the list must not be empty"
+      Sequence items -> traverse (scalar path . (.value)) items
       _ -> expected path "a list of branches"
 
     permissionsField :: String -> Node -> Check Node
     permissionsField path = \case
-      n@(Mapping _ _) -> pure n
+      n@(Mapping _) -> pure n
       n@(Scalar _ t) | t `elem` ["read-all", "write-all"] -> pure n
       _ -> expected path "a mapping, read-all or write-all"
 
     steps :: String -> Node -> Check [Item Node]
     steps path = \case
-      Sequence items _ -> items <$ traverse_ (mappingNode (path ++ " item") . (.value)) items
+      Sequence items -> items <$ traverse_ (mappingNode (path ++ " item") . (.value)) items
       _ -> expected path "a list of steps"
 
     matrixField :: String -> Node -> Check [Item (Key, Node)]
     matrixField path = \case
-      Mapping entries _ -> entries <$ traverse_ (entry [k.name | Item _ (k, _) <- entries, k.name `notElem` ["include", "exclude"]]) entries
+      Mapping entries -> entries <$ traverse_ (entry [k.name | Item _ (k, _) <- entries, k.name `notElem` ["include", "exclude"]]) entries
       _ -> expected path "a mapping"
       where
         entry :: [T.Text] -> Item (Key, Node) -> Check ()
         entry axes (Item _ (k, v))
           | k.name == "ghc" = failure $ "field " ++ show path ++ ": the tool makes the ghc axis, so the matrix must not contain it"
           | k.name `elem` ["include", "exclude"] = case v of
-              Sequence items _ -> traverse_ (combination axes (k.name == "exclude") (path ++ "." ++ T.unpack k.name) . (.value)) items
+              Sequence items -> traverse_ (combination axes (k.name == "exclude") (path ++ "." ++ T.unpack k.name) . (.value)) items
               _ -> expected (path ++ "." ++ T.unpack k.name) "a list of mappings"
           | otherwise = pure ()
 
         combination :: [T.Text] -> Bool -> String -> Node -> Check ()
         combination axes isExclude p = \case
-          Mapping fields _ ->
+          Mapping fields ->
             ghcValue p fields
               *> when isExclude (traverse_ (unknownAxis axes p) [k.name | Item _ (k, _) <- fields, k.name /= "ghc"])
           _ -> expected p "a list of mappings"
@@ -496,7 +496,7 @@ section k def fields = Fields [k] $ \prefix entries -> case lookupKey k entries 
 -- | Read a mapping with the given fields.
 mappingOf :: Fields a -> String -> Node -> Check a
 mappingOf fields path = \case
-  Mapping entries _ -> runFields (T.pack path <> ".") fields entries
+  Mapping entries -> runFields (T.pack path <> ".") fields entries
   _ -> expected path "a mapping"
 
 expected :: String -> String -> Check a
@@ -519,7 +519,7 @@ text path = \case
 
 textList :: String -> Node -> Check [T.Text]
 textList path = \case
-  Sequence items _ -> traverse (text path . (.value)) items
+  Sequence items -> traverse (text path . (.value)) items
   _ -> expected path "a list of strings"
 
 bool :: String -> Node -> Check Bool
@@ -537,5 +537,5 @@ versionRange path n =
 
 mappingNode :: String -> Node -> Check Node
 mappingNode path = \case
-  n@(Mapping _ _) -> pure n
+  n@(Mapping _) -> pure n
   _ -> expected path "a mapping"

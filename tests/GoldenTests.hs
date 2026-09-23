@@ -46,7 +46,7 @@ golden fixture = do
   expected <- T.decodeUtf8 <$> BS.readFile expectedFile
   assertEqual "workflow" (dropHeader expected) (dropHeader actual)
   case parseYaml (BL.fromStrict $ T.encodeUtf8 actual) of
-    Right (Just reparsed) -> assertEqual "reparsed workflow" (stripComments node) (stripComments reparsed)
+    Right (Just reparsed) -> assertEqual "reparsed workflow" (dropEmptyLines node) reparsed
     Right Nothing -> assertFailure "the workflow is empty"
     Left e -> assertFailure $ renderYamlError expectedFile e
   where
@@ -55,6 +55,13 @@ golden fixture = do
       doesFileExist path >>= \case
         True -> words <$> readFile path
         False -> pure []
+
+    -- The parser does not keep the empty lines.
+    dropEmptyLines :: Node -> Node
+    dropEmptyLines = \case
+      Scalar s t -> Scalar s t
+      Sequence items -> Sequence [item (dropEmptyLines i.value) | i <- items]
+      Mapping entries -> Mapping [item (k, dropEmptyLines v) | Item _ (k, v) <- entries]
 
     dropHeader :: T.Text -> T.Text
     dropHeader = T.unlines . dropWhile ((== Just '#') . fmap fst . T.uncons) . T.lines

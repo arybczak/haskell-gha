@@ -16,8 +16,7 @@ yamlTests =
     "Yaml"
     [ testCase "styles and key order survive a round trip" test_styles
     , testCase "flow collections become block collections" test_flow
-    , testCase "comments survive a round trip" test_comments
-    , testCase "a comment before a first entry moves up" test_liftedComment
+    , testCase "the parser drops the comments" test_comments
     , testCase "empty lines" test_emptyLines
     , testCase "the output parses to the same tree" test_reparse
     , testCase "a plain scalar that needs quotes" test_plainQuotes
@@ -53,50 +52,23 @@ test_flow = do
 
 test_comments :: Assertion
 test_comments = do
-  assertRoundTrip $
-    T.unlines
-      [ "# before a key"
-      , "services:"
-      , "  postgres:"
-      , "    image: postgres"
-      , "    # between entries"
-      , "    ports:"
-      , "    - '5432:5432'"
-      , "    # after the last item"
-      , "hooks:"
-      , "- run: a"
-      , "# between items"
-      , "- run: b"
-      , "  # inside the item"
-      , "# at the end"
-      ]
-
-test_liftedComment :: Assertion
-test_liftedComment = do
   node <-
     parse $
       T.unlines
-        [ "services:"
+        [ "# before a key"
+        , "services:"
         , "  # first entry"
         , "  postgres:"
-        , "    image: postgres"
-        , "steps:"
-        , "  - name: first step # end of line"
-        , "    run: a"
+        , "    image: postgres # end of line"
+        , "hooks:"
+        , "- run: a"
+        , "# between items"
+        , "- run: b"
+        , "# at the end"
         ]
   assertEqual
     "rendered"
-    ( T.unlines
-        [ "# first entry"
-        , "services:"
-        , "  postgres:"
-        , "    image: postgres"
-        , "steps:"
-        , "- name: first step"
-        , "  # end of line"
-        , "  run: a"
-        ]
-    )
+    (T.unlines ["services:", "  postgres:", "    image: postgres", "hooks:", "- run: a", "- run: b"])
     (renderYaml [] node)
 
 test_emptyLines :: Assertion
@@ -104,12 +76,11 @@ test_emptyLines = do
   let node =
         Mapping
           [ item (Key Plain "name", plain "CI")
-          , Item [EmptyLine] (Key Plain "steps", Sequence [item (plain "a"), Item [EmptyLine, Comment " b"] (plain "b")] [])
+          , Item True (Key Plain "steps", Sequence [item (plain "a"), Item True (plain "b")])
           ]
-          []
   assertEqual
     "rendered"
-    (T.unlines ["# header", "name: CI", "", "steps:", "- a", "", "# b", "- b"])
+    (T.unlines ["# header", "name: CI", "", "steps:", "- a", "", "- b"])
     (renderYaml ["header"] node)
 
 test_reparse :: Assertion
@@ -121,14 +92,14 @@ test_reparse = do
           , ("ghc", sequenceOf [singleQuoted "9.10", singleQuoted "it's"])
           ]
   reparsed <- parse $ renderYaml ["header"] node
-  assertEqual "reparsed tree" (stripComments node) (stripComments reparsed)
+  assertEqual "reparsed tree" node reparsed
 
 test_plainQuotes :: Assertion
 test_plainQuotes = do
   let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "-x", " x", "x ", "x:", "'x", "a\tb"]
       node = sequenceOf (map plain texts)
   reparsed <- parse $ renderYaml [] node
-  assertEqual "texts" (Sequence [item (Scalar SingleQuoted t) | t <- texts] []) (stripComments reparsed)
+  assertEqual "texts" (Sequence [item (Scalar SingleQuoted t) | t <- texts]) reparsed
   assertEqual
     "plain"
     [Scalar Plain t | t <- ["", "sub/dir", "a:b", "a#b", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
