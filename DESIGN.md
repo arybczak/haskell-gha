@@ -245,7 +245,7 @@ actions:
 | `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
 | `actions.checkout` | `v7` | The Git ref of `actions/checkout`. |
 | `actions.setup` | `v2` | The Git ref of `haskell-actions/setup`. |
-| `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`, and of `actions/cache` for the doctest binary. |
+| `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`. |
 | `actions.run-fourmolu` | `v13` | The Git ref of `haskell-actions/run-fourmolu`. |
 | `actions.hlint-setup` | `c04631035af0a6787c85e33b3ea0128b8568b590` | The Git ref of `haskell-actions/hlint-setup`. See [HLint](#hlint). |
 | `actions.hlint-run` | `d009541bdae0b8492992416e665bb6df8a3b5cde` | The Git ref of `haskell-actions/hlint-run`. See [HLint](#hlint). |
@@ -737,9 +737,9 @@ The versions of the actions are fields of the configuration, with the
 current major versions as defaults. Thus a user can take a new major
 version of an action without a new release of haskell-gha. A new release
 of haskell-gha changes the defaults. `actions.cache` is one field for
-`actions/cache/restore`, `actions/cache/save` and `actions/cache`, because
-all three come from one repository. A value is any Git ref without spaces, so a user can also pin an
-action to a commit SHA.
+`actions/cache/restore` and `actions/cache/save`, because both come from
+one repository. A value is any Git ref without spaces, so a user can also
+pin an action to a commit SHA.
 
 ## Doctest
 
@@ -772,7 +772,7 @@ both cases above. The steps are these:
    dependencies are. If doctest is enabled, the configuration step adds
    `write-ghc-environment-files: always` to `cabal.project.local`.
 2. Install doctest with the GHC of the job. doctest uses the GHC API, so it
-   must be built with the same GHC. Three steps after the step that saves
+   must be built with the same GHC. Four steps after the step that saves
    the main cache do this:
    1. `Find the doctest version` runs
       `cabal install doctest --ignore-project --dry-run` and writes the
@@ -780,11 +780,14 @@ both cases above. The steps are these:
       `doctest.version` is set, it adds `--constraint='doctest <version>'`.
       The dry run uses an empty store with `--store-dir`, because a plan
       for a store that already contains doctest does not list doctest.
-   2. `actions/cache` restores and saves `~/.local/bin/doctest`. The key
+   2. `actions/cache/restore` restores `~/.local/bin/doctest`. The key
       contains `runner.os`, the image, the doctest version and the GHC
       version.
    3. If the cache has no hit, `Install doctest` runs
       `cabal install doctest --ignore-project --install-method=copy --installdir="$HOME/.local/bin" --overwrite-policy=always --constraint='doctest ==<version>'`.
+   4. If the cache has no hit, `actions/cache/save` saves the binary. The
+      combined `actions/cache` saves only at the end of a successful job,
+      so a failed test would discard the binary.
 
    The key of the main cache depends only on the build plan of the
    project. If doctest were in the main store, each job would build a new

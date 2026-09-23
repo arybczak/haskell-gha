@@ -332,7 +332,7 @@ workflow opts config project = runCheck $ checks $> root
               ++ doctestIf []
               ++ [("run", literal findDoctest)]
         , mapping $
-            [("uses", plain ("actions/cache@" <> config.actions.cache)), ("id", plain "doctest-cache")]
+            [("uses", plain ("actions/cache/restore@" <> config.actions.cache)), ("id", plain "doctest-cache")]
               ++ doctestIf []
               ++ [
                    ( "with"
@@ -344,14 +344,29 @@ workflow opts config project = runCheck $ checks $> root
                  ]
         , mapping $
             [("name", plain "Install doctest")]
-              ++ doctestIf ["steps.doctest-cache.outputs.cache-hit != 'true'"]
+              ++ doctestIf [cacheMiss]
               ++ [
                    ( "run"
                    , literal "cabal install doctest --ignore-project --install-method=copy --installdir=\"$HOME/.local/bin\" --overwrite-policy=always --constraint='doctest ==${{ steps.doctest.outputs.version }}'\n"
                    )
                  ]
+        , -- A separate save step keeps the binary also if a later step fails.
+          mapping $
+            [("uses", plain ("actions/cache/save@" <> config.actions.cache))]
+              ++ doctestIf [cacheMiss]
+              ++ [
+                   ( "with"
+                   , mapping
+                       [ ("path", plain "~/.local/bin/doctest")
+                       , ("key", plain "${{ steps.doctest-cache.outputs.cache-primary-key }}")
+                       ]
+                   )
+                 ]
         ]
       where
+        cacheMiss :: T.Text
+        cacheMiss = "steps.doctest-cache.outputs.cache-hit != 'true'"
+
         doctestIf :: [T.Text] -> [(T.Text, Node)]
         doctestIf extra = case [condition doctestEntries | doctestEntries /= entries] ++ extra of
           [] -> []

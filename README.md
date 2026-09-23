@@ -214,7 +214,7 @@ actions:
 | `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
 | `actions.checkout` | `v7` | The version of `actions/checkout`. |
 | `actions.setup` | `v2` | The version of `haskell-actions/setup`. |
-| `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`, and of `actions/cache` for the doctest binary. |
+| `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`. |
 | `actions.run-fourmolu` | `v13` | The version of `haskell-actions/run-fourmolu`. |
 | `actions.hlint-setup` | a commit, see below | The version of `haskell-actions/hlint-setup`. |
 | `actions.hlint-run` | a commit, see below | The version of `haskell-actions/hlint-run`. |

@@ -147,7 +147,7 @@ jobs:
         fi
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
-    - uses: actions/cache@v6
+    - uses: actions/cache/restore@v6
       id: doctest-cache
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       with:
@@ -158,6 +158,12 @@ jobs:
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc) && steps.doctest-cache.outputs.cache-hit != 'true'
       run: |
         cabal install doctest --ignore-project --install-method=copy --installdir="$HOME/.local/bin" --overwrite-policy=always --constraint='doctest ==${{ steps.doctest.outputs.version }}'
+
+    - uses: actions/cache/save@v6
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc) && steps.doctest-cache.outputs.cache-hit != 'true'
+      with:
+        path: ~/.local/bin/doctest
+        key: ${{ steps.doctest-cache.outputs.cache-primary-key }}
 
     - name: Build
       working-directory: ${{ runner.temp }}/haskell-gha
