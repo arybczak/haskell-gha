@@ -1,1 +1,5 @@
 dist-newstyle/
+cabal.project.local
+.projectile-cache.eld
+TAGS
+TAGS.mtime
