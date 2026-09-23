@@ -40,7 +40,7 @@ projectTests =
 test_missingDirectory :: Assertion
 test_missingDirectory = do
   result <- readProject "." "tests/does-not-exist"
-  assertEqual "errors" (Left ["The project directory tests/does-not-exist does not exist."]) result
+  assertEqual "errors" (Left ["The project directory \"tests/does-not-exist\" does not exist."]) result
 
 test_single :: Assertion
 test_single = do

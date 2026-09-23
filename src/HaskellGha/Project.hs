@@ -110,7 +110,7 @@ readProject root dir = do
       else
         doesDirectoryExist (root </> dir) <&> \case
           True -> Right [Packages True ["./*.cabal"]]
-          False -> Left ["The project directory " ++ dir ++ " does not exist."]
+          False -> Left ["The project directory " ++ show dir ++ " does not exist."]
   case parts of
     Left errors -> pure $ Left errors
     Right ps -> do
