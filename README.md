@@ -135,7 +135,8 @@ tool stops with an error. No conditional block can separate the two.
 ## Configuration
 
 All fields of the configuration file are optional. An unknown field is an
-error. This example shows all fields:
+error. A YAML anchor, alias or tag is also an error, e.g. in a hook step.
+This example shows all fields:
 
 ```yaml
 name: CI
