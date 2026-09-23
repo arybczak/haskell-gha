@@ -339,6 +339,12 @@ code as the release `v2.4.10`. When a new release comes out, set
   cabal reads the imported files in CI, but the tool does not see a
   package that only an imported file lists. Such a package gets no
   `ghc-options` and no `tested-with` check.
+- If the project directory has no `cabal.project`, the tool reads the
+  packages of the directory as the project. If a parent directory has a
+  `cabal.project`, cabal uses that file instead. With `sdist: false`, the
+  workflow then builds the parent project, but the tool read only the
+  packages of the project directory. Give the directory of the parent
+  `cabal.project` to `--project-dir`.
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on
   x86_64. It assumes that no project selects its packages by operating
   system or architecture.
