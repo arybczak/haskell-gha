@@ -74,9 +74,21 @@ data Comment
 ----------------------------------------
 -- Construction
 
--- | A plain scalar.
+-- | A plain scalar, or a single-quoted scalar if the text is not valid as a
+-- plain scalar. The writer of HsYAML writes a plain scalar without a check.
+-- An empty text stays plain, because it is the null value.
 plain :: T.Text -> Node
-plain = Scalar Y.Plain
+plain t
+  | T.null t || validPlain = Scalar Y.Plain t
+  | otherwise = Scalar Y.SingleQuoted t
+  where
+    -- A subset of the valid plain scalars in block context.
+    validPlain :: Bool
+    validPlain =
+      not (T.any (`elem` ("-?:,[]{}#&*!|>'\"%@` " :: String)) (T.take 1 t))
+        && not (T.any (`elem` (": " :: String)) (T.takeEnd 1 t))
+        && not (": " `T.isInfixOf` t || " #" `T.isInfixOf` t)
+        && T.all (\c -> c >= ' ' && c /= '\DEL') t
 
 -- | A single-quoted scalar.
 singleQuoted :: T.Text -> Node

@@ -20,6 +20,7 @@ yamlTests =
     , testCase "a comment before a first entry moves up" test_liftedComment
     , testCase "empty lines" test_emptyLines
     , testCase "the output parses to the same tree" test_reparse
+    , testCase "a plain scalar that needs quotes" test_plainQuotes
     , testCase "an empty input has no document" test_empty
     , testCase "errors" test_errors
     ]
@@ -121,6 +122,17 @@ test_reparse = do
           ]
   reparsed <- parse $ renderYaml ["header"] node
   assertEqual "reparsed tree" (stripComments node) (stripComments reparsed)
+
+test_plainQuotes :: Assertion
+test_plainQuotes = do
+  let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "-x", " x", "x ", "x:", "'x", "a\tb"]
+      node = sequenceOf (map plain texts)
+  reparsed <- parse $ renderYaml [] node
+  assertEqual "texts" (Sequence [item (Scalar SingleQuoted t) | t <- texts] []) (stripComments reparsed)
+  assertEqual
+    "plain"
+    [Scalar Plain t | t <- ["", "sub/dir", "a:b", "a#b", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
+    (map plain ["", "sub/dir", "a:b", "a#b", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
 
 test_empty :: Assertion
 test_empty = do
