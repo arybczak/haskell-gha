@@ -301,21 +301,21 @@ renderYaml header root = T.unlines . map emptyLine . T.lines . TL.toStrict $ Y.w
     emptyLineMarker :: T.Text
     emptyLineMarker = "\x1F"
 
--- | The writer of HsYAML cannot write a comment before the first entry of a
--- collection. Move such comments before the entry that contains the collection.
--- The first component of the result goes before the node.
-liftComments :: Node -> ([Comment], Node)
-liftComments = \case
-  Scalar s t -> ([], Scalar s t)
-  Sequence items trailing -> case map liftItem items of
-    Item cs v : rest -> (cs, Sequence (Item [] v : rest) trailing)
-    [] -> (trailing, Sequence [] [])
-  Mapping entries trailing -> case map liftEntry entries of
-    Item cs e : rest -> (cs, Mapping (Item [] e : rest) trailing)
-    [] -> (trailing, Mapping [] [])
-  where
-    liftItem :: Item Node -> Item Node
-    liftItem (Item cs v) = let (lifted, v') = liftComments v in Item (cs ++ lifted) v'
+    -- The writer of HsYAML cannot write a comment before the first entry of a
+    -- collection. Move such comments before the entry that contains the
+    -- collection. The first component of the result goes before the node.
+    liftComments :: Node -> ([Comment], Node)
+    liftComments = \case
+      Scalar s t -> ([], Scalar s t)
+      Sequence items trailing -> case map liftItem items of
+        Item cs v : rest -> (cs, Sequence (Item [] v : rest) trailing)
+        [] -> (trailing, Sequence [] [])
+      Mapping entries trailing -> case map liftEntry entries of
+        Item cs e : rest -> (cs, Mapping (Item [] e : rest) trailing)
+        [] -> (trailing, Mapping [] [])
+      where
+        liftItem :: Item Node -> Item Node
+        liftItem (Item cs v) = let (lifted, v') = liftComments v in Item (cs ++ lifted) v'
 
-    liftEntry :: Item (Key, Node) -> Item (Key, Node)
-    liftEntry (Item cs (k, v)) = let (lifted, v') = liftComments v in Item (cs ++ lifted) (k, v')
+        liftEntry :: Item (Key, Node) -> Item (Key, Node)
+        liftEntry (Item cs (k, v)) = let (lifted, v') = liftComments v in Item (cs ++ lifted) (k, v')

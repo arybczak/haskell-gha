@@ -184,28 +184,28 @@ parseProjectFile file input = case readFields input of
     at :: Position -> String -> String
     at pos msg = showPError file (PError pos msg)
 
--- | Split the value of a @packages:@ field into its entries, as cabal does.
-fieldTokens :: [FieldLine Position] -> [String]
-fieldTokens ls = tokens . unwords $ [T.unpack (T.decodeUtf8Lenient l) | FieldLine _ l <- ls]
-  where
-    tokens :: String -> [String]
-    tokens s = case dropWhile separator s of
-      [] -> []
-      s'@('"' : _) | [(t, rest)] <- reads s' -> t : tokens rest
-      s' -> let (t, rest) = token (0 :: Int) s' in t : tokens rest
+    -- Split the value of a packages: field into its entries, as cabal does.
+    fieldTokens :: [FieldLine Position] -> [String]
+    fieldTokens ls = tokens . unwords $ [T.unpack (T.decodeUtf8Lenient l) | FieldLine _ l <- ls]
+      where
+        tokens :: String -> [String]
+        tokens s = case dropWhile separator s of
+          [] -> []
+          s'@('"' : _) | [(t, rest)] <- reads s' -> t : tokens rest
+          s' -> let (t, rest) = token 0 s' in t : tokens rest
 
-    token :: Int -> String -> (String, String)
-    token depth = \case
-      c : cs
-        | depth == 0 && separator c -> ("", c : cs)
-        | otherwise ->
-            let depth' = case c of '{' -> depth + 1; '}' -> depth - 1; _ -> depth
-                (t, rest) = token depth' cs
-            in (c : t, rest)
-      [] -> ("", "")
+        token :: Int -> String -> (String, String)
+        token depth = \case
+          c : cs
+            | depth == 0 && separator c -> ("", c : cs)
+            | otherwise ->
+                let depth' = case c of '{' -> depth + 1; '}' -> depth - 1; _ -> depth
+                    (t, rest) = token depth' cs
+                in (c : t, rest)
+          [] -> ("", "")
 
-    separator :: Char -> Bool
-    separator c = isSpace c || c == ','
+        separator :: Char -> Bool
+        separator c = isSpace c || c == ','
 
 ----------------------------------------
 -- Package locations
@@ -221,13 +221,13 @@ findPackages dir required t
         matches <- matchGlob dir glob
         if null matches
           then pure $ if required then Left ["The package location " ++ show t ++ " matches no files."] else Right []
-          else collect <$> mapM (classify dir) matches
+          else collect <$> mapM classify matches
       -- A glob from the root or the home directory.
       Just _ -> notRelative
       Nothing -> do
         exists <- (||) <$> doesFileExist (dir </> t) <*> doesDirectoryExist (dir </> t)
         if exists
-          then collect . pure <$> classify dir t
+          then collect . pure <$> classify t
           else pure $ if required then Left ["The package location " ++ show t ++ " does not exist."] else Right []
   where
     -- The workflow uses the path on the runner, where it does not exist.
@@ -239,22 +239,22 @@ findPackages dir required t
       ([], files) -> Right files
       (errors, _) -> Left errors
 
--- | Classify a match of a package location.
-classify :: FilePath -> FilePath -> IO (Either String FilePath)
-classify dir path = do
-  isDir <- doesDirectoryExist (dir </> path)
-  if isDir
-    then do
-      cabalFiles <- filter ((== ".cabal") . takeExtension) <$> listDirectory (dir </> path)
-      pure $ case cabalFiles of
-        [f] -> Right (normalise $ path </> f)
-        [] -> Left $ "The directory " ++ show path ++ " contains no .cabal file."
-        _ -> Left $ "The directory " ++ show path ++ " contains more than one .cabal file."
-    else pure $ case () of
-      _
-        | ".tar.gz" `L.isSuffixOf` path -> Left $ "The package location " ++ show path ++ " is a tarball. The tool supports only local packages."
-        | takeExtension path == ".cabal" -> Right (normalise path)
-        | otherwise -> Left $ "The package location " ++ show path ++ " is not a directory or a .cabal file."
+    -- Classify a match of the package location.
+    classify :: FilePath -> IO (Either String FilePath)
+    classify path = do
+      isDir <- doesDirectoryExist (dir </> path)
+      if isDir
+        then do
+          cabalFiles <- filter ((== ".cabal") . takeExtension) <$> listDirectory (dir </> path)
+          pure $ case cabalFiles of
+            [f] -> Right (normalise $ path </> f)
+            [] -> Left $ "The directory " ++ show path ++ " contains no .cabal file."
+            _ -> Left $ "The directory " ++ show path ++ " contains more than one .cabal file."
+        else pure $ case () of
+          _
+            | ".tar.gz" `L.isSuffixOf` path -> Left $ "The package location " ++ show path ++ " is a tarball. The tool supports only local packages."
+            | takeExtension path == ".cabal" -> Right (normalise path)
+            | otherwise -> Left $ "The package location " ++ show path ++ " is not a directory or a .cabal file."
 
 ----------------------------------------
 -- Packages

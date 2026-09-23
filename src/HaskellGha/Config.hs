@@ -233,7 +233,7 @@ parseConfig file input = case parseYaml input of
 configFromNode :: Node -> Check Config
 configFromNode = \case
   Mapping entries _ -> do
-    knownFields "" fields entries
+    knownFields "" topLevelFields entries
     name <- field entries "name" defaultConfig.name scalar
     cabalVersion <- field entries "cabal-version" defaultConfig.cabalVersion cabalVersionField
     runsOn <- field entries "runs-on" defaultConfig.runsOn scalar
@@ -258,8 +258,8 @@ configFromNode = \case
     pure Config {..}
   _ -> failure "the configuration must be a mapping"
   where
-    fields :: [T.Text]
-    fields =
+    topLevelFields :: [T.Text]
+    topLevelFields =
       ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "permissions", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "hlint", "actions"]
 
     hlintField :: [Item (Key, Node)] -> Check (Maybe HLint)
@@ -372,6 +372,85 @@ configFromNode = \case
         pure $ Just Doctest {..}
       Just _ -> expected "doctest" "a mapping"
 
+    -- A number beyond the range of Int wraps around. No real job count is
+    -- that large, so the reader does not check for it.
+    positiveInt :: String -> Node -> Check Int
+    positiveInt path = \case
+      Scalar Plain t
+        | not (T.null t)
+        , T.all (`elem` ['0' .. '9']) t
+        , n <- read @Int (T.unpack t)
+        , n > 0 ->
+            pure n
+      _ -> expected path "a positive integer"
+
+    cabalVersionField :: String -> Node -> Check CabalVersion
+    cabalVersionField path n =
+      text path n `andThen` \case
+        "latest" -> pure CabalLatest
+        t -> case simpleParsec (T.unpack t) of
+          Just v
+            | take 2 (versionNumbers v) < [3, 12] ->
+                failure $ "field " ++ show path ++ ": the GHC job semaphore needs cabal 3.12 or later"
+            | otherwise -> pure $ CabalVersion v
+          Nothing -> expected path "latest or a version"
+
+    branchesField :: String -> Node -> Check [Node]
+    branchesField path = \case
+      Sequence [] _ -> failure $ "field " ++ show path ++ ": the list must not be empty"
+      Sequence items _ -> traverse (scalar path . (.value)) items
+      _ -> expected path "a list of branches"
+
+    permissionsField :: String -> Node -> Check Node
+    permissionsField path = \case
+      n@(Mapping _ _) -> pure n
+      n@(Scalar _ t) | t `elem` ["read-all", "write-all"] -> pure n
+      _ -> expected path "a mapping, read-all or write-all"
+
+    steps :: String -> Node -> Check [Item Node]
+    steps path = \case
+      Sequence items _ -> items <$ traverse_ (mappingNode (path ++ " item") . (.value)) items
+      _ -> expected path "a list of steps"
+
+    matrixField :: String -> Node -> Check [Item (Key, Node)]
+    matrixField path = \case
+      Mapping entries _ -> entries <$ traverse_ (entry [k.name | Item _ (k, _) <- entries, k.name `notElem` ["include", "exclude"]]) entries
+      _ -> expected path "a mapping"
+      where
+        entry :: [T.Text] -> Item (Key, Node) -> Check ()
+        entry axes (Item _ (k, v))
+          | k.name == "ghc" = failure $ "field " ++ show path ++ ": the tool makes the ghc axis, so the matrix must not contain it"
+          | k.name `elem` ["include", "exclude"] = case v of
+              Sequence items _ -> traverse_ (combination axes (k.name == "exclude") (path ++ "." ++ T.unpack k.name) . (.value)) items
+              _ -> expected (path ++ "." ++ T.unpack k.name) "a list of mappings"
+          | otherwise = pure ()
+
+        combination :: [T.Text] -> Bool -> String -> Node -> Check ()
+        combination axes isExclude p = \case
+          Mapping fields _ ->
+            ghcValue p fields
+              *> when isExclude (traverse_ (unknownAxis axes p) [k.name | Item _ (k, _) <- fields, k.name /= "ghc"])
+          _ -> expected p "a list of mappings"
+
+        ghcValue :: String -> [Item (Key, Node)] -> Check ()
+        ghcValue p fields = case lookupKey "ghc" fields of
+          Just (Scalar s _) | s `notElem` [SingleQuoted, DoubleQuoted] -> failure $ "field " ++ show p ++ ": a ghc value must be a quoted string, e.g. '9.10'"
+          Just (Scalar _ _) -> pure ()
+          Just _ -> failure $ "field " ++ show p ++ ": a ghc value must be a quoted string, e.g. '9.10'"
+          Nothing -> pure ()
+
+        unknownAxis :: [T.Text] -> String -> T.Text -> Check ()
+        unknownAxis axes p name
+          | name `elem` axes = pure ()
+          | otherwise =
+              failure $
+                "field "
+                  ++ show p
+                  ++ ": the key "
+                  ++ T.unpack name
+                  ++ " is not an axis of the matrix. The axes are: "
+                  ++ T.unpack (T.intercalate ", " ("ghc" : axes))
+
 ----------------------------------------
 -- Fields
 
@@ -429,92 +508,13 @@ bool path = \case
     | t `elem` ["false", "False", "FALSE"] -> pure False
   _ -> expected path "true or false"
 
--- A number beyond the range of Int wraps around. No real job count is that
--- large, so the reader does not check for it.
-positiveInt :: String -> Node -> Check Int
-positiveInt path = \case
-  Scalar Plain t
-    | not (T.null t)
-    , T.all (`elem` ['0' .. '9']) t
-    , n <- read @Int (T.unpack t)
-    , n > 0 ->
-        pure n
-  _ -> expected path "a positive integer"
-
 versionRange :: String -> Node -> Check VersionRange
 versionRange path n =
   text path n `andThen` \t -> case simpleParsec (T.unpack t) of
     Just r -> pure r
     Nothing -> expected path "a version range"
 
-cabalVersionField :: String -> Node -> Check CabalVersion
-cabalVersionField path n =
-  text path n `andThen` \case
-    "latest" -> pure CabalLatest
-    t -> case simpleParsec (T.unpack t) of
-      Just v
-        | take 2 (versionNumbers v) < [3, 12] ->
-            failure $ "field " ++ show path ++ ": the GHC job semaphore needs cabal 3.12 or later"
-        | otherwise -> pure $ CabalVersion v
-      Nothing -> expected path "latest or a version"
-
-branchesField :: String -> Node -> Check [Node]
-branchesField path = \case
-  Sequence [] _ -> failure $ "field " ++ show path ++ ": the list must not be empty"
-  Sequence items _ -> traverse (scalar path . (.value)) items
-  _ -> expected path "a list of branches"
-
 mappingNode :: String -> Node -> Check Node
 mappingNode path = \case
   n@(Mapping _ _) -> pure n
   _ -> expected path "a mapping"
-
-permissionsField :: String -> Node -> Check Node
-permissionsField path = \case
-  n@(Mapping _ _) -> pure n
-  n@(Scalar _ t) | t `elem` ["read-all", "write-all"] -> pure n
-  _ -> expected path "a mapping, read-all or write-all"
-
-steps :: String -> Node -> Check [Item Node]
-steps path = \case
-  Sequence items _ -> items <$ traverse_ (mappingNode (path ++ " item") . (.value)) items
-  _ -> expected path "a list of steps"
-
-matrixField :: String -> Node -> Check [Item (Key, Node)]
-matrixField path = \case
-  Mapping entries _ -> entries <$ traverse_ (entry [k.name | Item _ (k, _) <- entries, k.name `notElem` ["include", "exclude"]]) entries
-  _ -> expected path "a mapping"
-  where
-    entry :: [T.Text] -> Item (Key, Node) -> Check ()
-    entry axes (Item _ (k, v))
-      | k.name == "ghc" = failure $ "field " ++ show path ++ ": the tool makes the ghc axis, so the matrix must not contain it"
-      | k.name `elem` ["include", "exclude"] = case v of
-          Sequence items _ -> traverse_ (combination axes (k.name == "exclude") (path ++ "." ++ T.unpack k.name) . (.value)) items
-          _ -> expected (path ++ "." ++ T.unpack k.name) "a list of mappings"
-      | otherwise = pure ()
-
-    combination :: [T.Text] -> Bool -> String -> Node -> Check ()
-    combination axes isExclude p = \case
-      Mapping fields _ ->
-        ghcValue p fields
-          *> when isExclude (traverse_ (unknownAxis axes p) [k.name | Item _ (k, _) <- fields, k.name /= "ghc"])
-      _ -> expected p "a list of mappings"
-
-    ghcValue :: String -> [Item (Key, Node)] -> Check ()
-    ghcValue p fields = case lookupKey "ghc" fields of
-      Just (Scalar s _) | s `notElem` [SingleQuoted, DoubleQuoted] -> failure $ "field " ++ show p ++ ": a ghc value must be a quoted string, e.g. '9.10'"
-      Just (Scalar _ _) -> pure ()
-      Just _ -> failure $ "field " ++ show p ++ ": a ghc value must be a quoted string, e.g. '9.10'"
-      Nothing -> pure ()
-
-    unknownAxis :: [T.Text] -> String -> T.Text -> Check ()
-    unknownAxis axes p name
-      | name `elem` axes = pure ()
-      | otherwise =
-          failure $
-            "field "
-              ++ show p
-              ++ ": the key "
-              ++ T.unpack name
-              ++ " is not an axis of the matrix. The axes are: "
-              ++ T.unpack (T.intercalate ", " ("ghc" : axes))
