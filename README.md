@@ -213,7 +213,8 @@ actions:
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers, as in GitHub Actions. |
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
-| `hooks.after-setup` | `[]` | Steps after the installation of GHC and cabal, and before the source tarballs and the build plan. A hook can install a library that the dependencies need, e.g. one that `apt` does not have. || `hooks.after-build` | `[]` | Steps after the build and before the tests. |
+| `hooks.after-setup` | `[]` | Steps after the installation of GHC and cabal, and before the source tarballs and the build plan. A hook can install a library that the dependencies need, e.g. one that `apt` does not have. |
+| `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add at the end of `cabal.project.local`, e.g. package flags or constraints. |
 | `jobs` | `4` | The number of parallel build jobs. |
