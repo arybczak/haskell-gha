@@ -176,6 +176,8 @@ test_errors = do
   assertError "old cabal full" "field \"cabal-version\": the GHC job semaphore needs cabal 3.12 or later" "cabal-version: 3.10.3.0\n"
   assertError "cabal version" "field \"cabal-version\": expected latest or a version" "cabal-version: newest\n"
   assertError "ghc axis" "field \"matrix\": the tool makes the ghc axis, so the matrix must not contain it" "matrix:\n  ghc: ['9.10']\n"
+  assertError "axis name" "field \"matrix\": the axis name \"os x\" is not valid in a GitHub expression. A name must start with a letter or _, and contain only letters, digits, _ and -, e.g. os-version" "matrix:\n  os x: ['a']\n"
+  assertError "axis name start" "field \"matrix\": the axis name \"1os\" is not valid in a GitHub expression. A name must start with a letter or _, and contain only letters, digits, _ and -, e.g. os-version" "matrix:\n  1os: ['a']\n"
   assertError "unquoted ghc" "field \"matrix.include\": a ghc value must be a quoted string, e.g. '9.10'" "matrix:\n  include:\n    - ghc: 9.10\n"
   assertError "exclude" "field \"matrix.exclude\": expected a list of mappings" "matrix:\n  exclude: '9.10'\n"
   assertError "exclude key" "field \"matrix.exclude\": the key version is not an axis of the matrix. The axes are: ghc, postgres" "matrix:\n  postgres: ['15', '18']\n  exclude:\n    - ghc: '9.10'\n      version: '15'\n"

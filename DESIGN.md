@@ -281,6 +281,13 @@ Each key of an `exclude` entry must be `ghc` or an axis of the `matrix`
 field, because GitHub rejects the workflow otherwise. An `include` entry can
 have any key, because GitHub adds a new key to the jobs as a variable.
 
+The name of an axis must start with a letter or `_`, and contain only
+letters, digits, `_` and `-`. The job name refers to each axis as
+`matrix.<name>`, and GitHub accepts this syntax only for such a name. The
+index syntax, e.g. `matrix['os x']`, accepts any name. But the hooks and
+the services of the user then also need the index syntax. A user can
+rename the axis easily, so the tool rejects such a name.
+
 Expressions such as `${{ matrix.postgres }}` work in `services`, `apt` and
 the hooks, because GitHub evaluates them. The tool does not read them.
 

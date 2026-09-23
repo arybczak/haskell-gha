@@ -449,7 +449,23 @@ configFromNode = \case
           | k.name `elem` ["include", "exclude"] = case v of
               Sequence items -> traverse_ (combination axes (k.name == "exclude") (path ++ "." ++ T.unpack k.name) . (.value)) items
               _ -> expected (path ++ "." ++ T.unpack k.name) "a list of mappings"
+          | not (identifier k.name) =
+              failure $
+                "field "
+                  ++ show path
+                  ++ ": the axis name "
+                  ++ show (T.unpack k.name)
+                  ++ " is not valid in a GitHub expression. A name must start with a letter or _, and contain only letters, digits, _ and -, e.g. os-version"
           | otherwise = pure ()
+
+        -- The job name refers to each axis as matrix.<name>.
+        identifier :: T.Text -> Bool
+        identifier t = case T.uncons t of
+          Just (c, rest) -> (isAsciiAlpha c || c == '_') && T.all (\x -> isAsciiAlpha x || isDigit x || x `elem` ['_', '-']) rest
+          Nothing -> False
+          where
+            isAsciiAlpha :: Char -> Bool
+            isAsciiAlpha x = isAsciiLower x || isAsciiUpper x
 
         combination :: [T.Text] -> Bool -> String -> Node -> Check ()
         combination axes isExclude p = \case

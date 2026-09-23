@@ -241,7 +241,9 @@ action to a commit.
 The tool copies `matrix`, `services`, `permissions` and the hooks to the
 workflow without changes, but it does not copy their comments. You can use
 GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
-field must not contain the key `ghc`, because the tool makes that axis. A
+field must not contain the key `ghc`, because the tool makes that axis. The job
+name refers to each axis in an expression. Thus the name of an axis must
+start with a letter or `_`, and contain only letters, digits, `_` and `-`. A
 `ghc` value in `include` or `exclude` must be a quoted string, e.g.
 `'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
 entry must be `ghc` or an axis of the `matrix` field.
