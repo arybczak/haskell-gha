@@ -178,7 +178,7 @@ test_locationErrors :: Assertion
 test_locationErrors = do
   errors <-
     readErrors
-      [ ("cabal.project", "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two\n")
+      [ ("cabal.project", "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two /opt/pkg ~/pkgs/*/\n")
       , ("two/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("two/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       ]
@@ -188,6 +188,8 @@ test_locationErrors = do
     , "The package location \"nothing/*.cabal\" matches no files."
     , "The package location \"https://example.com/a.tar.gz\" is a URL. The tool supports only local packages."
     , "The directory \"two\" contains more than one .cabal file."
+    , "The package location \"/opt/pkg\" is not a relative path. The tool supports only packages in the repository."
+    , "The package location \"~/pkgs/*/\" is not a relative path. The tool supports only packages in the repository."
     ]
     errors
   noPackages <- readErrors [("README", "")]

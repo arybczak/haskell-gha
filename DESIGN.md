@@ -307,11 +307,14 @@ list of packages, also on a runner that is not x86_64.
 
 A `packages:` entry can be a directory, a `.cabal` file or a glob. A
 directory must contain exactly one `.cabal` file. A tarball or a URL is an
-error. The glob syntax is the cabal syntax. Parse it with the `Parsec`
-instance of `RootedGlob` from `Distribution.Simple.FileMonitor.Types`, and
-match it with `matchGlob` from `Distribution.Simple.Glob`. Both are in
-`Cabal` 3.14 and later. The rooted match function `matchFileGlob` is in
-`cabal-install/src/Distribution/Client/Glob.hs`. It is short, so copy it.
+error. An absolute path, or a path that starts with `~/`, is also an error.
+The workflow uses the path on the runner, where it does not exist.
+A relative path outside the project directory, e.g. `../other`, is legal.
+The glob syntax is the cabal syntax. Parse it with the `Parsec` instance of
+`RootedGlob` from `Distribution.Simple.FileMonitor.Types`, and match it with
+`matchGlob` from `Distribution.Simple.Glob`. Both are in `Cabal` 3.14 and
+later. A relative glob needs no root, so the tool does not copy
+`matchFileGlob` from `cabal-install/src/Distribution/Client/Glob.hs`.
 
 ### GHC versions
 

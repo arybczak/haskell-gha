@@ -198,18 +198,25 @@ fieldTokens ls = tokens . unwords $ [T.unpack (T.decodeUtf8Lenient l) | FieldLin
 findPackages :: FilePath -> Bool -> String -> IO (Either [String] [FilePath])
 findPackages dir required t
   | "://" `L.isInfixOf` t = pure $ Left ["The package location " ++ show t ++ " is a URL. The tool supports only local packages."]
+  | isAbsolute t = notRelative
   | otherwise = case simpleParsec @RootedGlob t of
-      Just glob -> do
-        matches <- matchFileGlob dir glob
+      Just (RootedGlob FilePathRelative glob) -> do
+        matches <- matchGlob dir glob
         if null matches
           then pure $ if required then Left ["The package location " ++ show t ++ " matches no files."] else Right []
           else collect <$> mapM (classify dir) matches
+      -- A glob from the root or the home directory.
+      Just _ -> notRelative
       Nothing -> do
         exists <- (||) <$> doesFileExist (dir </> t) <*> doesDirectoryExist (dir </> t)
         if exists
           then collect . pure <$> classify dir t
           else pure $ if required then Left ["The package location " ++ show t ++ " does not exist."] else Right []
   where
+    -- The workflow uses the path on the runner, where it does not exist.
+    notRelative :: IO (Either [String] [FilePath])
+    notRelative = pure $ Left ["The package location " ++ show t ++ " is not a relative path. The tool supports only packages in the repository."]
+
     collect :: [Either String FilePath] -> Either [String] [FilePath]
     collect results = case partitionEithers results of
       ([], files) -> Right files
@@ -231,19 +238,6 @@ classify dir path = do
         | ".tar.gz" `L.isSuffixOf` path -> Left $ "The package location " ++ show path ++ " is a tarball. The tool supports only local packages."
         | takeExtension path == ".cabal" -> Right (normalise path)
         | otherwise -> Left $ "The package location " ++ show path ++ " is not a directory or a .cabal file."
-
--- | Match a glob, as cabal does (@matchFileGlob@ in
--- @cabal-install/src/Distribution/Client/Glob.hs@).
-matchFileGlob :: FilePath -> RootedGlob -> IO [FilePath]
-matchFileGlob relroot (RootedGlob globroot glob) = do
-  root <- case globroot of
-    FilePathRelative -> pure relroot
-    FilePathRoot r -> pure r
-    FilePathHomeDir -> getHomeDirectory
-  matches <- matchGlob root glob
-  pure $ case globroot of
-    FilePathRelative -> matches
-    _ -> map (root </>) matches
 
 ----------------------------------------
 -- Packages
