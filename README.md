@@ -2,13 +2,35 @@
 
 [![CI](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yml/badge.svg?branch=master)](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yml)
 
-haskell-gha writes a GitHub Actions workflow for a Haskell cabal project. The
+`haskell-gha` writes a GitHub Actions workflow for a Haskell cabal project. The
 workflow builds and tests the project on each GHC version from the
 `tested-with` field of its packages.
 
 The workflow is short and easy to read. It uses `haskell-actions/setup` to
 install GHC and cabal, it caches the cabal store, and it runs each GHC
 version in its own job. Only Linux is supported.
+
+## Compared to `haskell-ci`
+
+`haskell-gha` replaces [`haskell-ci`](https://github.com/haskell-CI/haskell-ci)
+for projects that use only GitHub Actions on Linux. It improves on
+`haskell-ci` in these points:
+
+- The workflow is shorter and easier to read. The jobs use
+  `haskell-actions/setup` on the runner image, not a job container with a
+  manual installation of GHCup.
+- A new GHC release needs no new release of the tool. `haskell-ci` only
+  accepts the GHC versions of its built-in list. `haskell-gha` gives the
+  version to `haskell-actions/setup`, and a series, e.g. `^>= 9.12`, gets
+  the newest release of that series.
+- Service containers, hook steps and extra matrix axes are GitHub Actions
+  YAML. The tool copies them to the workflow without changes. `haskell-ci`
+  only supports a PostgreSQL service, and other changes need patch files
+  for the generated workflow.
+
+`haskell-ci` has features that `haskell-gha` does not have, e.g. macOS
+jobs, GHC prereleases and head.hackage. If you need one of these features,
+use `haskell-ci`.
 
 ## Installation
 
@@ -183,6 +205,27 @@ The default `cabal-version` is not `latest`. Now `latest` selects cabal
 [Cabal issue 12306](https://github.com/haskell/cabal/issues/12306) describes
 the bug.
 
+## Source tarballs
+
+A user who installs a package from Hackage gets only the files of its
+source tarball. If the build or the tests need a file that the `.cabal`
+file does not list, e.g. a CPP header or a test fixture, the package fails
+for that user. A build of the checkout does not find this error, because
+the checkout has the file.
+
+Thus the workflow makes the tarballs with `cabal sdist all` and unpacks
+them into a separate directory. It copies `cabal.project`,
+`cabal.project.freeze` and `cabal.project.local` next to them. The build,
+the tests, doctest, `cabal check` and haddock then run in that directory.
+The hooks still run in the checkout.
+
+Set `sdist: false` in these cases:
+
+- `cabal.project` imports another file with `import:`.
+- `cabal.project` lists a package outside the project directory, e.g.
+  `../other`.
+- A hook makes a file that the build or the tests need.
+
 ## Doctest
 
 If the configuration has a `doctest` field, the workflow installs doctest
@@ -205,27 +248,6 @@ empty `doctest:` field enables doctest with the defaults.
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on
   x86_64. It assumes that no project selects its packages by operating
   system or architecture.
-## Source tarballs
-
-A user who installs a package from Hackage gets only the files of its
-source tarball. If the build or the tests need a file that the `.cabal`
-file does not list, e.g. a CPP header or a test fixture, the package fails
-for that user. A build of the checkout does not find this error, because
-the checkout has the file.
-
-Thus the workflow makes the tarballs with `cabal sdist all` and unpacks
-them into a separate directory. It copies `cabal.project`,
-`cabal.project.freeze` and `cabal.project.local` next to them. The build,
-the tests, doctest, `cabal check` and haddock then run in that directory.
-The hooks still run in the checkout.
-
-Set `sdist: false` in these cases:
-
-- `cabal.project` imports another file with `import:`.
-- `cabal.project` lists a package outside the project directory, e.g.
-  `../other`.
-- A hook makes a file that the build or the tests need.
-
 - A test suite counts, whatever its conditions are. If all test suites of a
   project have `buildable: False` for a GHC version, the test step fails for
   that version.
