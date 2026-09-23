@@ -1,0 +1,5 @@
+# Two workflows with the same name cancel each other, so this workflow has
+# its own name.
+name: CI (multi)
+doctest:
+  ghc: '>=9.12'

@@ -1,0 +1,11 @@
+cabal-version: 3.0
+name:          core
+version:       0.1.0.0
+synopsis:      A package of the multi-package example of haskell-gha.
+tested-with:   GHC ^>= 9.6 || ^>= 9.8 || ^>= 9.10 || ^>= 9.12
+
+library
+  hs-source-dirs:   src
+  exposed-modules:  Core
+  build-depends:    base < 5
+  default-language: GHC2021

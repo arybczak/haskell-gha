@@ -1,0 +1,18 @@
+cabal-version: 3.0
+name:          extra
+version:       0.1.0.0
+synopsis:      A package of the multi-package example of haskell-gha.
+tested-with:   GHC ^>= 9.6 || ^>= 9.8 || ^>= 9.10 || ^>= 9.12
+
+library
+  hs-source-dirs:   src
+  exposed-modules:  Extra
+  build-depends:    base < 5, core
+  default-language: GHC2021
+
+test-suite test
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Main.hs
+  build-depends:    base < 5, extra
+  default-language: GHC2021

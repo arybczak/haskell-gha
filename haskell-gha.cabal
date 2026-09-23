@@ -11,7 +11,16 @@ description:
   Generate a GitHub Actions workflow that builds and tests a Haskell cabal
   project on each GHC version from @tested-with@.
 
-tested-with: GHC == { 9.6.7, 9.8.4, 9.10.3, 9.12.4 }
+extra-doc-files:
+  CHANGELOG.md
+  README.md
+
+tested-with: GHC ^>= 9.6 || ^>= 9.8 || ^>= 9.10 || ^>= 9.12
+
+bug-reports:   https://github.com/arybczak/haskell-gha/issues
+source-repository head
+  type:     git
+  location: https://github.com/arybczak/haskell-gha.git
 
 common language
     ghc-options:        -Wall

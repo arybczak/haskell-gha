@@ -1,0 +1,9 @@
+hooks:
+  after-build:
+    # The tool makes both workflows of the repository. A pull request that
+    # changes the output must also change the workflows.
+    - name: Make sure that the workflows are up to date
+      run: |
+        cabal run haskell-gha
+        cabal run haskell-gha -- --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
+        git diff --exit-code

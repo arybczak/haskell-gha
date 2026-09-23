@@ -1,0 +1,5 @@
+packages: core
+          extra
+
+if impl(ghc >= 9.10)
+  packages: modern
