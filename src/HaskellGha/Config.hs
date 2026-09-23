@@ -7,6 +7,7 @@ module HaskellGha.Config
   ( -- * Configuration
     Config (..)
   , CabalVersion (..)
+  , Submodules (..)
   , Hooks (..)
   , Doctest (..)
   , Fourmolu (..)
@@ -50,6 +51,7 @@ data Config = Config
   -- ^ A scalar.
   , branches :: [Node]
   -- ^ Scalars.
+  , submodules :: Submodules
   , matrix :: [Item (Key, Node)]
   -- ^ The extra axes, @include@ and @exclude@.
   , apt :: [T.Text]
@@ -109,6 +111,14 @@ data CabalVersion
   | CabalVersion Version
   deriving stock (Eq, Show)
 
+-- | The Git submodules that the build jobs fetch.
+data Submodules
+  = NoSubmodules
+  | -- | The submodules of the repository, without their own submodules.
+    TopSubmodules
+  | RecursiveSubmodules
+  deriving stock (Eq, Show)
+
 -- | The steps that the tool puts in the workflow.
 data Hooks = Hooks
   { beforeBuild :: [Item Node]
@@ -133,6 +143,7 @@ defaultConfig =
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
     , runsOn = plain "ubuntu-26.04"
     , branches = [plain "master", plain "main"]
+    , submodules = NoSubmodules
     , matrix = []
     , apt = []
     , services = Nothing
@@ -268,6 +279,7 @@ configFromNode = \case
       cabalVersion <- field "cabal-version" defaultConfig.cabalVersion cabalVersionField
       runsOn <- field "runs-on" defaultConfig.runsOn scalar
       branches <- field "branches" defaultConfig.branches branchesField
+      submodules <- field "submodules" defaultConfig.submodules submodulesField
       matrix <- field "matrix" defaultConfig.matrix matrixField
       apt <- field "apt" defaultConfig.apt textList
       services <- field "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
@@ -405,6 +417,13 @@ configFromNode = \case
       Sequence items -> traverse (scalar path . (.value)) items
       _ -> expected path "a list of branches"
 
+    submodulesField :: String -> Node -> Check Submodules
+    submodulesField path n = case (n, boolValue n) of
+      (Scalar _ "recursive", _) -> pure RecursiveSubmodules
+      (_, Just True) -> pure TopSubmodules
+      (_, Just False) -> pure NoSubmodules
+      _ -> expected path "true, false or recursive"
+
     permissionsField :: String -> Node -> Check Node
     permissionsField path = \case
       n@(Mapping _) -> pure n
@@ -532,11 +551,14 @@ textList path = \case
   _ -> expected path "a list of strings"
 
 bool :: String -> Node -> Check Bool
-bool path = \case
+bool path n = maybe (expected path "true or false") pure (boolValue n)
+
+boolValue :: Node -> Maybe Bool
+boolValue = \case
   Scalar Plain t
-    | t `elem` ["true", "True", "TRUE"] -> pure True
-    | t `elem` ["false", "False", "FALSE"] -> pure False
-  _ -> expected path "true or false"
+    | t `elem` ["true", "True", "TRUE"] -> Just True
+    | t `elem` ["false", "False", "FALSE"] -> Just False
+  _ -> Nothing
 
 versionRange :: String -> Node -> Check VersionRange
 versionRange path n =

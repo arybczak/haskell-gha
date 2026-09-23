@@ -23,6 +23,7 @@ configTests =
     , testCase "an empty doctest field enables doctest" test_emptyDoctest
     , testCase "a null value gives the default" test_null
     , testCase "cabal-version latest" test_latest
+    , testCase "recursive submodules" test_recursiveSubmodules
     , testCase "a folded ghc-options value" test_foldedGhcOptions
     , testCase "errors" test_errors
     , testCase "all errors are collected" test_allErrors
@@ -48,6 +49,7 @@ test_example = do
         , "cabal-version: 3.14.2.0"
         , "runs-on: ubuntu-24.04"
         , "branches: [master]"
+        , "submodules: true"
         , "matrix:"
         , "  postgres: ['15', '18']"
         , "  exclude:"
@@ -94,6 +96,7 @@ test_example = do
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
   assertEqual "runs-on" (plain "ubuntu-24.04") config.runsOn
   assertEqual "branches" [plain "master"] config.branches
+  assertEqual "submodules" TopSubmodules config.submodules
   assertEqual "matrix axes" ["postgres"] (matrixAxes config)
   assertEqual "matrix ghc values" ["9.10"] (matrixGhcValues config)
   assertEqual "apt" ["libpq-dev"] config.apt
@@ -137,6 +140,11 @@ test_null = do
   config <- parseOk "jobs: ~\nhooks:\n"
   assertEqual "config" defaultConfig config
 
+test_recursiveSubmodules :: Assertion
+test_recursiveSubmodules = do
+  config <- parseOk "submodules: recursive\n"
+  assertEqual "submodules" RecursiveSubmodules config.submodules
+
 test_foldedGhcOptions :: Assertion
 test_foldedGhcOptions = do
   config <- parseOk "ghc-options: >\n  -Wall\n  -Werror\n"
@@ -157,6 +165,7 @@ test_errors = do
   assertError "jobs type" "field \"jobs\": expected a positive integer" "jobs: four\n"
   assertError "tests" "field \"tests\": expected true or false" "tests: 'true'\n"
   assertError "branches" "field \"branches\": the list must not be empty" "branches: []\n"
+  assertError "submodules" "field \"submodules\": expected true, false or recursive" "submodules: 'yes'\n"
   assertError "runs-on" "field \"runs-on\": expected a string" "runs-on: [self-hosted, linux]\n"
   assertError "old cabal" "field \"cabal-version\": the GHC job semaphore needs cabal 3.12 or later" "cabal-version: '3.10'\n"
   assertError "unquoted number" "field \"hlint.version\": expected a string. Quote the value, e.g. '3.10'" "hlint:\n  version: 3.10\n"

@@ -145,6 +145,7 @@ name: CI
 cabal-version: '3.16.1.0'
 runs-on: ubuntu-26.04
 branches: [master, main]
+submodules: false
 matrix:
   postgres: ['15', '18']
   exclude:
@@ -201,6 +202,7 @@ actions:
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
 | `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |
+| `submodules` | `false` | Fetch the Git submodules in the build jobs: `true`, `false` or `recursive`. `recursive` also fetches the submodules of each submodule. The fourmolu and HLint jobs do not fetch them. |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers, as in GitHub Actions. |

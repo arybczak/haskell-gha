@@ -54,6 +54,8 @@ jobs:
           postgres: '15'
     steps:
     - uses: actions/checkout@v6
+      with:
+        submodules: recursive
 
     - name: Install the system packages
       run: |

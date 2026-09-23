@@ -1,3 +1,5 @@
 # Fourmolu and HLint with the defaults.
 fourmolu:
 hlint:
+# Only the build job fetches the submodules.
+submodules: true

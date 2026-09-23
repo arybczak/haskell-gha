@@ -195,7 +195,7 @@ workflow opts config project = runCheck $ checks $> root
           ( "steps"
           , Sequence
               ( separate
-                  [ item checkoutStep
+                  [ item (checkoutStep NoSubmodules)
                   , item $
                       mapping
                         [ ("uses", plain ("haskell-actions/run-fourmolu@" <> config.actions.runFourmolu))
@@ -222,7 +222,7 @@ workflow opts config project = runCheck $ checks $> root
           ( "steps"
           , Sequence
               ( separate
-                  [ item checkoutStep
+                  [ item (checkoutStep NoSubmodules)
                   , item $
                       mapping
                         [ ("uses", plain ("haskell-actions/hlint-setup@" <> config.actions.hlintSetup))
@@ -254,8 +254,15 @@ workflow opts config project = runCheck $ checks $> root
         jsonString :: T.Text -> T.Text
         jsonString t = "\"" <> T.concatMap (\c -> if c `elem` ['"', '\\'] then T.pack ['\\', c] else T.singleton c) t <> "\""
 
-    checkoutStep :: Node
-    checkoutStep = mapping [("uses", plain ("actions/checkout@" <> config.actions.checkout))]
+    -- The fourmolu and HLint jobs do not fetch the submodules, because the
+    -- files of a submodule are not the code of the project.
+    checkoutStep :: Submodules -> Node
+    checkoutStep submodules =
+      mapping $
+        ("uses", plain ("actions/checkout@" <> config.actions.checkout)) : case submodules of
+          NoSubmodules -> []
+          TopSubmodules -> [("with", mapping [("submodules", boolean True)])]
+          RecursiveSubmodules -> [("with", mapping [("submodules", plain "recursive")])]
 
     jobName :: Node
     jobName = case matrixAxes config of
@@ -273,7 +280,7 @@ workflow opts config project = runCheck $ checks $> root
     steps :: [Item Node]
     steps =
       concat
-        [ [item checkoutStep]
+        [ [item (checkoutStep config.submodules)]
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
         , [item setupStep]
         , [item versionsStep]

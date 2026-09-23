@@ -2,6 +2,7 @@ name: Postgres CI
 cabal-version: latest
 runs-on: ubuntu-24.04
 branches: [master, 'release/**']
+submodules: recursive
 matrix:
   postgres: ['15', '18']
   exclude:

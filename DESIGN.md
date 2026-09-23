@@ -177,6 +177,7 @@ name: CI
 cabal-version: '3.16.1.0'
 runs-on: ubuntu-26.04
 branches: [master, main]
+submodules: false
 matrix:
   postgres: ['15', '18']
   exclude:
@@ -233,6 +234,7 @@ actions:
 | `cabal-version` | `3.16.1.0` | The cabal version for `haskell-actions/setup`. `latest` is also valid. See [Decisions](#decisions). |
 | `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. A list of labels is an error. See [Decisions](#decisions). |
 | `branches` | `[master, main]` | The branches for the `push` trigger. An empty list is an error. |
+| `submodules` | `false` | The Git submodules that the build jobs fetch: `true`, `false` or `recursive`. See [The generated workflow](#the-generated-workflow). |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers. The tool copies the map to `jobs.build.services`. |
@@ -647,6 +649,13 @@ test error in a local package does not prevent the save.
 If `apt` is not empty, a step after the checkout runs
 `sudo apt-get update` and
 `sudo apt-get install -y --no-install-recommends <packages>`.
+
+If `submodules` is `true` or `recursive`, the checkout step of the build job
+gets `with: submodules: <value>`. `actions/checkout` does not fetch the
+submodules by default. A hook cannot fetch them, because the source
+tarballs, the build plan and the dependencies come before the first hook.
+The fourmolu and HLint jobs do not fetch the submodules, because the files
+of a submodule are not the code of the project, e.g. a vendored C library.
 
 If `services` is set, the tool puts it in `jobs.build.services`.
 
