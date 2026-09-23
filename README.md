@@ -332,6 +332,12 @@ code as the release `v2.4.10`. When a new release comes out, set
   Take a package that is not in the project for a GHC version. If another
   package depends on it, cabal gets it from Hackage and applies the
   options, e.g. `-Werror`.
+- The cache keys contain the runner image from the environment variable
+  `ImageOS`. Only the runners of GitHub set this variable. On a
+  self-hosted runner, the keys have no image part. A cache from an earlier
+  system of the runner can then link against system libraries that the
+  runner no longer has. If you change the system of a self-hosted runner,
+  delete the caches of the repository.
 - A comment at the end of a line moves to its own line. A comment before
   the first entry of a mapping or a list moves before the key of that
   mapping or list.
