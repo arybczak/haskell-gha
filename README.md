@@ -132,6 +132,10 @@ For the same reason, all packages must write a series in the same form. If
 one package lists `GHC ^>= 9.10` and another lists `GHC == 9.10.3`, the
 tool stops with an error. No conditional block can separate the two.
 
+For GHC 9.4 and older, the workflow installs the Ubuntu package
+`binutils-gold`. The `hsc2hs` of these versions needs the gold linker, and
+Ubuntu 25.10 and later do not install it by default.
+
 ## Configuration
 
 All fields of the configuration file are optional. An unknown field is an

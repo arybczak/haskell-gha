@@ -254,6 +254,17 @@ An expression cannot read an environment variable of the runner. Thus the
 step `Show the versions` writes `ImageOS` to its output `image`, and the
 cache key reads it from there.
 
+GHC 9.4 and older prefer the gold linker. If the runner has no gold, GHC
+uses the standard linker after its installation. But the `hsc2hs` wrapper of
+these versions still passes `-fuse-ld=gold` to gcc, so each package that
+uses `hsc2hs` fails to build. Ubuntu 25.10 and later have gold only in the
+package `binutils-gold`, which the runner image does not install. Thus the
+workflow installs it for these GHC versions only.
+
+For GHC 9.6 and later, the package would cost an `apt-get update` in each
+job. These versions can also pick gold as their linker, and gold is
+deprecated.
+
 The default of `jobs` is 4, because the standard Linux runners of GitHub have
 4 CPUs. The configuration step writes `jobs: <N>`, so cabal builds up to N
 packages at the same time. GHC 9.8 and later support the GHC job semaphore,

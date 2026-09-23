@@ -291,6 +291,7 @@ workflow opts config project = runCheck $ checks $> root
       concat
         [ [item (checkoutStep config.submodules)]
         , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
+        , [item $ runStep "Install the gold linker" (Just goldEntries) (aptScript ["binutils-gold"]) | not (null goldEntries)]
         , [item setupStep]
         , [item versionsStep]
         , -- A hook can install a library that the build plan needs, and the
@@ -580,6 +581,11 @@ workflow opts config project = runCheck $ checks $> root
     -- major series, so the range decides each entry completely.
     hasSemaphore :: GhcEntry -> Bool
     hasSemaphore e = decide (orLaterVersion (mkVersion [9, 8])) e == Included
+
+    -- The hsc2hs of GHC 9.4 and older links with gold also if the runner has
+    -- no gold, and Ubuntu 25.10 and later do not install gold by default.
+    goldEntries :: [GhcEntry]
+    goldEntries = [e | e <- entries, decide (earlierVersion (mkVersion [9, 5])) e == Included]
 
     testEntries :: [GhcEntry]
     testEntries = [e.ghc | e <- project.matrix, any (.hasTestSuite) e.packages]
