@@ -254,47 +254,40 @@ parseConfig file input = case parseYaml input of
 
 configFromNode :: Node -> Check Config
 configFromNode = \case
-  Mapping entries _ -> do
-    knownFields "" topLevelFields entries
-    name <- field entries "name" defaultConfig.name scalar
-    cabalVersion <- field entries "cabal-version" defaultConfig.cabalVersion cabalVersionField
-    runsOn <- field entries "runs-on" defaultConfig.runsOn scalar
-    branches <- field entries "branches" defaultConfig.branches branchesField
-    matrix <- field entries "matrix" defaultConfig.matrix matrixField
-    apt <- field entries "apt" defaultConfig.apt textList
-    services <- field entries "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
-    permissions <- field entries "permissions" defaultConfig.permissions permissionsField
-    hooks <- field entries "hooks" defaultConfig.hooks hooksField
-    ghcOptions <- field entries "ghc-options" defaultConfig.ghcOptions oneLine
-    cabalProjectLocal <- field entries "cabal-project-local" defaultConfig.cabalProjectLocal projectText
-    jobs <- field entries "jobs" defaultConfig.jobs positiveInt
-    tests <- field entries "tests" defaultConfig.tests bool
-    benchmarks <- field entries "benchmarks" defaultConfig.benchmarks bool
-    doctest <- doctestField entries
-    check <- field entries "check" defaultConfig.check bool
-    sdist <- field entries "sdist" defaultConfig.sdist bool
-    haddock <- field entries "haddock" defaultConfig.haddock bool
-    fourmolu <- fourmoluField entries
-    hlint <- hlintField entries
-    actions <- field entries "actions" defaultConfig.actions actionsField
-    pure Config {..}
+  Mapping entries _ -> runFields "" configFields entries
   _ -> failure "the configuration must be a mapping"
   where
-    topLevelFields :: [T.Text]
-    topLevelFields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "permissions", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "hlint", "actions"]
+    configFields :: Fields Config
+    configFields = do
+      name <- field "name" defaultConfig.name scalar
+      cabalVersion <- field "cabal-version" defaultConfig.cabalVersion cabalVersionField
+      runsOn <- field "runs-on" defaultConfig.runsOn scalar
+      branches <- field "branches" defaultConfig.branches branchesField
+      matrix <- field "matrix" defaultConfig.matrix matrixField
+      apt <- field "apt" defaultConfig.apt textList
+      services <- field "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
+      permissions <- field "permissions" defaultConfig.permissions permissionsField
+      hooks <- field "hooks" defaultConfig.hooks (mappingOf hooksFields)
+      ghcOptions <- field "ghc-options" defaultConfig.ghcOptions oneLine
+      cabalProjectLocal <- field "cabal-project-local" defaultConfig.cabalProjectLocal projectText
+      jobs <- field "jobs" defaultConfig.jobs positiveInt
+      tests <- field "tests" defaultConfig.tests bool
+      benchmarks <- field "benchmarks" defaultConfig.benchmarks bool
+      doctest <- section "doctest" defaultDoctest doctestFields
+      check <- field "check" defaultConfig.check bool
+      sdist <- field "sdist" defaultConfig.sdist bool
+      haddock <- field "haddock" defaultConfig.haddock bool
+      fourmolu <- section "fourmolu" defaultFourmolu fourmoluFields
+      hlint <- section "hlint" defaultHLint hlintFields
+      actions <- field "actions" defaultConfig.actions (mappingOf actionsFields)
+      pure Config {..}
 
-    hlintField :: [Item (Key, Node)] -> Check (Maybe HLint)
-    hlintField entries = case lookupKey "hlint" entries of
-      Nothing -> pure Nothing
-      Just n | isNull n -> pure $ Just defaultHLint
-      Just (Mapping hs _) -> do
-        knownFields "hlint." ["version", "fail-on", "path"] hs
-        version <- field' hs "hlint.version" "version" defaultHLint.version versionField
-        failOn <- field' hs "hlint.fail-on" "fail-on" defaultHLint.failOn failOnField
-        path <- field' hs "hlint.path" "path" defaultHLint.path textList
-        pure $ Just HLint {..}
-      Just _ -> expected "hlint" "a mapping"
+    hlintFields :: Fields HLint
+    hlintFields = do
+      version <- field "version" defaultHLint.version versionField
+      failOn <- field "fail-on" defaultHLint.failOn failOnField
+      path <- field "path" defaultHLint.path textList
+      pure HLint {..}
 
     failOnField :: String -> Node -> Check T.Text
     failOnField path n =
@@ -306,16 +299,11 @@ configFromNode = \case
         levels :: [T.Text]
         levels = ["never", "status", "warning", "suggestion", "error"]
 
-    fourmoluField :: [Item (Key, Node)] -> Check (Maybe Fourmolu)
-    fourmoluField entries = case lookupKey "fourmolu" entries of
-      Nothing -> pure Nothing
-      Just n | isNull n -> pure $ Just defaultFourmolu
-      Just (Mapping fs _) -> do
-        knownFields "fourmolu." ["version", "pattern"] fs
-        version <- field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
-        patterns <- field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns patternList
-        pure $ Just Fourmolu {..}
-      Just _ -> expected "fourmolu" "a mapping"
+    fourmoluFields :: Fields Fourmolu
+    fourmoluFields = do
+      version <- field "version" defaultFourmolu.version versionField
+      patterns <- field "pattern" defaultFourmolu.patterns patternList
+      pure Fourmolu {..}
 
     -- The workflow gives the patterns to the action as a literal block with
     -- one pattern on each line. The YAML writer breaks the block if its first
@@ -336,18 +324,15 @@ configFromNode = \case
         Just v -> pure v
         Nothing -> expected path "a version, e.g. 0.20.1.0"
 
-    actionsField :: String -> Node -> Check Actions
-    actionsField path = \case
-      Mapping as _ -> do
-        knownFields "actions." ["checkout", "setup", "cache", "run-fourmolu", "hlint-setup", "hlint-run"] as
-        checkout <- field' as "actions.checkout" "checkout" defaultConfig.actions.checkout ref
-        setup <- field' as "actions.setup" "setup" defaultConfig.actions.setup ref
-        cache <- field' as "actions.cache" "cache" defaultConfig.actions.cache ref
-        runFourmolu <- field' as "actions.run-fourmolu" "run-fourmolu" defaultConfig.actions.runFourmolu ref
-        hlintSetup <- field' as "actions.hlint-setup" "hlint-setup" defaultConfig.actions.hlintSetup ref
-        hlintRun <- field' as "actions.hlint-run" "hlint-run" defaultConfig.actions.hlintRun ref
-        pure Actions {..}
-      _ -> expected path "a mapping"
+    actionsFields :: Fields Actions
+    actionsFields = do
+      checkout <- field "checkout" defaultConfig.actions.checkout ref
+      setup <- field "setup" defaultConfig.actions.setup ref
+      cache <- field "cache" defaultConfig.actions.cache ref
+      runFourmolu <- field "run-fourmolu" defaultConfig.actions.runFourmolu ref
+      hlintSetup <- field "hlint-setup" defaultConfig.actions.hlintSetup ref
+      hlintRun <- field "hlint-run" defaultConfig.actions.hlintRun ref
+      pure Actions {..}
 
     ref :: String -> Node -> Check T.Text
     ref path n =
@@ -372,27 +357,19 @@ configFromNode = \case
           then failure $ "field " ++ show path ++ ": the value must be one line"
           else pure (T.strip t)
 
-    hooksField :: String -> Node -> Check Hooks
-    hooksField path = \case
-      Mapping hs _ -> do
-        knownFields "hooks." ["before-build", "after-build"] hs
-        beforeBuild <- field' hs "hooks.before-build" "before-build" [] steps
-        afterBuild <- field' hs "hooks.after-build" "after-build" [] steps
-        pure Hooks {..}
-      _ -> expected path "a mapping"
+    hooksFields :: Fields Hooks
+    hooksFields = do
+      beforeBuild <- field "before-build" [] steps
+      afterBuild <- field "after-build" [] steps
+      pure Hooks {..}
 
-    doctestField :: [Item (Key, Node)] -> Check (Maybe Doctest)
-    doctestField entries = case lookupKey "doctest" entries of
-      Nothing -> pure Nothing
-      Just n | isNull n -> pure $ Just defaultDoctest
-      Just (Mapping ds _) -> do
-        knownFields "doctest." ["ghc", "version", "skip", "options"] ds
-        ghc <- field' ds "doctest.ghc" "ghc" defaultDoctest.ghc versionRange
-        version <- field' ds "doctest.version" "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
-        skip <- field' ds "doctest.skip" "skip" defaultDoctest.skip textList
-        options <- field' ds "doctest.options" "options" defaultDoctest.options textList
-        pure $ Just Doctest {..}
-      Just _ -> expected "doctest" "a mapping"
+    doctestFields :: Fields Doctest
+    doctestFields = do
+      ghc <- field "ghc" defaultDoctest.ghc versionRange
+      version <- field "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
+      skip <- field "skip" defaultDoctest.skip textList
+      options <- field "options" defaultDoctest.options textList
+      pure Doctest {..}
 
     -- A number beyond the range of Int wraps around. No real job count is
     -- that large, so the reader does not check for it.
@@ -476,29 +453,51 @@ configFromNode = \case
 ----------------------------------------
 -- Fields
 
--- | Read a top-level field.
-field :: [Item (Key, Node)] -> T.Text -> a -> (String -> Node -> Check a) -> Check a
-field entries k = field' entries k k
+-- | A reader of the fields of a mapping. It knows the keys that it reads, so
+-- each other key of the mapping is an error.
+data Fields a = Fields [T.Text] (T.Text -> [Item (Key, Node)] -> Check a)
 
--- | Read a field. A missing field or a null value gives the default.
-field'
-  :: [Item (Key, Node)]
-  -> T.Text
-  -- ^ The path of the field for the error messages.
-  -> T.Text
-  -- ^ The key.
-  -> a
-  -> (String -> Node -> Check a)
+instance Functor Fields where
+  fmap f (Fields keys reader) = Fields keys (\prefix entries -> f <$> reader prefix entries)
+
+instance Applicative Fields where
+  pure a = Fields [] (\_ _ -> pure a)
+  Fields keys1 reader1 <*> Fields keys2 reader2 =
+    Fields (keys1 ++ keys2) (\prefix entries -> reader1 prefix entries <*> reader2 prefix entries)
+
+-- | Read the entries of a mapping.
+runFields
+  :: T.Text
+  -- ^ The prefix of the field paths for the error messages, e.g. @hlint.@.
+  -> Fields a
+  -> [Item (Key, Node)]
   -> Check a
-field' entries path k def reader = case lookupKey k entries of
-  Just n | not (isNull n) -> reader (T.unpack path) n
-  _ -> pure def
-
-knownFields :: T.Text -> [T.Text] -> [Item (Key, Node)] -> Check ()
-knownFields prefix known entries =
+runFields prefix (Fields known reader) entries =
   traverse_
     (\k -> failure $ "unknown field " ++ show (T.unpack $ prefix <> k))
     [k.name | Item _ (k, _) <- entries, k.name `notElem` known]
+    *> reader prefix entries
+
+-- | Read a field. A missing field or a null value gives the default.
+field :: T.Text -> a -> (String -> Node -> Check a) -> Fields a
+field k def reader = Fields [k] $ \prefix entries -> case lookupKey k entries of
+  Just n | not (isNull n) -> reader (T.unpack $ prefix <> k) n
+  _ -> pure def
+
+-- | Read an optional field with a mapping. A missing field gives 'Nothing',
+-- and a null value gives the default.
+section :: T.Text -> a -> Fields a -> Fields (Maybe a)
+section k def fields = Fields [k] $ \prefix entries -> case lookupKey k entries of
+  Nothing -> pure Nothing
+  Just n
+    | isNull n -> pure $ Just def
+    | otherwise -> Just <$> mappingOf fields (T.unpack $ prefix <> k) n
+
+-- | Read a mapping with the given fields.
+mappingOf :: Fields a -> String -> Node -> Check a
+mappingOf fields path = \case
+  Mapping entries _ -> runFields (T.pack path <> ".") fields entries
+  _ -> expected path "a mapping"
 
 expected :: String -> String -> Check a
 expected path what = failure $ "field " ++ show path ++ ": expected " ++ what
