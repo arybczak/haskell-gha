@@ -1,5 +1,7 @@
 # haskell-gha
 
+[![CI](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yml/badge.svg?branch=master)](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yml)
+
 haskell-gha writes a GitHub Actions workflow for a Haskell cabal project. The
 workflow builds and tests the project on each GHC version from the
 `tested-with` field of its packages.
