@@ -256,7 +256,7 @@ renderYaml header root = T.unlines . map emptyLine . T.lines . TL.toStrict $ Y.w
     events :: [Y.Event]
     events =
       [Y.StreamStart, Y.DocumentStart Y.NoDirEndMarker]
-        ++ map (Y.Comment . (" " <>)) header
+        ++ map (\h -> Y.Comment $ if T.null h then "" else " " <> h) header
         ++ map commentEvent rootComments
         ++ nodeEvents root'
         ++ [Y.DocumentEnd False, Y.StreamEnd]

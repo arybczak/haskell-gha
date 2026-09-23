@@ -44,8 +44,8 @@ The tool accepts these options:
 All paths are relative to the current directory, which must be the root of
 the repository.
 
-The first lines of the workflow file are a comment with the version of the
-tool and the command that made the file. If the tool finds a problem, it
+The first lines of the workflow file are a comment. It gives the version of
+the tool, the command that made the file and a link to this repository. If the tool finds a problem, it
 prints all problems of the step that failed and exits with code 1.
 
 ### Keep the workflow up to date
