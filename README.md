@@ -253,7 +253,7 @@ Thus the workflow makes the tarballs with `cabal sdist all` and unpacks
 them into a separate directory. It copies `cabal.project`,
 `cabal.project.freeze` and `cabal.project.local` next to them. The build,
 the tests, doctest, `cabal check` and haddock then run in that directory.
-The hooks still run in the checkout.
+The hooks still run in the checkout, in the project directory.
 
 Set `sdist: false` in these cases:
 
