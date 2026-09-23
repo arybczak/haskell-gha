@@ -116,10 +116,9 @@ readProject dir = do
             else do
               pkgs <- forM cabalFiles $ \f -> readPackage (dir </> f) f
               pure . runCheck $
-                -- A package is known by its directory. If two .cabal files
-                -- in one directory are listed by name, both entries give the
-                -- first package. Such a layout is rare, so the tool accepts
-                -- this.
+                -- A package is known by its directory. If two .cabal files in
+                -- one directory are listed by name, both entries give the first
+                -- package. Such a layout is rare, so the tool accepts this.
                 traverse fromErrors pkgs `andThen` \packages ->
                   let byToken t = [p | f <- concat (lookup t found), Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]]
                   in projectFrom exists dir packages byToken ps
@@ -211,8 +210,8 @@ fieldTokens ls = tokens . unwords $ [T.unpack (T.decodeUtf8Lenient l) | FieldLin
 ----------------------------------------
 -- Package locations
 
--- | Find the @.cabal@ files of an entry of @packages:@. The paths are
--- relative to the project directory.
+-- | Find the @.cabal@ files of an entry of @packages:@. The paths are relative
+-- to the project directory.
 findPackages :: FilePath -> Bool -> String -> IO (Either [String] [FilePath])
 findPackages dir required t
   | "://" `L.isInfixOf` t = pure $ Left ["The package location " ++ show t ++ " is a URL. The tool supports only local packages."]
@@ -311,8 +310,8 @@ readPackage path relative = do
           then []
           else ["-X" ++ prettyShow l | Just l <- [defaultLanguage bi]] ++ ["-X" ++ prettyShow e | e <- defaultExtensions bi] ++ sources
 
-    -- For a module name, GHC takes the compiled module from the GHC
-    -- environment file, and doctest finds no examples. A file name works.
+    -- For a module name, GHC takes the compiled module from the GHC environment
+    -- file, and doctest finds no examples. A file name works.
     moduleFile :: ModuleName.ModuleName -> IO FilePath
     moduleFile m = fromMaybe (prettyShow m) <$> findModuleFile m
 
@@ -368,9 +367,9 @@ projectFrom exists dir packages byToken parts =
     supports :: GhcEntry -> Package -> Check ()
     supports entry p = case decide p.ghcRange entry of
       Included -> pure ()
-      -- The package lists exact versions of a series that another package
-      -- lists as a whole. A condition that includes the exact entries
-      -- includes a part of the series entry too, so no block can help.
+      -- The package lists exact versions of a series that another package lists
+      -- as a whole. A condition that includes the exact entries includes a part
+      -- of the series entry too, so no block can help.
       Partial ->
         failure $
           "Package "

@@ -43,8 +43,8 @@ optionsParser =
       output <- strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
       pure Options {..}
 
--- | The command line that gives the options. It contains only the options
--- that are not defaults.
+-- | The command line that gives the options. It contains only the options that
+-- are not defaults.
 commandLine :: Options -> [String]
 commandLine opts =
   "haskell-gha"

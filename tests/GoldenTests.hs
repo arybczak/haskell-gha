@@ -17,9 +17,9 @@ import HaskellGha.Options
 import HaskellGha.Workflow
 import HaskellGha.Yaml
 
--- | A test for each directory in @tests/golden@. The test runs the tool in
--- the directory, with the arguments from the file @args@. If the directory
--- contains @haskell-gha.conf.yml@, the test uses it as the configuration.
+-- | A test for each directory in @tests/golden@. The test runs the tool in the
+-- directory, with the arguments from the file @args@. If the directory contains
+-- @haskell-gha.conf.yml@, the test uses it as the configuration.
 goldenTests :: IO TestTree
 goldenTests = do
   fixtures <- L.sort <$> listDirectory goldenDir

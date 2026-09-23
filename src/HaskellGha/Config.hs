@@ -168,8 +168,8 @@ defaultHLint =
     , path = []
     }
 
--- | The fourmolu configuration of an empty @fourmolu@ field. Version 0.20
--- and later needs run-fourmolu v13 or later.
+-- | The fourmolu configuration of an empty @fourmolu@ field. Version 0.20 and
+-- later needs run-fourmolu v13 or later.
 defaultFourmolu :: Fourmolu
 defaultFourmolu =
   Fourmolu

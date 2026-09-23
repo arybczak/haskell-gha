@@ -25,8 +25,8 @@ import HaskellGha.Options
 import HaskellGha.Project
 import HaskellGha.Yaml
 
--- | Read the configuration and the project, and make the workflow. The
--- phases run in order, and each phase shows all its errors.
+-- | Read the configuration and the project, and make the workflow. The phases
+-- run in order, and each phase shows all its errors.
 generate :: Options -> IO (Either [String] Node)
 generate opts =
   readConfig opts.config >>= \case
@@ -74,8 +74,8 @@ workflow opts config project = runCheck $ checks $> root
         *> for_ config.doctest (\d -> traverse_ (checkDoctestRange d) entries *> traverse_ checkSkip d.skip)
         *> when config.sdist (traverse_ checkImport project.imports *> traverse_ checkInside project.packages)
 
-    -- cabal fetches an import from a URL, so only a local file is missing
-    -- from the copy.
+    -- cabal fetches an import from a URL, so only a local file is missing from
+    -- the copy.
     checkImport :: Import -> Check ()
     checkImport i
       | "://" `L.isInfixOf` i.target = pure ()
@@ -86,8 +86,8 @@ workflow opts config project = runCheck $ checks $> root
               ++ i.target
               ++ ". Set sdist: false in the configuration."
 
-    -- The unpack step keeps the path of each package relative to the
-    -- project directory, so a path with .. leads out of the copy.
+    -- The unpack step keeps the path of each package relative to the project
+    -- directory, so a path with .. leads out of the copy.
     checkInside :: Package -> Check ()
     checkInside p
       | outside p.directory =
@@ -203,7 +203,7 @@ workflow opts config project = runCheck $ checks $> root
                           , mapping $
                               [("version", singleQuoted (T.pack (prettyShow f.version)))]
                                 ++ [("pattern", literal (T.unlines f.patterns)) | not (null f.patterns)]
-                                -- The defaults of run do not apply to an action.
+                                -- The run defaults do not apply to an action.
                                 ++ [("working-directory", plain (T.pack projectDir)) | projectDir /= "."]
                           )
                         ]
@@ -239,8 +239,8 @@ workflow opts config project = runCheck $ checks $> root
           )
         ]
 
-    -- The action runs in the root of the repository and takes one path, or
-    -- a JSON array of paths. Without a path, it checks the root.
+    -- The action runs in the root of the repository and takes one path, or a
+    -- JSON array of paths. Without a path, it checks the root.
     hlintPath :: HLint -> Maybe Node
     hlintPath h = case paths of
       ["."] -> Nothing
@@ -366,8 +366,8 @@ workflow opts config project = runCheck $ checks $> root
           [] -> []
           cs -> [("if", plain (T.intercalate " && " cs))]
 
-        -- A store that already contains doctest gives a plan without it, so
-        -- the dry run uses an empty store.
+        -- A store that already contains doctest gives a plan without it, so the
+        -- dry run uses an empty store.
         findDoctest :: T.Text
         findDoctest =
           T.unlines
@@ -387,8 +387,8 @@ workflow opts config project = runCheck $ checks $> root
         ["cd " <> shellQuote (T.pack p.directory) | p.directory /= "."]
           ++ [T.unwords ("\"$HOME\"/.local/bin/doctest" : map shellQuote (d.options ++ map T.pack args)) | args <- p.doctestArgs]
 
-    -- cabal check works on the package in the current directory. All lines
-    -- run in one shell, so a subshell keeps each cd to its own line.
+    -- cabal check works on the package in the current directory. All lines run
+    -- in one shell, so a subshell keeps each cd to its own line.
     checkScript :: [Package] -> T.Text
     checkScript pkgs =
       T.unlines
@@ -396,8 +396,8 @@ workflow opts config project = runCheck $ checks $> root
         | p <- pkgs
         ]
 
-    -- The content of the tarballs, at the same relative paths as in the
-    -- project directory.
+    -- The content of the tarballs, at the same relative paths as in the project
+    -- directory.
     sourceDir :: T.Text
     sourceDir = "\"$RUNNER_TEMP\"/haskell-gha"
 
@@ -419,8 +419,8 @@ workflow opts config project = runCheck $ checks $> root
             , let dir = if p.directory == "." then sourceDir else sourceDir <> "/" <> shellQuote (T.pack p.directory)
             ]
 
-    -- A step with a script. The script runs for the given matrix entries,
-    -- or for all of them.
+    -- A step with a script. The script runs for the given matrix entries, or
+    -- for all of them.
     runStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
     runStep = step False
 
@@ -480,8 +480,8 @@ workflow opts config project = runCheck $ checks $> root
       CabalLatest -> "latest"
       CabalVersion v -> T.pack (prettyShow v)
 
-    -- An expression cannot read the environment variable ImageOS of the
-    -- runner, so the step gives it to the cache key as an output.
+    -- An expression cannot read the environment variable ImageOS of the runner,
+    -- so the step gives it to the cache key as an output.
     versionsStep :: Node
     versionsStep =
       mapping
@@ -563,8 +563,8 @@ workflow opts config project = runCheck $ checks $> root
           )
         ]
 
-    -- A store from another image can link against system libraries that
-    -- this image does not have.
+    -- A store from another image can link against system libraries that this
+    -- image does not have.
     cachePrefix :: T.Text
     cachePrefix = "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-"
 

@@ -158,8 +158,8 @@ parseYaml input = do
 
     -- Comments come with their columns. The second component of the result
     -- holds the comments that belong to the next item of the parent: the
-    -- comments before a scalar, and the comments at the end of a mapping
-    -- with a smaller column than its keys.
+    -- comments before a scalar, and the comments at the end of a mapping with a
+    -- smaller column than its keys.
     node :: [(Int, Comment)] -> [Y.EvPos] -> Either YamlError (Node, [(Int, Comment)], [Y.EvPos])
     node cs = \case
       ev@(Y.EvPos (Y.Scalar anchor tag s t) _) : evs -> do
@@ -242,8 +242,8 @@ parseYaml input = do
 ----------------------------------------
 -- Rendering
 
--- | Render a node as a YAML document. The header lines become comments at
--- the start of the document.
+-- | Render a node as a YAML document. The header lines become comments at the
+-- start of the document.
 renderYaml
   :: [T.Text]
   -- ^ The header lines.
@@ -290,8 +290,8 @@ renderYaml header root = T.unlines . map emptyLine . T.lines . TL.toStrict $ Y.w
     emptyLineMarker = "\x1F"
 
 -- | The writer of HsYAML cannot write a comment before the first entry of a
--- collection. Move such comments before the entry that contains the
--- collection. The first component of the result goes before the node.
+-- collection. Move such comments before the entry that contains the collection.
+-- The first component of the result goes before the node.
 liftComments :: Node -> ([Comment], Node)
 liftComments = \case
   Scalar s t -> ([], Scalar s t)

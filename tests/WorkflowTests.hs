@@ -69,8 +69,7 @@ test_unknownSkip =
     "doctest:\n  skip: [other]\n"
     ["The field doctest.skip names the package other, but the project has no such local package."]
 
--- | The errors for a configuration and the project of the golden test
--- @single@.
+-- | The errors for a configuration and the project of the golden test @single@.
 assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
   config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack input
