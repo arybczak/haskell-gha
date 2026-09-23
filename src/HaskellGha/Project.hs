@@ -95,22 +95,27 @@ data Part
     Conditional Position (Condition ConfVar) [Part] [Part]
 
 -- | Read the project in a directory.
-readProject :: FilePath -> IO (Either [String] Project)
-readProject dir = do
+readProject
+  :: FilePath
+  -- ^ The root of the repository.
+  -> FilePath
+  -- ^ The project directory, relative to the root.
+  -> IO (Either [String] Project)
+readProject root dir = do
   let projectFile = dir </> "cabal.project"
-  exists <- doesFileExist projectFile
+  exists <- doesFileExist (root </> projectFile)
   parts <-
     if exists
-      then parseProjectFile projectFile <$> BS.readFile projectFile
+      then parseProjectFile projectFile <$> BS.readFile (root </> projectFile)
       else
-        doesDirectoryExist dir <&> \case
+        doesDirectoryExist (root </> dir) <&> \case
           True -> Right [Packages True ["./*.cabal"]]
           False -> Left ["The project directory " ++ dir ++ " does not exist."]
   case parts of
     Left errors -> pure $ Left errors
     Right ps -> do
       let tokens = L.nub [(required, t) | (required, t) <- allTokens ps]
-      locations <- forM tokens $ \(required, t) -> (t,) <$> findPackages dir required t
+      locations <- forM tokens $ \(required, t) -> (t,) <$> findPackages (root </> dir) required t
       case runCheck $ traverse (\(t, r) -> (t,) <$> fromErrors r) locations of
         Left errors -> pure $ Left errors
         Right found -> do
@@ -118,7 +123,7 @@ readProject dir = do
           if null cabalFiles
             then pure $ Left ["There are no packages in " ++ projectDescription exists dir ++ "."]
             else do
-              pkgs <- forM cabalFiles $ \f -> readPackage (dir </> f) f
+              pkgs <- forM cabalFiles $ \f -> readPackage root (dir </> f) f
               pure . runCheck $
                 -- A package is known by its directory. If two .cabal files in
                 -- one directory are listed by name, both entries give the first
@@ -266,12 +271,14 @@ findPackages dir required t
 -- | Read a @.cabal@ file.
 readPackage
   :: FilePath
-  -- ^ The path to read.
+  -- ^ The root of the repository.
+  -> FilePath
+  -- ^ The path relative to the root.
   -> FilePath
   -- ^ The path relative to the project directory.
   -> IO (Either [String] Package)
-readPackage path relative = do
-  input <- BS.readFile path
+readPackage root path relative = do
+  input <- BS.readFile (root </> path)
   case runCabalParser path (parseGenericPackageDescription input) of
     Left errors -> pure $ Left errors
     Right gpd -> packageFrom gpd <$> doctestArguments (flattenPackageDescription gpd)
@@ -322,7 +329,7 @@ readPackage path relative = do
     -- The file of a module in the package directory.
     findModuleFile :: ModuleName.ModuleName -> IO (Maybe FilePath)
     findModuleFile m =
-      listToMaybe <$> filterM (doesFileExist . (takeDirectory path </>)) [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
+      listToMaybe <$> filterM (doesFileExist . ((root </> takeDirectory path) </>)) [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
 
 ----------------------------------------
 -- Matrix

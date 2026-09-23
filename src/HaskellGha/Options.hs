@@ -55,10 +55,11 @@ optionsParser version =
     -- The workflow uses the directory on the runner, so it must be in the
     -- repository.
     projectDirReader :: ReadM FilePath
-    projectDirReader = eitherReader $ \dir ->
-      if isAbsolute dir || leadsAbove dir
-        then Left $ "The project directory " ++ show dir ++ " is not in the repository. Give a path relative to the root of the repository."
-        else Right dir
+    projectDirReader = eitherReader $ \case
+      "" -> Left "The project directory is empty. For the root of the repository, give \".\"."
+      dir
+        | isAbsolute dir || leadsAbove dir -> Left $ "The project directory " ++ show dir ++ " is not in the repository. Give a path relative to the root of the repository."
+        | otherwise -> Right dir
 
     versionOption :: Parser (a -> a)
     versionOption = infoOption ("haskell-gha " ++ version) (long "version" <> short 'v' <> help "Show the version")

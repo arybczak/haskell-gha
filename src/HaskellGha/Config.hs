@@ -36,6 +36,7 @@ import Data.Text qualified as T
 import Distribution.Parsec
 import Distribution.Version
 import System.Directory
+import System.FilePath
 
 import HaskellGha.Check
 import HaskellGha.Yaml
@@ -228,10 +229,14 @@ defaultConfigPath = ".github/haskell-gha.conf.yml"
 
 -- | Read the configuration file. If the default file does not exist, the
 -- result is 'defaultConfig'.
-readConfig :: ConfigFile -> IO (Either [String] Config)
-readConfig configFile =
-  doesFileExist file >>= \case
-    True -> parseConfig file <$> BL.readFile file
+readConfig
+  :: FilePath
+  -- ^ The root of the repository.
+  -> ConfigFile
+  -> IO (Either [String] Config)
+readConfig root configFile =
+  doesFileExist (root </> file) >>= \case
+    True -> parseConfig file <$> BL.readFile (root </> file)
     False -> pure $ case configFile of
       DefaultConfigFile -> Right defaultConfig
       ConfigFile _ -> Left ["The configuration file " ++ file ++ " does not exist."]

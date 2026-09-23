@@ -37,7 +37,7 @@ test_hlintPathOutside = do
     , "The field hlint.path contains the path /abs, which is not in the repository. Give a path relative to the project directory."
     ]
   config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack "hlint:\n  path: [../x]\n"
-  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} config project)
 
 test_namedDefaultConfig :: Assertion
@@ -53,10 +53,11 @@ test_projectDirOutside = do
   assertEqual "sub" (Just "a/../b") ((.projectDir) <$> parse "a/../b")
   assertEqual "absolute" Nothing (parse "/tmp/project")
   assertEqual "parent" Nothing (parse "a/../../b")
+  assertEqual "empty" Nothing (parse "")
 
 test_sdistNamePrefix :: Assertion
 test_sdistNamePrefix = do
-  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -72,7 +73,7 @@ test_sdistNamePrefix = do
 
 test_sdistOutside :: Assertion
 test_sdistOutside = do
-  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -119,5 +120,5 @@ test_unknownSkip =
 assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
   config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack input
-  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   assertEqual "errors" (Left expected) (workflow defaultOptions config project)

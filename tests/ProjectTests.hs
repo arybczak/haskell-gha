@@ -1,10 +1,11 @@
 module ProjectTests (projectTests) where
 
-import Control.Exception
+import Control.Monad
 import Data.List qualified as L
 import Distribution.Version
 import System.Directory
 import System.FilePath
+import System.IO.Temp
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -38,7 +39,7 @@ projectTests =
 
 test_missingDirectory :: Assertion
 test_missingDirectory = do
-  result <- readProject "tests/does-not-exist"
+  result <- readProject "." "tests/does-not-exist"
   assertEqual "errors" (Left ["The project directory tests/does-not-exist does not exist."]) result
 
 test_single :: Assertion
@@ -316,18 +317,12 @@ cabal name testedWith testSuite =
 
 -- | Write the files of a project to a temporary directory and read it.
 readProjectFiles :: [(FilePath, String)] -> IO (Either [String] Project)
-readProjectFiles files = do
-  tmp <- getTemporaryDirectory
-  let dir = tmp </> "haskell-gha-tests" </> "PROJECT"
-  bracket_ (createDirectoryIfMissing True dir) (removeDirectoryRecursive (takeDirectory dir)) $ do
-    withCurrentDirectory (takeDirectory dir) $ do
-      forM_' files $ \(path, contents) -> do
-        createDirectoryIfMissing True (takeDirectory ("PROJECT" </> path))
-        writeFile ("PROJECT" </> path) contents
-      readProject "PROJECT"
-  where
-    forM_' :: [a] -> (a -> IO ()) -> IO ()
-    forM_' xs f = mapM_ f xs
+readProjectFiles files =
+  withSystemTempDirectory "haskell-gha-tests" $ \root -> do
+    forM_ files $ \(path, contents) -> do
+      createDirectoryIfMissing True (takeDirectory (root </> "PROJECT" </> path))
+      writeFile (root </> "PROJECT" </> path) contents
+    readProject root "PROJECT"
 
 readOk :: [(FilePath, String)] -> IO Project
 readOk files =

@@ -7,7 +7,6 @@ import Data.Maybe
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Distribution.Version
-import System.Directory
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -32,9 +31,9 @@ configTests =
 test_missingFile :: Assertion
 test_missingFile = do
   -- The directory has no default configuration file.
-  optional <- withCurrentDirectory "tests" (readConfig DefaultConfigFile)
+  optional <- readConfig "tests" DefaultConfigFile
   assertEqual "default" (Right defaultConfig) optional
-  required <- readConfig (ConfigFile "tests/does-not-exist.yml")
+  required <- readConfig "." (ConfigFile "tests/does-not-exist.yml")
   assertEqual "named" (Left ["The configuration file tests/does-not-exist.yml does not exist."]) required
 
 test_emptyFile :: Assertion

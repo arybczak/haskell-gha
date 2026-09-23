@@ -27,12 +27,16 @@ import HaskellGha.Yaml
 
 -- | Read the configuration and the project, and make the workflow. The phases
 -- run in order, and each phase shows all its errors.
-generate :: Options -> IO (Either [String] Node)
-generate opts =
-  readConfig opts.config >>= \case
+generate
+  :: FilePath
+  -- ^ The root of the repository. The paths of the options are relative to it.
+  -> Options
+  -> IO (Either [String] Node)
+generate root opts =
+  readConfig root opts.config >>= \case
     Left errors -> pure $ Left errors
     Right config ->
-      readProject opts.projectDir >>= \case
+      readProject root opts.projectDir >>= \case
         Left errors -> pure $ Left errors
         Right project -> pure $ workflow opts config project
 

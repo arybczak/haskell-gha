@@ -37,7 +37,7 @@ golden fixture = do
   opts <- case execParserPure defaultPrefs (optionsParser "TEST") args' of
     Success opts -> pure opts
     _ -> assertFailure $ "invalid arguments: " ++ unwords args'
-  result <- withCurrentDirectory dir (generate opts)
+  result <- generate dir opts
   node <- either (assertFailure . unlines) pure result
   let actual = renderWorkflow "TEST" opts node
       expectedFile = dir </> "expected.yml"
