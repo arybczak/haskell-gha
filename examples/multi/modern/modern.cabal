@@ -2,7 +2,7 @@ cabal-version: 3.0
 name:          modern
 version:       0.1.0.0
 synopsis:      A package of the multi-package example of haskell-gha.
-tested-with:   GHC ^>= 9.10 || ^>= 9.12
+tested-with:   GHC ^>= { 9.10, 9.12 }
 
 library
   hs-source-dirs:     src
