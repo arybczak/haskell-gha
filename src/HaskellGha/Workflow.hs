@@ -319,7 +319,10 @@ workflow opts config project = runCheck $ checks $> root
           ]
         ]
 
-    -- The entries in the range of doctest.ghc.
+    -- The entries in the range of doctest.ghc. The workflow installs doctest
+    -- for such an entry also if no package runs it there, e.g. if doctest.skip
+    -- names all packages. Only an unusual configuration does that, so the tool
+    -- accepts the extra steps.
     doctestEntries :: [GhcEntry]
     doctestEntries = case config.doctest of
       Just d -> [e | e <- entries, decide d.ghc e == Included]
