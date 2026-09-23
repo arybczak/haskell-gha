@@ -93,7 +93,15 @@ workflow opts config project = runCheck $ checks *> pure root
             , ("on", triggers)
             , ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", plain "true")])
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
-            , ("jobs", Mapping (item (Key Plain "build", job) : [Item [EmptyLine] (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]) [])
+            ,
+              ( "jobs"
+              , Mapping
+                  ( item (Key Plain "build", job)
+                      : [Item [EmptyLine] (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
+                      ++ [Item [EmptyLine] (Key Plain "hlint", hlintJob h) | Just h <- [config.hlint]]
+                  )
+                  []
+              )
             ]
         )
         []
@@ -158,6 +166,48 @@ workflow opts config project = runCheck $ checks *> pure root
               []
           )
         ]
+
+    hlintJob :: HLint -> Node
+    hlintJob h =
+      mapping
+        [ ("name", plain "HLint")
+        , ("runs-on", config.runsOn)
+        ,
+          ( "steps"
+          , Sequence
+              ( separate
+                  [ item checkoutStep
+                  , item $
+                      mapping
+                        [ ("uses", plain ("haskell-actions/hlint-setup@" <> config.actions.hlintSetup))
+                        , ("with", mapping [("version", singleQuoted (T.pack (prettyShow h.version)))])
+                        ]
+                  , item $
+                      mapping
+                        [ ("uses", plain ("haskell-actions/hlint-run@" <> config.actions.hlintRun))
+                        , ("with", mapping $ [("path", p) | Just p <- [hlintPath h]] ++ [("fail-on", plain h.failOn)])
+                        ]
+                  ]
+              )
+              []
+          )
+        ]
+
+    -- The action runs in the root of the repository and takes one path, or
+    -- a JSON array of paths. Without a path, it checks the root.
+    hlintPath :: HLint -> Maybe Node
+    hlintPath h = case paths of
+      ["."] -> Nothing
+      [p] -> Just (singleQuoted (T.pack p))
+      ps -> Just (singleQuoted ("[" <> T.intercalate ", " (map (jsonString . T.pack) ps) <> "]"))
+      where
+        paths :: [FilePath]
+        paths
+          | null h.path = [projectDir]
+          | otherwise = [dropTrailingPathSeparator (normalise (projectDir </> T.unpack p)) | p <- h.path]
+
+        jsonString :: T.Text -> T.Text
+        jsonString t = "\"" <> T.concatMap (\c -> if c `elem` ['"', '\\'] then T.pack ['\\', c] else T.singleton c) t <> "\""
 
     checkoutStep :: Node
     checkoutStep = mapping [("uses", plain ("actions/checkout@" <> config.actions.checkout))]

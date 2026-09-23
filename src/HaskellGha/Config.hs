@@ -8,10 +8,12 @@ module HaskellGha.Config
   , Hooks (..)
   , Doctest (..)
   , Fourmolu (..)
+  , HLint (..)
   , Actions (..)
   , defaultConfig
   , defaultDoctest
   , defaultFourmolu
+  , defaultHLint
 
     -- * Matrix
   , matrixAxes
@@ -59,7 +61,18 @@ data Config = Config
   , sdist :: Bool
   , haddock :: Bool
   , fourmolu :: Maybe Fourmolu
+  , hlint :: Maybe HLint
   , actions :: Actions
+  }
+  deriving stock (Eq, Show)
+
+-- | The configuration of the HLint job.
+data HLint = HLint
+  { version :: Version
+  , failOn :: T.Text
+  , path :: [T.Text]
+  -- ^ Relative to the project directory. An empty list gives the project
+  -- directory.
   }
   deriving stock (Eq, Show)
 
@@ -78,6 +91,8 @@ data Actions = Actions
   , cache :: T.Text
   -- ^ For both @actions/cache/restore@ and @actions/cache/save@.
   , runFourmolu :: T.Text
+  , hlintSetup :: T.Text
+  , hlintRun :: T.Text
   }
   deriving stock (Eq, Show)
 
@@ -125,7 +140,27 @@ defaultConfig =
     , sdist = True
     , haddock = True
     , fourmolu = Nothing
-    , actions = Actions {checkout = "v7", setup = "v2", cache = "v6", runFourmolu = "v13"}
+    , hlint = Nothing
+    , actions =
+        Actions
+          { checkout = "v7"
+          , setup = "v2"
+          , cache = "v6"
+          , runFourmolu = "v13"
+          , -- The commits "Upgrade to node24". Each release still needs
+            -- Node.js 20.
+            hlintSetup = "c04631035af0a6787c85e33b3ea0128b8568b590"
+          , hlintRun = "d009541bdae0b8492992416e665bb6df8a3b5cde"
+          }
+    }
+
+-- | The HLint configuration of an empty @hlint@ field.
+defaultHLint :: HLint
+defaultHLint =
+  HLint
+    { version = mkVersion [3, 10]
+    , failOn = "suggestion"
+    , path = []
     }
 
 -- | The fourmolu configuration of an empty @fourmolu@ field. Version 0.20
@@ -213,13 +248,38 @@ configFromNode = \case
              <*> field entries "sdist" defaultConfig.sdist bool
              <*> field entries "haddock" defaultConfig.haddock bool
              <*> fourmoluField entries
+             <*> hlintField entries
              <*> field entries "actions" defaultConfig.actions actionsField
          )
   _ -> failure "the configuration must be a mapping"
   where
     fields :: [T.Text]
     fields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "actions"]
+      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "hlint", "actions"]
+
+    hlintField :: [Item (Key, Node)] -> Check (Maybe HLint)
+    hlintField entries = case lookupKey "hlint" entries of
+      Nothing -> pure Nothing
+      Just n | isNull n -> pure $ Just defaultHLint
+      Just (Mapping hs _) ->
+        knownFields "hlint." ["version", "fail-on", "path"] hs
+          *> ( fmap Just $
+                 HLint
+                   <$> field' hs "hlint.version" "version" defaultHLint.version versionField
+                   <*> field' hs "hlint.fail-on" "fail-on" defaultHLint.failOn failOnField
+                   <*> field' hs "hlint.path" "path" defaultHLint.path textList
+             )
+      Just _ -> expected "hlint" "a mapping"
+
+    failOnField :: String -> Node -> Check T.Text
+    failOnField path n =
+      text path n `andThen` \t ->
+        if t `elem` levels
+          then pure t
+          else expected path ("one of " ++ T.unpack (T.intercalate ", " levels))
+      where
+        levels :: [T.Text]
+        levels = ["never", "status", "warning", "suggestion", "error"]
 
     fourmoluField :: [Item (Key, Node)] -> Check (Maybe Fourmolu)
     fourmoluField entries = case lookupKey "fourmolu" entries of
@@ -243,12 +303,14 @@ configFromNode = \case
     actionsField :: String -> Node -> Check Actions
     actionsField path = \case
       Mapping as _ ->
-        knownFields "actions." ["checkout", "setup", "cache", "run-fourmolu"] as
+        knownFields "actions." ["checkout", "setup", "cache", "run-fourmolu", "hlint-setup", "hlint-run"] as
           *> ( Actions
                  <$> field' as "actions.checkout" "checkout" defaultConfig.actions.checkout ref
                  <*> field' as "actions.setup" "setup" defaultConfig.actions.setup ref
                  <*> field' as "actions.cache" "cache" defaultConfig.actions.cache ref
                  <*> field' as "actions.run-fourmolu" "run-fourmolu" defaultConfig.actions.runFourmolu ref
+                 <*> field' as "actions.hlint-setup" "hlint-setup" defaultConfig.actions.hlintSetup ref
+                 <*> field' as "actions.hlint-run" "hlint-run" defaultConfig.actions.hlintRun ref
              )
       _ -> expected path "a mapping"
 

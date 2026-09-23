@@ -203,11 +203,17 @@ haddock: true
 fourmolu:
   version: 0.20.1.0
   pattern: ['src/**/*.hs', '!src/Generated.hs']
+hlint:
+  version: 3.10
+  fail-on: suggestion
+  path: [src, test]
 actions:
   checkout: v7
   setup: v2
   cache: v6
   run-fourmolu: v13
+  hlint-setup: c04631035af0a6787c85e33b3ea0128b8568b590
+  hlint-run: d009541bdae0b8492992416e665bb6df8a3b5cde
 ```
 
 | Field | Default | Meaning |
@@ -231,10 +237,13 @@ actions:
 | `sdist` | `true` | Build and test the content of the source tarballs. See [The source tarballs](#the-source-tarballs). |
 | `haddock` | `true` | Build the documentation for Hackage. |
 | `fourmolu` | none | Check the formatting. See [Fourmolu](#fourmolu). |
+| `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
 | `actions.checkout` | `v7` | The Git ref of `actions/checkout`. |
 | `actions.setup` | `v2` | The Git ref of `haskell-actions/setup`. |
 | `actions.cache` | `v6` | The Git ref of `actions/cache/restore` and `actions/cache/save`. |
 | `actions.run-fourmolu` | `v13` | The Git ref of `haskell-actions/run-fourmolu`. |
+| `actions.hlint-setup` | `c04631035af0a6787c85e33b3ea0128b8568b590` | The Git ref of `haskell-actions/hlint-setup`. See [HLint](#hlint). |
+| `actions.hlint-run` | `d009541bdae0b8492992416e665bb6df8a3b5cde` | The Git ref of `haskell-actions/hlint-run`. See [HLint](#hlint). |
 
 A value of the wrong type is an error, and the message names the field.
 
@@ -764,6 +773,49 @@ only `run-fourmolu` v13 and later can read it. With `latest`, the next such
 change would fail every workflow with the defaults. The defaults
 `fourmolu.version` and `actions.run-fourmolu` must work together, and a new
 release of haskell-gha changes them together.
+
+## HLint
+
+If the configuration has an `hlint` field, the workflow gets the job
+`hlint` after the other jobs. Like the fourmolu job, it has no matrix and
+needs no GHC. It has three steps:
+
+1. `actions/checkout`.
+2. `haskell-actions/hlint-setup`, with the input `version` from
+   `hlint.version`. The action downloads an HLint release binary.
+3. `haskell-actions/hlint-run`, with the inputs `path` and `fail-on`.
+
+`hlint-run` has no `working-directory` input, so it runs in the root of the
+repository. Thus the tool puts the project directory in front of each path
+of `hlint.path`. An empty `hlint.path` gives the project directory. If the
+result is `.`, the step has no `path` input, because `.` is the default of
+the action. For more than one path, the input is a JSON array, e.g.
+`'["src", "test"]'`.
+
+HLint reads `.hlint.yaml` from its working directory, not from the
+directory that it checks. The implementation tested this. Thus, with
+`--project-dir`, HLint only reads a `.hlint.yaml` in the root of the
+repository. This is a known limit.
+
+The default of `hlint.fail-on` is `suggestion`, so every hint fails the
+job. The default of the action is `never`, and then the job never fails.
+A project enables the job to follow the advice of HLint. A hint that does
+not fail the job is only an annotation, and it is easy to miss. A project
+can turn off a hint that it does not want with an `ignore` entry in
+`.hlint.yaml`.
+
+The default of `hlint.version` is `3.10`, the newest HLint release. It is
+pinned for the same reason as `fourmolu.version`.
+
+The released versions of both actions, up to `v2.4.10`, declare Node.js 20.
+GitHub removes Node.js 20 in autumn 2026. The default branches of both
+actions declare Node.js 24, but they have no release. The defaults of
+`actions.hlint-setup` and `actions.hlint-run` are thus the commits
+"Upgrade to node24". These commits only change `action.yml`. The built
+`dist/index.js` is the same as in `v2.4.10`. The later commits on the
+default branches only update the dependencies of the build check of the
+actions. When the actions have a release for Node.js 24, a new release of
+haskell-gha changes the defaults to it.
 
 ## YAML input and output
 

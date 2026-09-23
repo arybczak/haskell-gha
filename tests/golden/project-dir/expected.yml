@@ -129,3 +129,18 @@ jobs:
       with:
         version: '0.20.1.0'
         working-directory: sub
+
+  hlint:
+    name: HLint
+    runs-on: ubuntu-26.04
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: haskell-actions/hlint-setup@c04631035af0a6787c85e33b3ea0128b8568b590
+      with:
+        version: '3.10'
+
+    - uses: haskell-actions/hlint-run@d009541bdae0b8492992416e665bb6df8a3b5cde
+      with:
+        path: 'sub'
+        fail-on: suggestion

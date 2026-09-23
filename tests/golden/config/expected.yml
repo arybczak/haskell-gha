@@ -166,3 +166,18 @@ jobs:
         pattern: |
           src/**/*.hs
           !src/Generated.hs
+
+  hlint:
+    name: HLint
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: haskell-actions/hlint-setup@v2
+      with:
+        version: '3.8'
+
+    - uses: haskell-actions/hlint-run@v2
+      with:
+        path: '["src", "test"]'
+        fail-on: error

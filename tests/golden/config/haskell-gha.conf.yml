@@ -42,8 +42,14 @@ fourmolu:
   pattern:
     - 'src/**/*.hs'
     - '!src/Generated.hs'
+hlint:
+  version: 3.8
+  fail-on: error
+  path: [src, test]
 actions:
   checkout: v6
   setup: v2.8.2
   cache: v5
   run-fourmolu: v12
+  hlint-setup: v2
+  hlint-run: v2

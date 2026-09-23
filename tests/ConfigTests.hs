@@ -75,10 +75,14 @@ test_example = do
         , "fourmolu:"
         , "  version: 0.19.0.1"
         , "  pattern: ['src/**/*.hs']"
+        , "hlint:"
+        , "  fail-on: error"
+        , "  path: [src]"
         , "actions:"
         , "  checkout: v8"
         , "  cache: 0123abc"
         , "  run-fourmolu: v12"
+        , "  hlint-run: v2"
         ]
   assertEqual "name" (plain "Tests") config.name
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
@@ -110,7 +114,11 @@ test_example = do
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
   assertEqual "fourmolu" (Just Fourmolu {version = mkVersion [0, 19, 0, 1], patterns = ["src/**/*.hs"]}) config.fourmolu
-  assertEqual "actions" (Actions {checkout = "v8", setup = "v2", cache = "0123abc", runFourmolu = "v12"}) config.actions
+  assertEqual "hlint" (Just HLint {version = mkVersion [3, 10], failOn = "error", path = ["src"]}) config.hlint
+  assertEqual
+    "actions"
+    (Actions {checkout = "v8", setup = "v2", cache = "0123abc", runFourmolu = "v12", hlintSetup = defaultConfig.actions.hlintSetup, hlintRun = "v2"})
+    config.actions
 
 test_emptyDoctest :: Assertion
 test_emptyDoctest = do
@@ -152,6 +160,7 @@ test_errors = do
   assertError "cabal-project-local" "field \"cabal-project-local\": a line must not be EOF" "cabal-project-local: |\n  tests: True\n  EOF\n"
   assertError "unknown action" "unknown field \"actions.run-ormolu\"" "actions:\n  run-ormolu: v17\n"
   assertError "fourmolu version" "field \"fourmolu.version\": expected a version, e.g. 0.20.1.0" "fourmolu:\n  version: latest\n"
+  assertError "hlint fail-on" "field \"hlint.fail-on\": expected one of never, status, warning, suggestion, error" "hlint:\n  fail-on: warnings\n"
   assertError "unknown fourmolu field" "unknown field \"fourmolu.extra-args\"" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" "field \"actions.setup\": expected a Git ref, e.g. v7" "actions:\n  setup: 'v 2'\n"
   assertError "cabal-project-local type" "field \"cabal-project-local\": expected a string" "cabal-project-local: [tests]\n"

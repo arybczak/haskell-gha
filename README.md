@@ -166,11 +166,17 @@ haddock: true
 fourmolu:
   version: 0.20.1.0
   pattern: ['src/**/*.hs', '!src/Generated.hs']
+hlint:
+  version: 3.10
+  fail-on: suggestion
+  path: [src, test]
 actions:
   checkout: v7
   setup: v2
   cache: v6
   run-fourmolu: v13
+  hlint-setup: c04631035af0a6787c85e33b3ea0128b8568b590
+  hlint-run: d009541bdae0b8492992416e665bb6df8a3b5cde
 ```
 
 | Field | Default | Meaning |
@@ -194,10 +200,13 @@ actions:
 | `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
 | `haddock` | `true` | Build the documentation as for a Hackage upload. |
 | `fourmolu` | none | Check the formatting with fourmolu. See [Fourmolu](#fourmolu). |
+| `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
 | `actions.checkout` | `v7` | The version of `actions/checkout`. |
 | `actions.setup` | `v2` | The version of `haskell-actions/setup`. |
 | `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`. |
 | `actions.run-fourmolu` | `v13` | The version of `haskell-actions/run-fourmolu`. |
+| `actions.hlint-setup` | a commit, see below | The version of `haskell-actions/hlint-setup`. |
+| `actions.hlint-run` | a commit, see below | The version of `haskell-actions/hlint-run`. |
 
 A version in `actions` is a Git ref of the action, e.g. a tag such as
 `v8` or a commit SHA. If a new major version of an action comes out, you
@@ -273,6 +282,34 @@ project. An empty `fourmolu:` field enables the job with the defaults.
 Set `fourmolu.version` to the version that the developers of the project
 use. A new fourmolu version can format the same code differently.
 fourmolu 0.20.0.0 and later need `run-fourmolu` v13 or later.
+
+## HLint
+
+If the configuration has an `hlint` field, the workflow gets a job that
+installs HLint with `haskell-actions/hlint-setup` and runs it with
+`haskell-actions/hlint-run`. Like the fourmolu job, it runs once, at the
+same time as the build jobs. The hints appear as annotations in the pull
+request. An empty `hlint:` field enables the job with the defaults.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `hlint.version` | `3.10` | The HLint version. |
+| `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
+| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. |
+
+By default, every hint fails the job. To turn off a hint that the project
+does not want, add an `ignore` entry to `.hlint.yaml`, e.g.
+`- ignore: {name: Use camelCase}`.
+
+HLint reads `.hlint.yaml` from the root of the repository, because the
+action runs there. With `--project-dir`, put `.hlint.yaml` in the root of
+the repository, not in the project directory.
+
+The released versions of both actions still need Node.js 20, and GitHub
+removes Node.js 20 in autumn 2026. Thus the default versions are the
+commits that moved the actions to Node.js 24. These commits run the same
+code as the release `v2.4.10`. When a new release comes out, set
+`actions.hlint-setup` and `actions.hlint-run` to it.
 
 ## Known limits
 
