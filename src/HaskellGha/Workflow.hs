@@ -91,6 +91,7 @@ workflow opts config project = runCheck $ checks $> root
         ( topLevel
             [ ("name", config.name)
             , ("on", triggers)
+            , ("permissions", config.permissions)
             , ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", plain "true")])
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
             ,

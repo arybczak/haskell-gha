@@ -70,8 +70,9 @@ changes in each major release. `Cabal-syntax` and `Cabal` allow wide bounds.
 The configuration is YAML. The services and hook steps are GitHub Actions
 YAML, so users can copy them from the documentation of any action.
 
-The tool copies `services`, `hooks` and the extra matrix entries without
-changes. It does not model each service or each install method.
+The tool copies `services`, `permissions`, `hooks` and the extra matrix
+entries without changes. It does not model each service or each install
+method.
 
 The tool does not rewrite `cabal.project`. The workflow uses the
 `cabal.project` of the user. If packages support different GHC versions, the
@@ -180,6 +181,8 @@ services:
     env:
       POSTGRES_PASSWORD: postgres
     ports: ['5432:5432']
+permissions:
+  contents: read
 hooks:
   before-build:
     - name: Show the Postgres version
@@ -225,6 +228,7 @@ actions:
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers. The tool copies the map to `jobs.build.services`. |
+| `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`: a mapping, `read-all` or `write-all`. The tool copies the value to the top-level `permissions`. |
 | `hooks.before-build` | `[]` | Steps before the build of the local packages. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
@@ -263,6 +267,13 @@ have any key, because GitHub adds a new key to the jobs as a variable.
 
 Expressions such as `${{ matrix.postgres }}` work in `services`, `apt` and
 the hooks, because GitHub evaluates them. The tool does not read them.
+
+If a workflow has no `permissions` field, the `GITHUB_TOKEN` gets the
+default permissions of the repository. In many older repositories and
+organizations, these permissions include write access. The jobs of the
+workflow only read the code, so the default is `contents: read`. A hook
+that needs more permissions, e.g. to post the test results, needs a
+`permissions` field in the configuration.
 
 ## Reading the project
 
@@ -398,6 +409,9 @@ on:
   pull_request:
   merge_group:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

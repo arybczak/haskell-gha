@@ -17,6 +17,11 @@ on:
   merge_group:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  # For the annotations of the test results.
+  checks: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

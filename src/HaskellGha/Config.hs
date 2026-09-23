@@ -51,6 +51,8 @@ data Config = Config
   -- ^ The extra axes, @include@ and @exclude@.
   , apt :: [T.Text]
   , services :: Maybe Node
+  , permissions :: Node
+  -- ^ A mapping, @read-all@ or @write-all@.
   , hooks :: Hooks
   , ghcOptions :: T.Text
   , cabalProjectLocal :: T.Text
@@ -131,6 +133,7 @@ defaultConfig =
     , matrix = []
     , apt = []
     , services = Nothing
+    , permissions = mapping [("contents", plain "read")]
     , hooks = Hooks [] []
     , ghcOptions = "-Werror"
     , cabalProjectLocal = ""
@@ -238,6 +241,7 @@ configFromNode = \case
     matrix <- field entries "matrix" defaultConfig.matrix matrixField
     apt <- field entries "apt" defaultConfig.apt textList
     services <- field entries "services" defaultConfig.services (\p n -> Just <$> mappingNode p n)
+    permissions <- field entries "permissions" defaultConfig.permissions permissionsField
     hooks <- field entries "hooks" defaultConfig.hooks hooksField
     ghcOptions <- field entries "ghc-options" defaultConfig.ghcOptions text
     cabalProjectLocal <- field entries "cabal-project-local" defaultConfig.cabalProjectLocal projectText
@@ -256,7 +260,7 @@ configFromNode = \case
   where
     fields :: [T.Text]
     fields =
-      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "hlint", "actions"]
+      ["name", "cabal-version", "runs-on", "branches", "matrix", "apt", "services", "permissions", "hooks", "ghc-options", "cabal-project-local", "jobs", "tests", "benchmarks", "doctest", "check", "sdist", "haddock", "fourmolu", "hlint", "actions"]
 
     hlintField :: [Item (Key, Node)] -> Check (Maybe HLint)
     hlintField entries = case lookupKey "hlint" entries of
@@ -441,6 +445,12 @@ mappingNode :: String -> Node -> Check Node
 mappingNode path = \case
   n@(Mapping _ _) -> pure n
   _ -> expected path "a mapping"
+
+permissionsField :: String -> Node -> Check Node
+permissionsField path = \case
+  n@(Mapping _ _) -> pure n
+  n@(Scalar _ t) | t `elem` ["read-all", "write-all"] -> pure n
+  _ -> expected path "a mapping, read-all or write-all"
 
 steps :: String -> Node -> Check [Item Node]
 steps path = \case

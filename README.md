@@ -143,6 +143,8 @@ services:
     env:
       POSTGRES_PASSWORD: postgres
     ports: ['5432:5432']
+permissions:
+  contents: read
 hooks:
   before-build:
     - name: Show the Postgres version
@@ -188,6 +190,7 @@ actions:
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers, as in GitHub Actions. |
+| `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
 | `hooks.before-build` | `[]` | Steps before the build of the local packages. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only. An empty string disables them. |
@@ -213,8 +216,8 @@ A version in `actions` is a Git ref of the action, e.g. a tag such as
 can use it without a new release of `haskell-gha`. You can also pin an
 action to a commit.
 
-The tool copies `matrix`, `services` and the hooks to the workflow without
-changes, together with their comments. You can use GitHub expressions in
+The tool copies `matrix`, `services`, `permissions` and the hooks to the
+workflow without changes, together with their comments. You can use GitHub expressions in
 them, e.g. `${{ matrix.postgres }}`. The `matrix` field must not contain the
 key `ghc`, because the tool makes that axis. A `ghc` value in `include` or
 `exclude` must be a quoted string, e.g. `'9.10'`, and it must be an entry of

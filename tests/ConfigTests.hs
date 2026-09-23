@@ -53,6 +53,7 @@ test_example = do
         , "services:"
         , "  postgres:"
         , "    image: postgres:${{ matrix.postgres }}"
+        , "permissions: read-all"
         , "hooks:"
         , "  before-build:"
         , "    - name: Show the Postgres version"
@@ -93,6 +94,7 @@ test_example = do
   assertEqual "matrix ghc values" ["9.10"] (matrixGhcValues config)
   assertEqual "apt" ["libpq-dev"] config.apt
   assertBool "services" (isJust config.services)
+  assertEqual "permissions" (plain "read-all") config.permissions
   assertEqual "before-build" 1 (length config.hooks.beforeBuild)
   assertEqual "after-build" 0 (length config.hooks.afterBuild)
   assertEqual "ghc-options" "-Werror -Wno-unused" config.ghcOptions
@@ -155,6 +157,8 @@ test_errors = do
   assertError "exclude" "field \"matrix.exclude\": expected a list of mappings" "matrix:\n  exclude: '9.10'\n"
   assertError "exclude key" "field \"matrix.exclude\": the key version is not an axis of the matrix. The axes are: ghc, postgres" "matrix:\n  postgres: ['15', '18']\n  exclude:\n    - ghc: '9.10'\n      version: '15'\n"
   assertError "services" "field \"services\": expected a mapping" "services: [postgres]\n"
+  assertError "permissions" "field \"permissions\": expected a mapping, read-all or write-all" "permissions: [contents]\n"
+  assertError "permissions scalar" "field \"permissions\": expected a mapping, read-all or write-all" "permissions: read\n"
   assertError "step" "field \"hooks.before-build item\": expected a mapping" "hooks:\n  before-build:\n    - make\n"
   assertError "doctest range" "field \"doctest.ghc\": expected a version range" "doctest:\n  ghc: nine\n"
   assertError "apt" "field \"apt\": expected a list of strings" "apt: libpq-dev\n"
