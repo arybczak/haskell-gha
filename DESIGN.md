@@ -209,6 +209,10 @@ must then be a quoted string, and it must be an entry of the `ghc` axis.
 Any other `ghc` value is an error. An `include` entry with a new GHC version
 adds a job, and the tool does not check the packages for that job.
 
+Each key of an `exclude` entry must be `ghc` or an axis of the `matrix`
+field, because GitHub rejects the workflow otherwise. An `include` entry can
+have any key, because GitHub adds a new key to the jobs as a variable.
+
 Expressions such as `${{ matrix.postgres }}` work in `services`, `apt` and
 the hooks, because GitHub evaluates them. The tool does not read them.
 
@@ -615,6 +619,10 @@ The round-trip tests of stage 1 include comments on their own lines and
 comments at the end of a line. If the writer moves an end-of-line comment
 to its own line, that is acceptable. The comment must stay next to the same
 entry.
+
+The writer cannot put a comment before the first entry of a mapping or a
+sequence. It writes a complex key or a lone `-` there. Thus the tool moves
+such a comment up, before the entry that contains the collection.
 
 ## Dependencies
 

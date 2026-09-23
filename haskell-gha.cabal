@@ -1,0 +1,80 @@
+cabal-version:      3.8
+build-type:         Simple
+name:               haskell-gha
+version:            0.1.0.0
+category:           Development
+maintainer:         andrzej@rybczak.net
+author:             Andrzej Rybczak
+synopsis:           Generate a GitHub Actions workflow for a Haskell cabal project.
+
+description:
+  Generate a GitHub Actions workflow that builds and tests a Haskell cabal
+  project on each GHC version from @tested-with@.
+
+tested-with: GHC == { 9.6.7, 9.8.4, 9.10.3, 9.12.4 }
+
+common language
+    ghc-options:        -Wall
+                        -Wcompat
+                        -Werror=missing-deriving-strategies
+                        -Werror=prepositive-qualified-module
+
+    default-language:   GHC2021
+
+    default-extensions: DataKinds
+                        DeepSubsumption
+                        DerivingStrategies
+                        DuplicateRecordFields
+                        LambdaCase
+                        NoFieldSelectors
+                        NoStarIsType
+                        OverloadedRecordDot
+                        RoleAnnotations
+                        TypeFamilies
+                        UndecidableInstances
+
+library
+    import:         language
+
+    build-depends:    base         >= 4.18     && < 5
+                    , bytestring   >= 0.11
+                    , containers   >= 0.6
+                    , Cabal-syntax >= 3.14     && < 3.20
+                    , directory    >= 1.3
+                    , HsYAML       >= 0.2.1.1  && < 0.3
+                    , text         >= 2.0
+
+    hs-source-dirs:  src
+
+    exposed-modules: HaskellGha.Check
+                     HaskellGha.Config
+                     HaskellGha.Yaml
+
+executable haskell-gha
+    import:         language
+
+    build-depends:    base
+                    , haskell-gha
+
+    hs-source-dirs: app
+
+    main-is:        Main.hs
+
+test-suite test
+    import:         language
+
+    build-depends:    base
+                    , bytestring
+                    , Cabal-syntax
+                    , haskell-gha
+                    , tasty        >= 1.4
+                    , tasty-hunit  >= 0.10
+                    , text
+
+    hs-source-dirs: tests
+
+    type:           exitcode-stdio-1.0
+    main-is:        Main.hs
+
+    other-modules:  ConfigTests
+                    YamlTests
