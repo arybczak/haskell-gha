@@ -1,6 +1,8 @@
 module WorkflowTests (workflowTests) where
 
 import Data.ByteString.Lazy.Char8 qualified as BL8
+import Data.List qualified as L
+import Data.Text qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -8,6 +10,7 @@ import HaskellGha.Config
 import HaskellGha.Options
 import HaskellGha.Project
 import HaskellGha.Workflow
+import HaskellGha.Yaml
 
 workflowTests :: TestTree
 workflowTests =
@@ -16,7 +19,14 @@ workflowTests =
     [ testCase "a ghc value of the matrix that is not in the axis" test_unknownGhcValue
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "an unknown package in doctest.skip" test_unknownSkip
+    , testCase "the command line in the header" test_headerCommandLine
     ]
+
+test_headerCommandLine :: Assertion
+test_headerCommandLine = do
+  let opts = defaultOptions {projectDir = "my project", output = "it's.yml"}
+      header = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (Mapping [] []))
+  assertEqual "command line" (Just "#   haskell-gha --project-dir 'my project' --output 'it'\\''s.yml'") header
 
 test_unknownGhcValue :: Assertion
 test_unknownGhcValue =
