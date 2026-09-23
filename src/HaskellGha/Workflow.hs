@@ -134,7 +134,10 @@ workflow opts config project = runCheck $ checks $> root
             [ ("name", config.name)
             , ("on", triggers)
             , ("permissions", config.permissions)
-            , ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", plain "true")])
+            , -- A push to a branch of the push trigger also cancels the older
+              -- run. The newer run tests the newer code and saves the cache
+              -- that the older run did not save.
+              ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", plain "true")])
             , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
             ,
               ( "jobs"

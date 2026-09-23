@@ -116,6 +116,10 @@ readProject dir = do
             else do
               pkgs <- forM cabalFiles $ \f -> readPackage (dir </> f) f
               pure . runCheck $
+                -- A package is known by its directory. If two .cabal files
+                -- in one directory are listed by name, both entries give the
+                -- first package. Such a layout is rare, so the tool accepts
+                -- this.
                 traverse fromErrors pkgs `andThen` \packages ->
                   let byToken t = [p | f <- concat (lookup t found), Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]]
                   in projectFrom exists dir packages byToken ps

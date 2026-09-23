@@ -416,6 +416,7 @@ bool path = \case
     | t `elem` ["false", "False", "FALSE"] -> pure False
   _ -> expected path "true or false"
 
+-- A number beyond the range of Int wraps around, but we can live with that.
 positiveInt :: String -> Node -> Check Int
 positiveInt path = \case
   Scalar Plain t
