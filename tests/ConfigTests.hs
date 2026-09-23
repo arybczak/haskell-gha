@@ -3,6 +3,7 @@
 module ConfigTests (configTests) where
 
 import Data.ByteString.Lazy qualified as BL
+import Data.Maybe
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Distribution.Version
@@ -91,7 +92,7 @@ test_example = do
   assertEqual "matrix axes" ["postgres"] (matrixAxes config)
   assertEqual "matrix ghc values" ["9.10"] (matrixGhcValues config)
   assertEqual "apt" ["libpq-dev"] config.apt
-  assertBool "services" (config.services /= Nothing)
+  assertBool "services" (isJust config.services)
   assertEqual "before-build" 1 (length config.hooks.beforeBuild)
   assertEqual "after-build" 0 (length config.hooks.afterBuild)
   assertEqual "ghc-options" "-Werror -Wno-unused" config.ghcOptions

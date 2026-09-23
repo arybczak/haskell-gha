@@ -263,12 +263,13 @@ configFromNode = \case
       Just n | isNull n -> pure $ Just defaultHLint
       Just (Mapping hs _) ->
         knownFields "hlint." ["version", "fail-on", "path"] hs
-          *> ( fmap Just $
-                 HLint
-                   <$> field' hs "hlint.version" "version" defaultHLint.version versionField
-                   <*> field' hs "hlint.fail-on" "fail-on" defaultHLint.failOn failOnField
-                   <*> field' hs "hlint.path" "path" defaultHLint.path textList
-             )
+          *> fmap
+            Just
+            ( HLint
+                <$> field' hs "hlint.version" "version" defaultHLint.version versionField
+                <*> field' hs "hlint.fail-on" "fail-on" defaultHLint.failOn failOnField
+                <*> field' hs "hlint.path" "path" defaultHLint.path textList
+            )
       Just _ -> expected "hlint" "a mapping"
 
     failOnField :: String -> Node -> Check T.Text
@@ -287,11 +288,12 @@ configFromNode = \case
       Just n | isNull n -> pure $ Just defaultFourmolu
       Just (Mapping fs _) ->
         knownFields "fourmolu." ["version", "pattern"] fs
-          *> ( fmap Just $
-                 Fourmolu
-                   <$> field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
-                   <*> field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns textList
-             )
+          *> fmap
+            Just
+            ( Fourmolu
+                <$> field' fs "fourmolu.version" "version" defaultFourmolu.version versionField
+                <*> field' fs "fourmolu.pattern" "pattern" defaultFourmolu.patterns textList
+            )
       Just _ -> expected "fourmolu" "a mapping"
 
     versionField :: String -> Node -> Check Version
@@ -345,13 +347,14 @@ configFromNode = \case
       Just n | isNull n -> pure $ Just defaultDoctest
       Just (Mapping ds _) ->
         knownFields "doctest." ["ghc", "version", "skip", "options"] ds
-          *> ( fmap Just $
-                 Doctest
-                   <$> field' ds "doctest.ghc" "ghc" defaultDoctest.ghc versionRange
-                   <*> field' ds "doctest.version" "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
-                   <*> field' ds "doctest.skip" "skip" defaultDoctest.skip textList
-                   <*> field' ds "doctest.options" "options" defaultDoctest.options textList
-             )
+          *> fmap
+            Just
+            ( Doctest
+                <$> field' ds "doctest.ghc" "ghc" defaultDoctest.ghc versionRange
+                <*> field' ds "doctest.version" "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
+                <*> field' ds "doctest.skip" "skip" defaultDoctest.skip textList
+                <*> field' ds "doctest.options" "options" defaultDoctest.options textList
+            )
       Just _ -> expected "doctest" "a mapping"
 
 ----------------------------------------

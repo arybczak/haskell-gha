@@ -56,7 +56,7 @@ renderWorkflow version opts =
 
 -- | Make the workflow.
 workflow :: Options -> Config -> Project -> Either [String] Node
-workflow opts config project = runCheck $ checks *> pure root
+workflow opts config project = runCheck $ checks $> root
   where
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
@@ -249,8 +249,8 @@ workflow opts config project = runCheck $ checks *> pure root
         , [item cacheRestore]
         , [item $ sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
         , [ item $ runStep "Install doctest" (Just doctestEntries) (installDoctest d)
-          | Just d <- [config.doctest]
-          , not (null doctestEntries)
+          | not (null doctestEntries)
+          , Just d <- [config.doctest]
           ]
         , [item cacheSave]
         , config.hooks.beforeBuild
