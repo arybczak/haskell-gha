@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | The reader of the project: the local packages and the GHC versions that
@@ -140,22 +141,25 @@ parseProjectFile file input = case readFields input of
     -- The elif and else sections that follow an if section.
     conditional :: Position -> [SectionArg Position] -> [Field Position] -> [Field Position] -> Check [Part]
     conditional pos args body rest = case rest of
-      Section (Name pos' "elif") args' body' : rest' ->
-        (\c yes (no, others) -> Conditional pos c yes no : others)
-          <$> condition pos args
-          <*> parts body
-          <*> fmap (\case p : ps -> ([p], ps); [] -> ([], [])) (conditional pos' args' body' rest')
-      Section (Name _ "else") _ body' : rest' ->
-        (\c yes no others -> Conditional pos c yes no : others)
-          <$> condition pos args
-          <*> parts body
-          <*> parts body'
-          <*> parts rest'
-      _ ->
-        (\c yes others -> Conditional pos c yes [] : others)
-          <$> condition pos args
-          <*> parts body
-          <*> parts rest
+      Section (Name pos' "elif") args' body' : rest' -> do
+        c <- condition pos args
+        yes <- parts body
+        -- The elif section is the first part of the result.
+        elif <- conditional pos' args' body' rest'
+        pure $ case elif of
+          p : others -> Conditional pos c yes [p] : others
+          [] -> [Conditional pos c yes []]
+      Section (Name _ "else") _ body' : rest' -> do
+        c <- condition pos args
+        yes <- parts body
+        no <- parts body'
+        others <- parts rest'
+        pure $ Conditional pos c yes no : others
+      _ -> do
+        c <- condition pos args
+        yes <- parts body
+        others <- parts rest
+        pure $ Conditional pos c yes [] : others
 
     condition :: Position -> [SectionArg Position] -> Check (Condition ConfVar)
     condition pos = fromErrors . parseCondition file pos
