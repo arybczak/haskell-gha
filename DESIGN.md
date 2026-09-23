@@ -166,6 +166,12 @@ phase.
 All fields are optional. An unknown field is an error, and the message names
 the field. This finds typing errors.
 
+A text field must hold a YAML string. The parser gives the raw text of each
+scalar, so an unquoted `3.10` reaches the reader as the text `3.10`. But
+the workflow must quote such a value, and another YAML reader gets the
+number 3.1. Thus an unquoted value that the YAML 1.2 core schema reads as a
+number, a boolean or a null is an error.
+
 ```yaml
 name: CI
 cabal-version: 3.16.1.0
@@ -209,7 +215,7 @@ fourmolu:
   version: 0.20.1.0
   pattern: ['src/**/*.hs', '!src/Generated.hs']
 hlint:
-  version: 3.10
+  version: '3.10'
   fail-on: suggestion
   path: [src, test]
 actions:

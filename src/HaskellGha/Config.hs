@@ -512,9 +512,13 @@ scalar path = \case
   n@(Scalar _ _) -> pure n
   _ -> expected path "a string"
 
+-- The workflow needs quotes for a value that YAML does not read as a string,
+-- so the configuration needs them too.
 text :: String -> Node -> Check T.Text
 text path = \case
-  Scalar _ t -> pure t
+  Scalar s t
+    | isString s t -> pure t
+    | otherwise -> expected path ("a string. Quote the value, e.g. '" ++ T.unpack t ++ "'")
   _ -> expected path "a string"
 
 textList :: String -> Node -> Check [T.Text]

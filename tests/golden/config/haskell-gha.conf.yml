@@ -47,7 +47,7 @@ fourmolu:
     - 'src/**/*.hs'
     - '!src/Generated.hs'
 hlint:
-  version: 3.8
+  version: '3.8'
   fail-on: error
   path: [src, test]
 actions:

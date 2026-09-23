@@ -13,4 +13,4 @@ hooks:
 fourmolu:
   version: 0.20.1.0
 hlint:
-  version: 3.10
+  version: '3.10'

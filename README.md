@@ -136,7 +136,9 @@ tool stops with an error. No conditional block can separate the two.
 
 All fields of the configuration file are optional. An unknown field is an
 error. A YAML anchor, alias or tag is also an error, e.g. in a hook step.
-This example shows all fields:
+If YAML reads a text value as a number, a boolean or a null, quote the
+value, e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the
+number 3.1. This example shows all fields:
 
 ```yaml
 name: CI
@@ -181,7 +183,7 @@ fourmolu:
   version: 0.20.1.0
   pattern: ['src/**/*.hs', '!src/Generated.hs']
 hlint:
-  version: 3.10
+  version: '3.10'
   fail-on: suggestion
   path: [src, test]
 actions:

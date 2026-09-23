@@ -22,6 +22,7 @@ module HaskellGha.Yaml
   , sequenceOf
 
     -- * Queries
+  , isString
   , lookupKey
 
     -- * Parsing
@@ -73,16 +74,9 @@ data Key = Key
 -- scalar without a check.
 plain :: T.Text -> Node
 plain t
-  | validPlain && isString = Scalar Y.Plain t
+  | validPlain && isString Y.Plain t = Scalar Y.Plain t
   | otherwise = Scalar Y.SingleQuoted t
   where
-    -- GitHub reads a plain scalar with the YAML 1.2 core schema, e.g. 1.0 is a
-    -- number.
-    isString :: Bool
-    isString = case YAML.schemaResolverScalar YAML.coreSchemaResolver Y.untagged Y.Plain t of
-      Right (YAML.SStr _) -> True
-      _ -> False
-
     -- A subset of the valid plain scalars in block context.
     validPlain :: Bool
     validPlain =
@@ -121,6 +115,13 @@ sequenceOf nodes = Sequence (map item nodes)
 
 ----------------------------------------
 -- Queries
+
+-- | Whether YAML reads a scalar as a string. GitHub reads a plain scalar with
+-- the YAML 1.2 core schema, e.g. @1.0@ is a number.
+isString :: Y.ScalarStyle -> T.Text -> Bool
+isString style t = case YAML.schemaResolverScalar YAML.coreSchemaResolver Y.untagged style t of
+  Right (YAML.SStr _) -> True
+  _ -> False
 
 -- | Look up the value of a key in a mapping.
 lookupKey :: T.Text -> [Item (Key, Node)] -> Maybe Node
