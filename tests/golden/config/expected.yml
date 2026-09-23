@@ -79,12 +79,13 @@ jobs:
 
     - name: Unpack the source tarballs
       run: |
+        shopt -s extglob
         cabal sdist all --output-directory="$RUNNER_TEMP"/haskell-gha-sdist
         mkdir "$RUNNER_TEMP"/haskell-gha
         for f in cabal.project cabal.project.freeze cabal.project.local; do
           if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP"/haskell-gha; fi
         done
-        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/config-[0-9]*.tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha
+        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/config-+([0-9.]).tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha
 
     - name: Configure the project
       working-directory: ${{ runner.temp }}/haskell-gha

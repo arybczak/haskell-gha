@@ -402,11 +402,14 @@ workflow opts config project = runCheck $ checks $> root
     sourceDir = "\"$RUNNER_TEMP\"/haskell-gha"
 
     -- The step makes the tarballs of the packages of the matrix entry, so a
-    -- package that is not in the project has no tarball.
+    -- package that is not in the project has no tarball. The pattern of a
+    -- tarball allows only a version after the name, because the tarball of a
+    -- package foo-2d also starts with foo-.
     unpackScript :: [Package] -> T.Text
     unpackScript pkgs =
       T.unlines $
-        [ "cabal sdist all --output-directory=\"$RUNNER_TEMP\"/haskell-gha-sdist"
+        [ "shopt -s extglob"
+        , "cabal sdist all --output-directory=\"$RUNNER_TEMP\"/haskell-gha-sdist"
         , "mkdir " <> sourceDir
         , "for f in cabal.project cabal.project.freeze cabal.project.local; do"
         , "  if [ -f \"$f\" ]; then cp \"$f\" " <> sourceDir <> "; fi"
@@ -414,7 +417,7 @@ workflow opts config project = runCheck $ checks $> root
         ]
           ++ concat
             [ ["mkdir -p " <> dir | p.directory /= "."]
-                ++ ["tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/" <> T.pack p.name <> "-[0-9]*.tar.gz --strip-components=1 -C " <> dir]
+                ++ ["tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/" <> T.pack p.name <> "-+([0-9.]).tar.gz --strip-components=1 -C " <> dir]
             | p <- pkgs
             , let dir = if p.directory == "." then sourceDir else sourceDir <> "/" <> shellQuote (T.pack p.directory)
             ]

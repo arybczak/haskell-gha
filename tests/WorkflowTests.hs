@@ -22,7 +22,24 @@ workflowTests =
     , testCase "an unknown package in doctest.skip" test_unknownSkip
     , testCase "the command line in the header" test_headerCommandLine
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
+    , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     ]
+
+test_sdistNamePrefix :: Assertion
+test_sdistNamePrefix = do
+  project <- readProject "tests/golden/single" >>= either (assertFailure . unlines) pure
+  p <- case project.packages of
+    [p] -> pure p
+    ps -> assertFailure ("packages: " ++ show ps)
+  let pkgs = [p {directory = "a"}, p {name = "example-2d", directory = "b"}]
+      changed = project {packages = pkgs, matrix = [MatrixEntry e.ghc pkgs | e <- project.matrix]}
+  node <- either (assertFailure . unlines) pure (workflow defaultOptions defaultConfig changed)
+  assertEqual
+    "tar lines"
+    [ "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/a"
+    , "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-2d-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/b"
+    ]
+    [T.unpack (T.strip l) | l <- T.lines (renderWorkflow "TEST" defaultOptions node), T.pack "tar -xzf" `T.isInfixOf` l]
 
 test_sdistOutside :: Assertion
 test_sdistOutside = do
