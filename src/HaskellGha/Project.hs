@@ -20,6 +20,7 @@ import Data.ByteString.Char8 qualified as BS8
 import Data.Char
 import Data.Either
 import Data.Foldable
+import Data.Functor
 import Data.List qualified as L
 import Data.Maybe
 import Data.Text qualified as T
@@ -101,7 +102,10 @@ readProject dir = do
   parts <-
     if exists
       then parseProjectFile projectFile <$> BS.readFile projectFile
-      else pure $ Right [Packages True ["./*.cabal"]]
+      else
+        doesDirectoryExist dir <&> \case
+          True -> Right [Packages True ["./*.cabal"]]
+          False -> Left ["The project directory " ++ dir ++ " does not exist."]
   case parts of
     Left errors -> pure $ Left errors
     Right ps -> do

@@ -32,7 +32,13 @@ projectTests =
     , testCase "no packages for a matrix entry" test_emptyEntry
     , testCase "package location errors" test_locationErrors
     , testCase "doctest sources in the package directory and a subdirectory" test_doctestRootAndSubdirectory
+    , testCase "a missing project directory" test_missingDirectory
     ]
+
+test_missingDirectory :: Assertion
+test_missingDirectory = do
+  result <- readProject "tests/does-not-exist"
+  assertEqual "errors" (Left ["The project directory tests/does-not-exist does not exist."]) result
 
 test_single :: Assertion
 test_single = do
