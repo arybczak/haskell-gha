@@ -259,8 +259,9 @@ push starts both in one group, and one run cancels the other.
 The `matrix` field must not contain the key `ghc`, because the tool makes
 that axis. A value in `include` or `exclude` can refer to `ghc`. The value
 must then be a quoted string, and it must be an entry of the `ghc` axis.
-Any other `ghc` value is an error. An `include` entry with a new GHC version
-adds a job, and the tool does not check the packages for that job.
+Any other `ghc` value is an error. Thus an `include` entry cannot add a job
+for a new GHC version, because the tool cannot check the packages for such
+a job.
 
 Each key of an `exclude` entry must be `ghc` or an axis of the `matrix`
 field, because GitHub rejects the workflow otherwise. An `include` entry can
