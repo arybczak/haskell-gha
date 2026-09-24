@@ -389,9 +389,9 @@ code as the release `v2.4.10`. When a new release comes out, set
   package depends on it, cabal gets it from Hackage and applies the
   options, e.g. `-Werror`.
 - The cache keys contain the runner image from the environment variable
-  `ImageOS`. Only the runners of GitHub set this variable. On a
-  self-hosted runner, the keys have no image part. A cache from an earlier
-  system of the runner can then link against system libraries that the
-  runner no longer has. If you change the system of a self-hosted runner,
-  delete the caches of the repository.
+  `ImageOS`. The runners of GitHub set this variable, but a self-hosted
+  runner can lack it. Then the keys have no image part. A cache from an
+  earlier system of the runner can then link against system libraries that
+  the runner no longer has. If you change the system of such a runner, delete
+  the caches of the repository.
 - The workflow does not contain the comments of the configuration file.
