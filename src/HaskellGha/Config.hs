@@ -13,6 +13,7 @@ module HaskellGha.Config
   , Fourmolu (..)
   , HLint (..)
   , Actions (..)
+  , ActionRef (..)
   , defaultConfig
   , defaultDoctest
   , defaultFourmolu
@@ -94,15 +95,24 @@ data Fourmolu = Fourmolu
   }
   deriving stock (Eq, Show)
 
--- | The versions of the actions, i.e. the Git refs after the @\@@ in @uses@.
+-- | The versions of the actions.
 data Actions = Actions
-  { checkout :: T.Text
-  , setup :: T.Text
-  , cache :: T.Text
+  { checkout :: ActionRef
+  , setup :: ActionRef
+  , cache :: ActionRef
   -- ^ For both @actions/cache/restore@ and @actions/cache/save@.
-  , runFourmolu :: T.Text
-  , hlintSetup :: T.Text
-  , hlintRun :: T.Text
+  , runFourmolu :: ActionRef
+  , hlintSetup :: ActionRef
+  , hlintRun :: ActionRef
+  }
+  deriving stock (Eq, Show)
+
+-- | The version of an action in @uses@.
+data ActionRef = ActionRef
+  { repository :: Maybe T.Text
+  -- ^ A repository in place of the default one, e.g. a fork.
+  , ref :: T.Text
+  -- ^ The Git ref after the @\@@.
   }
   deriving stock (Eq, Show)
 
@@ -164,14 +174,14 @@ defaultConfig =
     , hlint = Nothing
     , actions =
         Actions
-          { checkout = "v7"
-          , setup = "v2"
-          , cache = "v6"
-          , runFourmolu = "v13"
+          { checkout = ActionRef Nothing "v7"
+          , setup = ActionRef Nothing "v2"
+          , cache = ActionRef Nothing "v6"
+          , runFourmolu = ActionRef Nothing "v13"
           , -- The commits "Upgrade to node24". Each release still needs
             -- Node.js 20.
-            hlintSetup = "c04631035af0a6787c85e33b3ea0128b8568b590"
-          , hlintRun = "d009541bdae0b8492992416e665bb6df8a3b5cde"
+            hlintSetup = ActionRef Nothing "c04631035af0a6787c85e33b3ea0128b8568b590"
+          , hlintRun = ActionRef Nothing "d009541bdae0b8492992416e665bb6df8a3b5cde"
           }
     }
 
@@ -346,20 +356,26 @@ configFromNode = \case
 
     actionsFields :: Fields Actions
     actionsFields = do
-      checkout <- field "checkout" defaultConfig.actions.checkout ref
-      setup <- field "setup" defaultConfig.actions.setup ref
-      cache <- field "cache" defaultConfig.actions.cache ref
-      runFourmolu <- field "run-fourmolu" defaultConfig.actions.runFourmolu ref
-      hlintSetup <- field "hlint-setup" defaultConfig.actions.hlintSetup ref
-      hlintRun <- field "hlint-run" defaultConfig.actions.hlintRun ref
+      checkout <- field "checkout" defaultConfig.actions.checkout actionRef
+      setup <- field "setup" defaultConfig.actions.setup actionRef
+      cache <- field "cache" defaultConfig.actions.cache actionRef
+      runFourmolu <- field "run-fourmolu" defaultConfig.actions.runFourmolu actionRef
+      hlintSetup <- field "hlint-setup" defaultConfig.actions.hlintSetup actionRef
+      hlintRun <- field "hlint-run" defaultConfig.actions.hlintRun actionRef
       pure Actions {..}
 
-    ref :: String -> Node -> Check T.Text
-    ref path n =
-      text path n `andThen` \t ->
-        if T.null t || T.any isSpace t
-          then expected path "a Git ref, e.g. v7"
-          else pure t
+    actionRef :: String -> Node -> Check ActionRef
+    actionRef path n =
+      text path n `andThen` \t -> case T.splitOn "@" t of
+        [r] | word r -> pure $ ActionRef Nothing r
+        [repo, r]
+          | [owner, name] <- T.splitOn "/" repo
+          , all word [owner, name, r] ->
+              pure $ ActionRef (Just repo) r
+        _ -> expected path "a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
+      where
+        word :: T.Text -> Bool
+        word w = not (T.null w) && not (T.any isSpace w)
 
     -- The workflow writes the text with a heredoc that ends at the line EOF.
     projectText :: String -> Node -> Check T.Text

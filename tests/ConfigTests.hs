@@ -89,7 +89,8 @@ test_example = do
         , "  path: [src]"
         , "actions:"
         , "  checkout: v8"
-        , "  cache: 0123abc"
+        , "  cache: runs-on/cache@v4"
+        , "  setup: 0123abc"
         , "  run-fourmolu: v12"
         , "  hlint-run: v2"
         ]
@@ -129,7 +130,15 @@ test_example = do
   assertEqual "hlint" (Just HLint {version = mkVersion [3, 10], failOn = "error", path = ["src"]}) config.hlint
   assertEqual
     "actions"
-    (Actions {checkout = "v8", setup = "v2", cache = "0123abc", runFourmolu = "v12", hlintSetup = defaultConfig.actions.hlintSetup, hlintRun = "v2"})
+    ( Actions
+        { checkout = ActionRef Nothing "v8"
+        , setup = ActionRef Nothing "0123abc"
+        , cache = ActionRef (Just "runs-on/cache") "v4"
+        , runFourmolu = ActionRef Nothing "v12"
+        , hlintSetup = defaultConfig.actions.hlintSetup
+        , hlintRun = ActionRef Nothing "v2"
+        }
+    )
     config.actions
 
 test_emptyDoctest :: Assertion
@@ -192,7 +201,11 @@ test_errors = do
   assertError "fourmolu version" "field \"fourmolu.version\": expected a version, e.g. 0.20.1.0" "fourmolu:\n  version: latest\n"
   assertError "hlint fail-on" "field \"hlint.fail-on\": expected one of never, status, warning, suggestion, error" "hlint:\n  fail-on: warnings\n"
   assertError "unknown fourmolu field" "unknown field \"fourmolu.extra-args\"" "fourmolu:\n  extra-args: [-q]\n"
-  assertError "action ref" "field \"actions.setup\": expected a Git ref, e.g. v7" "actions:\n  setup: 'v 2'\n"
+  assertError "action ref" actionError "actions:\n  setup: 'v 2'\n"
+  assertError "action without owner" actionError "actions:\n  setup: setup@v2\n"
+  assertError "action with a path" actionError "actions:\n  setup: a/b/c@v2\n"
+  assertError "action without ref" actionError "actions:\n  setup: a/b@\n"
+  assertError "action with two refs" actionError "actions:\n  setup: a/b@v1@v2\n"
   assertError "ghc-options lines" "field \"ghc-options\": the value must be one line" "ghc-options: |\n  -Wall\n  -Werror\n"
   assertError "fourmolu pattern space" "field \"fourmolu.pattern\": a pattern must be one line without spaces at the start or the end" "fourmolu:\n  pattern: [' src/**/*.hs']\n"
   assertError "fourmolu pattern lines" "field \"fourmolu.pattern\": a pattern must be one line without spaces at the start or the end" "fourmolu:\n  pattern: [\"a.hs\\nb.hs\"]\n"
@@ -201,6 +214,9 @@ test_errors = do
     assertError :: String -> String -> T.Text -> Assertion
     assertError preface expected input =
       assertEqual preface (Left ["conf.yml: " ++ expected]) (parse input)
+
+    actionError :: String
+    actionError = "field \"actions.setup\": expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
 
 test_allErrors :: Assertion
 test_allErrors =

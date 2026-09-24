@@ -14,6 +14,7 @@ import Data.Char
 import Data.Foldable
 import Data.Functor
 import Data.List qualified as L
+import Data.Maybe
 import Data.Text qualified as T
 import Distribution.Pretty
 import Distribution.Version
@@ -206,7 +207,7 @@ workflow opts config project = runCheck $ checks $> root
                   [ item (checkoutStep NoSubmodules)
                   , item $
                       mapping
-                        [ ("uses", plain ("haskell-actions/run-fourmolu@" <> config.actions.runFourmolu))
+                        [ uses "haskell-actions/run-fourmolu" "" config.actions.runFourmolu
                         ,
                           ( "with"
                           , mapping $
@@ -234,12 +235,12 @@ workflow opts config project = runCheck $ checks $> root
                   [ item (checkoutStep NoSubmodules)
                   , item $
                       mapping
-                        [ ("uses", plain ("haskell-actions/hlint-setup@" <> config.actions.hlintSetup))
+                        [ uses "haskell-actions/hlint-setup" "" config.actions.hlintSetup
                         , ("with", mapping [("version", singleQuoted (T.pack (prettyShow h.version)))])
                         ]
                   , item $
                       mapping
-                        [ ("uses", plain ("haskell-actions/hlint-run@" <> config.actions.hlintRun))
+                        [ uses "haskell-actions/hlint-run" "" config.actions.hlintRun
                         , ("with", mapping $ [("path", p) | Just p <- [hlintPath h]] ++ [("fail-on", plain h.failOn)])
                         ]
                   ]
@@ -268,10 +269,15 @@ workflow opts config project = runCheck $ checks $> root
     checkoutStep :: Submodules -> Node
     checkoutStep submodules =
       mapping $
-        ("uses", plain ("actions/checkout@" <> config.actions.checkout)) : case submodules of
+        uses "actions/checkout" "" config.actions.checkout : case submodules of
           NoSubmodules -> []
           TopSubmodules -> [("with", mapping [("submodules", boolean True)])]
           RecursiveSubmodules -> [("with", mapping [("submodules", plain "recursive")])]
+
+    -- The default repository, and the path of the action in the repository,
+    -- e.g. /restore.
+    uses :: T.Text -> T.Text -> ActionRef -> (T.Text, Node)
+    uses repo path a = ("uses", plain (fromMaybe repo a.repository <> path <> "@" <> a.ref))
 
     jobName :: Node
     jobName = case matrixAxes config of
@@ -360,7 +366,7 @@ workflow opts config project = runCheck $ checks $> root
               ++ doctestIf []
               ++ [("run", literal findDoctest)]
         , mapping $
-            [("uses", plain ("actions/cache/restore@" <> config.actions.cache)), ("id", plain "doctest-cache")]
+            [uses "actions/cache" "/restore" config.actions.cache, ("id", plain "doctest-cache")]
               ++ doctestIf []
               ++ [
                    ( "with"
@@ -380,7 +386,7 @@ workflow opts config project = runCheck $ checks $> root
                  ]
         , -- A separate save step keeps the binary also if a later step fails.
           mapping $
-            [("uses", plain ("actions/cache/save@" <> config.actions.cache))]
+            [uses "actions/cache" "/save" config.actions.cache]
               ++ doctestIf [cacheMiss]
               ++ [
                    ( "with"
@@ -507,7 +513,7 @@ workflow opts config project = runCheck $ checks $> root
     setupStep :: Node
     setupStep =
       mapping
-        [ ("uses", plain ("haskell-actions/setup@" <> config.actions.setup))
+        [ uses "haskell-actions/setup" "" config.actions.setup
         , ("id", plain "setup")
         ,
           ( "with"
@@ -599,7 +605,7 @@ workflow opts config project = runCheck $ checks $> root
     cacheRestore :: Node
     cacheRestore =
       mapping
-        [ ("uses", plain ("actions/cache/restore@" <> config.actions.cache))
+        [ uses "actions/cache" "/restore" config.actions.cache
         , ("id", plain "cache")
         ,
           ( "with"
@@ -619,7 +625,7 @@ workflow opts config project = runCheck $ checks $> root
     cacheSave :: Node
     cacheSave =
       mapping
-        [ ("uses", plain ("actions/cache/save@" <> config.actions.cache))
+        [ uses "actions/cache" "/save" config.actions.cache
         , ("if", plain "steps.cache.outputs.cache-hit != 'true'")
         ,
           ( "with"

@@ -149,7 +149,7 @@ jobs:
         cabal build all --dry-run
         echo "hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
-    - uses: actions/cache/restore@v5
+    - uses: runs-on/cache/restore@v4
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
@@ -161,7 +161,7 @@ jobs:
       run: |
         cabal build all --only-dependencies
 
-    - uses: actions/cache/save@v5
+    - uses: runs-on/cache/save@v4
       if: steps.cache.outputs.cache-hit != 'true'
       with:
         path: ${{ steps.setup.outputs.cabal-store }}

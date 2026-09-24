@@ -117,6 +117,12 @@ field for `actions/cache/restore` and `actions/cache/save`, because both come
 from one repository. A value is any Git ref without spaces, so a user can
 also pin an action to a commit SHA.
 
+A value can also name another repository, e.g. `runs-on/cache@v4`. The
+runners of RunsOn keep their cache in S3 with `runs-on/cache`, a fork of
+`actions/cache` with the same inputs and outputs. The repository must have
+the form `owner/name`, and the tool adds the path of a sub-action, e.g.
+`/restore`, to it.
+
 ## Command line
 
 The tool has no subcommands and no check mode. Each run writes the workflow

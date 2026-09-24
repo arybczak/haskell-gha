@@ -243,6 +243,10 @@ A version in `actions` is a Git ref of the action, e.g. a tag such as
 can use it without a new release of `haskell-gha`. You can also pin an
 action to a commit.
 
+To use another repository with the same inputs, e.g. a fork, write the
+repository in front of the ref, e.g. `cache: runs-on/cache@v4`. For
+`actions.cache`, the tool adds `/restore` and `/save` to the repository.
+
 The tool copies `matrix`, `services`, `permissions` and the hooks to the
 workflow without changes, but it does not copy their comments. You can use
 GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
