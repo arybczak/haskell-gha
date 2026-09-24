@@ -115,6 +115,8 @@ test_errors = do
   assertError "anchor" "anchors are not supported" "a: &x 1\n"
   assertError "alias" "aliases are not supported" "b: *x\n"
   assertError "tag" "tags are not supported" "a: !!str 1\n"
+  assertError "literal keep" keepMessage "run: |+\n  echo a\n\nnext: 1\n"
+  assertError "folded keep" keepMessage "run: >+\n  echo a\n"
   assertError "duplicate key" "duplicate key \"a\"" "a: 1\nb: 2\na: 3\n"
   assertError "two documents" "the file must contain only one YAML document" "a: 1\n---\nb: 2\n"
   assertError "complex key" "a mapping key must be a scalar" "? [a]\n: 1\n"
@@ -122,6 +124,9 @@ test_errors = do
     Left _ -> pure ()
     Right _ -> assertFailure "a syntax error must fail"
   where
+    keepMessage :: String
+    keepMessage = "the chomping indicator + is not supported. Remove the +, e.g. write | in place of |+"
+
     assertError :: String -> String -> BL.ByteString -> Assertion
     assertError preface expected input = case parseYaml input of
       Left e -> assertEqual preface expected e.message

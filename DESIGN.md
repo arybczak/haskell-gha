@@ -473,6 +473,11 @@ in place of each empty line, and then replaces the marker lines in the text.
 The writer cannot write a comment before the first entry of a mapping or a
 sequence, so that entry never gets an empty line.
 
+A block scalar with the keep indicator, e.g. `|+`, keeps the empty lines at
+its end. It would take the empty line before the next item into its value.
+Thus the `+` indicator is an error. It is rare in a workflow, so the writer
+has no special case for it.
+
 The parser drops the YAML comments, so the workflow does not contain the
 comments of the copied fragments. A comment near a key or at the end of a
 list can belong to more than one place. Thus a correct copy of the comments

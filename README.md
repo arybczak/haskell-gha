@@ -140,7 +140,9 @@ Ubuntu 25.10 and later do not install it by default.
 ## Configuration
 
 All fields of the configuration file are optional. An unknown field is an
-error. A YAML anchor, alias or tag is also an error, e.g. in a hook step.
+error. A YAML anchor, alias or tag is also an error, e.g. in a hook step. A
+block scalar with the `+` indicator, e.g. `|+`, is an error too. Write `|`
+or `|-` instead.
 If YAML reads a text value as a number, a boolean or a null, quote the
 value, e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the
 number 3.1. This example shows all fields:

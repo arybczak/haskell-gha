@@ -180,6 +180,7 @@ parseYaml input = do
     node = \case
       ev@(Y.EvPos (Y.Scalar anchor tag s t) _) : evs -> do
         checkProperties ev anchor tag
+        checkChomping ev s
         pure (Scalar s t, evs)
       ev@(Y.EvPos (Y.SequenceStart anchor tag _) _) : evs -> do
         checkProperties ev anchor tag
@@ -220,6 +221,17 @@ parseYaml input = do
       | Just _ <- anchor = Left $ errorAt ev.ePos "anchors are not supported"
       | not (Y.isUntagged tag) = Left $ errorAt ev.ePos "tags are not supported"
       | otherwise = pure ()
+
+    -- The writer puts an empty line before the next item, and a block scalar
+    -- with the keep indicator takes that line into its value.
+    checkChomping :: Y.EvPos -> Y.ScalarStyle -> Either YamlError ()
+    checkChomping ev = \case
+      Y.Literal Y.Keep _ -> keep
+      Y.Folded Y.Keep _ -> keep
+      _ -> pure ()
+      where
+        keep :: Either YamlError ()
+        keep = Left $ errorAt ev.ePos "the chomping indicator + is not supported. Remove the +, e.g. write | in place of |+"
 
     unexpected :: Y.EvPos -> Either YamlError a
     unexpected ev = Left . errorAt ev.ePos $ "unexpected " ++ show ev.eEvent
