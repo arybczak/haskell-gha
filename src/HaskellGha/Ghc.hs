@@ -14,6 +14,7 @@ module HaskellGha.Ghc
   , decideRange
   ) where
 
+import Control.Monad
 import Data.Either
 import Data.Text qualified as T
 import Distribution.Pretty
@@ -57,7 +58,7 @@ entriesFromRange
   -- ^ The name of the package for the error messages.
   -> VersionRange
   -> Either [String] [GhcEntry]
-entriesFromRange package range = case partitionEithers . map (\i -> entry i >>= supported) $ asVersionIntervals range of
+entriesFromRange package range = case partitionEithers . map (entry >=> supported) $ asVersionIntervals range of
   ([], entries) -> Right entries
   (bad, _) -> Left bad
   where
