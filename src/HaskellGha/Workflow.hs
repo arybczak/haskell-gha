@@ -421,14 +421,20 @@ workflow opts config project = runCheck $ checks $> root
         ["cd " <> shellQuote (T.pack p.directory) | p.directory /= "."]
           ++ [T.unwords ("\"$HOME\"/.local/bin/doctest" : map shellQuote (d.options ++ map T.pack args)) | args <- p.doctestArgs]
 
-    -- cabal check works on the package in the current directory. All lines run
-    -- in one shell, so a subshell keeps each cd to its own line.
+    -- cabal check works on the package in the current directory, and its
+    -- output does not name the package. The step runs with bash -e, so a
+    -- failed check must not end the script before the other packages.
     checkScript :: [Package] -> T.Text
     checkScript pkgs =
-      T.unlines
-        [ if p.directory == "." then "cabal check" else "(cd " <> shellQuote (T.pack p.directory) <> " && cabal check)"
-        | p <- pkgs
+      T.unlines $
+        [ "failed=0"
+        , "check() {"
+        , "  echo \"Checking the package $1\""
+        , "  (cd \"$2\" && cabal check) || { echo \"::error::cabal check failed for the package $1\"; failed=1; }"
+        , "}"
         ]
+          ++ ["check " <> shellQuote (T.pack p.name) <> " " <> shellQuote (T.pack p.directory) | p <- pkgs]
+          ++ ["exit \"$failed\""]
 
     -- The content of the tarballs, at the same relative paths as in the project
     -- directory.

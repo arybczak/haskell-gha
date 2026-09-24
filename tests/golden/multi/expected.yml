@@ -153,14 +153,26 @@ jobs:
       if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
-        (cd core && cabal check)
+        failed=0
+        check() {
+          echo "Checking the package $1"
+          (cd "$2" && cabal check) || { echo "::error::cabal check failed for the package $1"; failed=1; }
+        }
+        check core core
+        exit "$failed"
 
     - name: Check the packages
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
-        (cd core && cabal check)
-        (cd new && cabal check)
+        failed=0
+        check() {
+          echo "Checking the package $1"
+          (cd "$2" && cabal check) || { echo "::error::cabal check failed for the package $1"; failed=1; }
+        }
+        check core core
+        check new new
+        exit "$failed"
 
     - name: Build the documentation
       working-directory: ${{ runner.temp }}/haskell-gha

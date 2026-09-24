@@ -331,6 +331,11 @@ because otherwise cabal builds the dependencies again with documentation,
 outside the cache. `--haddock-for-hackage` makes the same documentation as a
 Hackage upload.
 
+The output of `cabal check` does not name the package, so the check step
+prints the name before each check. A failed check does not stop the step.
+Thus one run shows the problems of all packages, and an error annotation
+names each package that failed.
+
 ### The source tarballs
 
 A Hackage user gets only the files of the source tarball. The build or the
