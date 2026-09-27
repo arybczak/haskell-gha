@@ -46,6 +46,7 @@ import System.FilePath
 import HaskellGha.Check
 import HaskellGha.Compat
 import HaskellGha.Ghc
+import HaskellGha.Options
 
 -- | A local package.
 data Package = Package
@@ -128,7 +129,7 @@ readProject root dir = runExceptT $ do
     -- directory.
     locatePackages :: [Part] -> IO (Either [String] [(String, [FilePath])])
     locatePackages parts = do
-      locations <- forM (L.nub (allTokens parts)) $ \(required, t) -> (t,) <$> findPackages (root </> dir) required t
+      locations <- forM (L.nub (allTokens parts)) $ \(required, t) -> (t,) <$> findPackages root dir required t
       pure . runCheck $ traverse (\(t, r) -> (t,) <$> fromErrors r) locations
 
     -- A package is known by its directory. If two .cabal files in one
@@ -229,10 +230,20 @@ parseProjectFile file input = case readFields input of
 
 -- | Find the @.cabal@ files of an entry of @packages:@. The paths are relative
 -- to the project directory.
-findPackages :: FilePath -> Bool -> String -> IO (Either [String] [FilePath])
-findPackages dir required t
+findPackages
+  :: FilePath
+  -- ^ The root of the repository.
+  -> FilePath
+  -- ^ The project directory, relative to the root.
+  -> Bool
+  -> String
+  -> IO (Either [String] [FilePath])
+findPackages root projectDir required t
   | "://" `L.isInfixOf` t = pure $ Left ["The package location " ++ show t ++ " is a URL. The tool supports only local packages."]
   | isAbsolute t = notRelative
+  -- A glob component other than .. does not lead up, so the location itself
+  -- decides for all its matches.
+  | leadsAbove (projectDir </> t) = pure $ Left ["The package location " ++ show t ++ " is not in the repository. The tool supports only packages in the repository."]
   | otherwise = case simpleParsec @RootedGlob t of
       Just (RootedGlob FilePathRelative glob) -> do
         matches <- matchGlob dir glob
@@ -247,6 +258,9 @@ findPackages dir required t
           then collect . pure <$> classify t
           else pure $ if required then Left ["The package location " ++ show t ++ " does not exist."] else Right []
   where
+    dir :: FilePath
+    dir = root </> projectDir
+
     -- The workflow uses the path on the runner, where it does not exist.
     notRelative :: IO (Either [String] [FilePath])
     notRelative = pure $ Left ["The package location " ++ show t ++ " is not a relative path. The tool supports only packages in the repository."]

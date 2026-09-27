@@ -211,8 +211,11 @@ the `Parsec` instance of `RootedGlob` and matches it with `matchGlob` from
 `Cabal`. A relative glob needs no root, so the tool does not copy
 `matchFileGlob` from `cabal-install`.
 
-An absolute path, a URL or a tarball in `packages:` is an error. The
-workflow uses the path on the runner, where only the repository exists.
+An absolute path, a path outside the repository, a URL or a tarball in
+`packages:` is an error. The workflow uses the path on the runner, where
+only the repository exists. If a path outside the project directory, e.g.
+`../other`, stays in the repository, it is legal. The same rules apply to
+the local file of an `import:` line.
 
 ### GHC versions
 

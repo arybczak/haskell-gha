@@ -24,6 +24,7 @@ workflowTests =
     , testCase "the errors of independent checks are collected" test_independentChecks
     , testCase "the command line in the header" test_headerCommandLine
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
+    , testCase "an import outside the repository" test_importOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     , testCase "a project directory outside the repository" test_projectDirOutside
     , testCase "a named default configuration file" test_namedDefaultConfig
@@ -130,6 +131,31 @@ test_sdistOutside = do
     )
     (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
   assertBool "sdist: false" (isRight $ workflow defaultOptions (emptySource "conf.yml") defaultConfig {sdist = False} changed)
+
+test_importOutside :: Assertion
+test_importOutside = do
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  let changed =
+        project
+          { imports =
+              [ Import "cabal.project:1:1: " "../inside.project"
+              , Import "cabal.project:2:1: " "../../outside.project"
+              , Import "cabal.project:3:1: " "/etc/absolute.project"
+              ]
+          }
+      opts = defaultOptions {projectDir = "sub"}
+      outside =
+        [ "cabal.project:2:1: the imported file ../../outside.project is not in the repository. Give a path relative to the project directory."
+        , "cabal.project:3:1: the imported file /etc/absolute.project is not in the repository. Give a path relative to the project directory."
+        ]
+  assertEqual
+    "sdist: true"
+    ( Left $
+        "cabal.project:1:1: the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file ../inside.project. Set sdist: false in the configuration."
+          : outside
+    )
+    (workflow opts (emptySource "conf.yml") defaultConfig changed)
+  assertEqual "sdist: false" (Left outside) (workflow opts (emptySource "conf.yml") defaultConfig {sdist = False} changed)
 
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do

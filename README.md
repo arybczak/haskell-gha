@@ -375,7 +375,8 @@ code as the release `v2.4.10`. When a new release comes out, set
 - The tool does not read the files of `import:` lines in `cabal.project`.
   cabal reads the imported files in CI, but the tool does not see a
   package that only an imported file lists. Such a package gets no
-  `ghc-options` and no `tested-with` check.
+  `ghc-options` and no `tested-with` check. A local imported file must be
+  in the repository, because CI has only the repository.
 - If the project directory has no `cabal.project`, the tool reads the
   packages of the directory as the project. If a parent directory has a
   `cabal.project`, cabal uses that file instead. With `sdist: false`, the

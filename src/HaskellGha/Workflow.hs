@@ -94,8 +94,8 @@ workflow opts source config project = runCheck $ checks $> root
       when config.doctest.enabled $ do
         traverse_ (checkDoctestRange config.doctest.ghc) entries
         traverse_ checkSkip config.doctest.skip
-      when config.sdist $ do
-        traverse_ checkImport project.imports
+      traverse_ checkImport project.imports
+      when config.sdist $
         traverse_ checkInside project.packages
       when config.hlint.enabled $
         traverse_ checkHLintPath config.hlint.path
@@ -118,17 +118,25 @@ workflow opts source config project = runCheck $ checks $> root
         path :: FilePath
         path = T.unpack p.value.value
 
-    -- cabal fetches an import from a URL, so only a local file is missing from
-    -- the copy.
+    -- cabal fetches an import from a URL. It reads a local file on the runner,
+    -- where only the repository exists, and the copy of the source tarballs
+    -- does not contain it.
     checkImport :: Import -> Check ()
     checkImport i
       | "://" `L.isInfixOf` i.target = pure ()
-      | otherwise =
+      | isAbsolute i.target || leadsAbove (projectDir </> i.target) =
+          failure $
+            i.location
+              ++ "the imported file "
+              ++ i.target
+              ++ " is not in the repository. Give a path relative to the project directory."
+      | config.sdist =
           failure $
             i.location
               ++ "the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file "
               ++ i.target
               ++ ". Set sdist: false in the configuration."
+      | otherwise = pure ()
 
     -- The unpack step keeps the path of each package relative to the project
     -- directory, so a path with .. leads out of the copy.
