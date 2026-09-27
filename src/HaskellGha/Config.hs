@@ -41,12 +41,16 @@ module HaskellGha.Config
 
     -- * Reading
   , ConfigFile (..)
+  , ConfigSource (..)
+  , emptySource
+  , sourceErrors
   , defaultConfigPath
   , readConfig
   , parseConfig
   ) where
 
 import Control.Monad
+import Data.Bifunctor
 import Data.ByteString qualified as BS
 import Data.Char
 import Data.Foldable
@@ -100,7 +104,7 @@ data HLint = HLint
   { enabled :: Bool
   , version :: Version
   , failOn :: FailOn
-  , path :: [HLintPath]
+  , path :: [Located HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
   -- directory.
   }
@@ -228,9 +232,9 @@ instance GenericYaml Hooks where
 -- | The configuration of doctest.
 data Doctest = Doctest
   { enabled :: Bool
-  , ghc :: VersionRange
+  , ghc :: Located VersionRange
   , version :: Maybe VersionRange
-  , skip :: [T.Text]
+  , skip :: [Located T.Text]
   , options :: [T.Text]
   }
   deriving stock (Eq, Show, Generic)
@@ -308,7 +312,7 @@ defaultDoctest :: Doctest
 defaultDoctest =
   Doctest
     { enabled = False
-    , ghc = anyVersion
+    , ghc = Located anyVersion noOffset
     , version = Nothing
     , skip = []
     , options = []
@@ -530,13 +534,13 @@ matrixAxes config =
   ]
 
 -- | The values of @ghc@ in @include@ and @exclude@.
-matrixGhcValues :: Config -> [T.Text]
+matrixGhcValues :: Config -> [Located T.Text]
 matrixGhcValues config =
   [ v
   | (Node {content = Scalar _ k}, Node {content = Sequence _ entries}) <- matrixEntries config
   , k `elem` ["include", "exclude"]
   , Node {content = Mapping _ fields} <- entries
-  , v <- take 1 [t | (Node {content = Scalar _ "ghc"}, Node {content = Scalar _ t}) <- fields]
+  , v <- take 1 [Located t n.offset | (Node {content = Scalar _ "ghc"}, n@Node {content = Scalar _ t}) <- fields]
   ]
 
 ----------------------------------------
@@ -555,18 +559,34 @@ data ConfigFile
 defaultConfigPath :: FilePath
 defaultConfigPath = ".github/haskell-gha.conf.yml"
 
+-- | The configuration file, for the errors of the checks after the decode.
+data ConfigSource = ConfigSource
+  { file :: FilePath
+  , input :: T.Text
+  , document :: Document
+  }
+
+-- | The source of a configuration without a file, e.g. of 'defaultConfig'.
+emptySource :: FilePath -> ConfigSource
+emptySource file = ConfigSource file "" (document nullValue)
+
+-- | The errors at the offsets of values of the configuration, e.g. of
+-- 'Located' values.
+sourceErrors :: ConfigSource -> [(Offset, String)] -> [String]
+sourceErrors source = map (prettyError source.file) . documentErrors source.input source.document
+
 -- | Read the configuration file. If the default file does not exist, the
 -- result is 'defaultConfig'.
 readConfig
   :: FilePath
   -- ^ The root of the repository.
   -> ConfigFile
-  -> IO (Either [String] Config)
+  -> IO (Either [String] (Config, ConfigSource))
 readConfig root configFile =
   doesFileExist (root </> file) >>= \case
     True -> parseConfig file <$> BS.readFile (root </> file)
     False -> pure $ case configFile of
-      DefaultConfigFile -> Right defaultConfig
+      DefaultConfigFile -> Right (defaultConfig, emptySource file)
       ConfigFile _ -> Left ["The configuration file " ++ file ++ " does not exist."]
   where
     file :: FilePath
@@ -579,7 +599,8 @@ parseConfig
   :: FilePath
   -- ^ The file name for the error messages.
   -> BS.ByteString
-  -> Either [String] Config
-parseConfig file bytes = case decode @(Maybe Config) bytes of
-  Left errors -> Left (map (prettyError file) (NE.toList errors))
-  Right config -> Right (fromMaybe defaultConfig config)
+  -> Either [String] (Config, ConfigSource)
+parseConfig file bytes = first (map (prettyError file)) $ do
+  input <- first pure (decodeInput bytes)
+  (config, doc) <- first NE.toList (decodeWithDocument input)
+  pure (fromMaybe defaultConfig config, ConfigSource file input doc)

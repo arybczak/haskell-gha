@@ -34,9 +34,9 @@ test_missingFile :: Assertion
 test_missingFile = do
   -- The directory has no default configuration file.
   optional <- readConfig "tests" DefaultConfigFile
-  assertEqual "default" (Right defaultConfig) optional
+  assertEqual "default" (Right defaultConfig) (fst <$> optional)
   required <- readConfig "." (ConfigFile "tests/does-not-exist.yml")
-  assertEqual "named" (Left ["The configuration file tests/does-not-exist.yml does not exist."]) required
+  assertEqual "named" (Left ["The configuration file tests/does-not-exist.yml does not exist."]) (fst <$> required)
 
 test_emptyFile :: Assertion
 test_emptyFile = assertEqual "config" (Right defaultConfig) (parse "# only a comment\n")
@@ -105,7 +105,7 @@ test_example = do
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))
   assertEqual "submodules" TopSubmodules config.submodules
   assertEqual "matrix axes" ["postgres"] (matrixAxes config)
-  assertEqual "matrix ghc values" ["9.10"] (matrixGhcValues config)
+  assertEqual "matrix ghc values" ["9.10"] (map (.value) (matrixGhcValues config))
   assertEqual "apt" ["libpq-dev"] config.apt
   assertBool "services" (isJust config.services)
   assertEqual "permissions" (plain "read-all") (normalize config.permissions.value.value)
@@ -116,21 +116,19 @@ test_example = do
   assertEqual "jobs" 2 config.jobs.value
   assertEqual "tests" False config.tests
   assertEqual "benchmarks" False config.benchmarks
-  assertEqual
-    "doctest"
-    Doctest
-      { enabled = True
-      , ghc = intersectVersionRanges (orLaterVersion $ mkVersion [9, 6]) (earlierVersion $ mkVersion [9, 14])
-      , version = Just (orLaterVersion $ mkVersion [0, 24])
-      , skip = ["some-package"]
-      , options = ["--fast"]
-      }
-    config.doctest
+  assertEqual "doctest enabled" True config.doctest.enabled
+  assertEqual "doctest ghc" (intersectVersionRanges (orLaterVersion $ mkVersion [9, 6]) (earlierVersion $ mkVersion [9, 14])) config.doctest.ghc.value
+  assertEqual "doctest version" (Just (orLaterVersion $ mkVersion [0, 24])) config.doctest.version
+  assertEqual "doctest skip" ["some-package"] (map (.value) config.doctest.skip)
+  assertEqual "doctest options" ["--fast"] config.doctest.options
   assertEqual "check" False config.check
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
   assertEqual "fourmolu" Fourmolu {enabled = True, version = mkVersion [0, 19, 0, 1], patterns = [Pattern "src/**/*.hs"]} config.fourmolu
-  assertEqual "hlint" HLint {enabled = True, version = mkVersion [3, 10], failOn = FailError, path = [HLintPath "src"]} config.hlint
+  assertEqual "hlint enabled" True config.hlint.enabled
+  assertEqual "hlint version" (mkVersion [3, 10]) config.hlint.version
+  assertEqual "hlint fail-on" FailError config.hlint.failOn
+  assertEqual "hlint path" [HLintPath "src"] (map (.value) config.hlint.path)
   assertEqual
     "actions"
     ( Actions
@@ -204,7 +202,7 @@ test_errors = do
   assertError "unknown action" "actions: unknown key \"run-ormolu\", did you mean \"run-fourmolu\"?" "actions:\n  run-ormolu: v17\n"
   assertError "fourmolu version" "fourmolu.version: expected a version, e.g. 0.20.1.0" "fourmolu:\n  version: latest\n"
   assertError "hlint path" "hlint.path[1]: a path must not contain a control character, e.g. a tab or a line break" "hlint:\n  path: [src, \"a\\tb\"]\n"
-  assertError "hlint fail-on" "hlint.fail-on: unknown value \"warnings\", expected one of: never, status, warning, suggestion, error" "hlint:\n  fail-on: warnings\n"
+  assertError "hlint fail-on" "hlint.fail-on: unknown value \"warnings\", did you mean \"warning\"?" "hlint:\n  fail-on: warnings\n"
   assertError "unknown fourmolu key" "fourmolu: unknown key \"extra-args\", expected one of: enabled, version, pattern" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" actionError "actions:\n  setup: 'v 2'\n"
   assertError "action without owner" actionError "actions:\n  setup: setup@v2\n"
@@ -275,7 +273,7 @@ firstLines :: Either [String] a -> Either [String] a
 firstLines = either (Left . map (takeWhile (/= '\n'))) Right
 
 parse :: T.Text -> Either [String] Config
-parse = parseConfig "conf.yml" . T.encodeUtf8
+parse = fmap fst . parseConfig "conf.yml" . T.encodeUtf8
 
 parseOk :: T.Text -> IO Config
 parseOk input = case parse input of

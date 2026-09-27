@@ -151,8 +151,9 @@ An unknown key is an error, because it is usually a typing error.
 
 An error of the configuration gives the line and the column of the node
 that caused it, the path of keys to it, e.g. `hlint.version`, and that line
-of the file. The later checks of the configuration against the project, e.g.
-`doctest.skip`, give no position.
+of the file. The checks of the configuration against the project run after
+the decode, e.g. for `doctest.skip`. The values that they check keep the
+position of their node, so their errors have the same form.
 
 A key without a value is an error, not the default. Only a missing key
 takes the default, so a key that the user forgot to fill in does not

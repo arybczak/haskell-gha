@@ -11,6 +11,9 @@ module HaskellGha.Yaml
   , noComments
   , Offset
   , Y.Commented (..)
+  , Y.Located (..)
+  , Document
+  , document
 
     -- * Construction
   , plain

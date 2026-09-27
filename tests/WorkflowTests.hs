@@ -33,7 +33,7 @@ workflowTests =
 
 test_comments :: Assertion
 test_comments = do
-  config <-
+  (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" . BS8.pack $
       unlines
         [ "# The permissions of the workflow."
@@ -53,7 +53,7 @@ test_comments = do
         , "  # The end of the hooks."
         ]
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-  node <- either (assertFailure . unlines) pure (workflow defaultOptions config project)
+  node <- either (assertFailure . unlines) pure (workflow defaultOptions source config project)
   let rendered = T.lines $ renderWorkflow "TEST" defaultOptions node
       assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
   assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
@@ -70,14 +70,14 @@ test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do
   assertErrors
     "hlint:\n  enabled: true\n  path: [../x, /abs, a/../src]\n"
-    [ "The key hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
-    , "The key hlint.path contains the path /abs, which is not in the repository. Give a path relative to the project directory."
+    [ "conf.yml:3:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
+    , "conf.yml:3:16: hlint.path[1]: the path /abs is not in the repository. Give a path relative to the project directory."
     ]
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
-  assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} config project)
-  off <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  path: [../x]\n"
-  assertBool "not enabled" (isRight $ workflow defaultOptions off project)
+  (config, source) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
+  assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} source config project)
+  (off, offSource) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  path: [../x]\n"
+  assertBool "not enabled" (isRight $ workflow defaultOptions offSource off project)
 
 test_namedDefaultConfig :: Assertion
 test_namedDefaultConfig = do
@@ -102,7 +102,7 @@ test_sdistNamePrefix = do
     ps -> assertFailure ("packages: " ++ show ps)
   let pkgs = [p {directory = "a"}, p {name = "example-2d", directory = "b"}]
       changed = project {packages = pkgs, matrix = [MatrixEntry e.ghc pkgs | e <- project.matrix]}
-  node <- either (assertFailure . unlines) pure (workflow defaultOptions defaultConfig changed)
+  node <- either (assertFailure . unlines) pure (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
   assertEqual
     "tar lines"
     [ "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/a"
@@ -128,8 +128,8 @@ test_sdistOutside = do
         , "Package example is in ../lib, outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
         ]
     )
-    (workflow defaultOptions defaultConfig changed)
-  assertBool "sdist: false" (isRight $ workflow defaultOptions defaultConfig {sdist = False} changed)
+    (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
+  assertBool "sdist: false" (isRight $ workflow defaultOptions (emptySource "conf.yml") defaultConfig {sdist = False} changed)
 
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do
@@ -141,31 +141,32 @@ test_unknownGhcValue :: Assertion
 test_unknownGhcValue =
   assertErrors
     "matrix:\n  x: [a, b]\n  exclude:\n    - ghc: '9.8'\n      x: a\n"
-    ["The matrix of the configuration refers to GHC 9.8, but the ghc axis contains only 9.6.7, 9.10, 9.12."]
+    ["conf.yml:4:12: matrix.exclude[0].ghc: GHC 9.8 is not in the ghc axis, which contains only 9.6.7, 9.10, 9.12"]
 
 test_partialDoctestRange :: Assertion
 test_partialDoctestRange =
   assertErrors
     "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
-    ["The range >=9.10.2 of the key doctest.ghc includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+    ["conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
 
 test_independentChecks :: Assertion
 test_independentChecks =
   assertErrors
     "doctest:\n  enabled: true\n  skip: [other]\nhlint:\n  enabled: true\n  path: [../x]\n"
-    [ "The key doctest.skip names the package other, but the project has no such local package."
-    , "The key hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
+    [ "conf.yml:3:10: doctest.skip[0]: the project has no local package other"
+    , "conf.yml:6:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     ]
 
 test_unknownSkip :: Assertion
 test_unknownSkip =
   assertErrors
     "doctest:\n  enabled: true\n  skip: [other]\n"
-    ["The key doctest.skip names the package other, but the project has no such local package."]
+    ["conf.yml:3:10: doctest.skip[0]: the project has no local package other"]
 
--- | The errors for a configuration and the project of the golden test @single@.
+-- | The first lines of the errors for a configuration and the project of the
+-- golden test @single@. The other lines show the line of the configuration.
 assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
-  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
+  (config, source) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-  assertEqual "errors" (Left expected) (workflow defaultOptions config project)
+  assertEqual "errors" (Left expected) (either (Left . map (takeWhile (/= '\n'))) Right (workflow defaultOptions source config project))

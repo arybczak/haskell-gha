@@ -39,9 +39,9 @@ generate
   -> Options
   -> IO (Either [String] Node)
 generate root opts = runExceptT $ do
-  config <- ExceptT $ readConfig root opts.config
+  (config, source) <- ExceptT $ readConfig root opts.config
   project <- ExceptT $ readProject root opts.projectDir
-  except $ workflow opts config project
+  except $ workflow opts source config project
 
 -- | Render the workflow with its header comment.
 renderWorkflow
@@ -82,8 +82,8 @@ shellQuote t
   | otherwise = "'" <> T.replace "'" "'\\''" t <> "'"
 
 -- | Make the workflow.
-workflow :: Options -> Config -> Project -> Either [String] Node
-workflow opts config project = runCheck $ checks $> root
+workflow :: Options -> ConfigSource -> Config -> Project -> Either [String] Node
+workflow opts source config project = runCheck $ checks $> root
   where
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
@@ -92,24 +92,31 @@ workflow opts config project = runCheck $ checks $> root
     checks = do
       traverse_ checkGhcValue (matrixGhcValues config)
       when config.doctest.enabled $ do
-        traverse_ (checkDoctestRange config.doctest) entries
+        traverse_ (checkDoctestRange config.doctest.ghc) entries
         traverse_ checkSkip config.doctest.skip
       when config.sdist $ do
         traverse_ checkImport project.imports
         traverse_ checkInside project.packages
       when config.hlint.enabled $
-        traverse_ (checkHLintPath . (.value)) config.hlint.path
+        traverse_ checkHLintPath config.hlint.path
+
+    -- An error at a value of the configuration, with its position.
+    failureAt :: Offset -> String -> Check ()
+    failureAt off msg = traverse_ failure (sourceErrors source [(off, msg)])
 
     -- The action gets the path on the runner, where only the repository
     -- exists.
-    checkHLintPath :: T.Text -> Check ()
+    checkHLintPath :: Located HLintPath -> Check ()
     checkHLintPath p
-      | isAbsolute (T.unpack p) || leadsAbove (projectDir </> T.unpack p) =
-          failure $
-            "The key hlint.path contains the path "
-              ++ T.unpack p
-              ++ ", which is not in the repository. Give a path relative to the project directory."
+      | isAbsolute path || leadsAbove (projectDir </> path) =
+          failureAt p.offset $
+            "the path "
+              ++ path
+              ++ " is not in the repository. Give a path relative to the project directory."
       | otherwise = pure ()
+      where
+        path :: FilePath
+        path = T.unpack p.value.value
 
     -- cabal fetches an import from a URL, so only a local file is missing from
     -- the copy.
@@ -136,24 +143,23 @@ workflow opts config project = runCheck $ checks $> root
               ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
       | otherwise = pure ()
 
-    checkDoctestRange :: Doctest -> GhcEntry -> Check ()
-    checkDoctestRange d = fromEither . void . decideRange ("The range " ++ prettyShow d.ghc ++ " of the key doctest.ghc") d.ghc
+    checkDoctestRange :: Located VersionRange -> GhcEntry -> Check ()
+    checkDoctestRange r = either (failureAt r.offset) (const (pure ())) . decideRange ("the range " ++ prettyShow r.value) r.value
 
-    checkSkip :: T.Text -> Check ()
+    checkSkip :: Located T.Text -> Check ()
     checkSkip p
-      | T.unpack p `elem` map (.name) project.packages = pure ()
-      | otherwise = failure $ "The key doctest.skip names the package " ++ T.unpack p ++ ", but the project has no such local package."
+      | T.unpack p.value `elem` map (.name) project.packages = pure ()
+      | otherwise = failureAt p.offset $ "the project has no local package " ++ T.unpack p.value
 
-    checkGhcValue :: T.Text -> Check ()
-    checkGhcValue value
-      | value `elem` map entryText entries = pure ()
+    checkGhcValue :: Located T.Text -> Check ()
+    checkGhcValue v
+      | v.value `elem` map entryText entries = pure ()
       | otherwise =
-          failure $
-            "The matrix of the configuration refers to GHC "
-              ++ T.unpack value
-              ++ ", but the ghc axis contains only "
+          failureAt v.offset $
+            "GHC "
+              ++ T.unpack v.value
+              ++ " is not in the ghc axis, which contains only "
               ++ L.intercalate ", " (map (T.unpack . entryText) entries)
-              ++ "."
 
     root :: Node
     root =
@@ -293,7 +299,7 @@ workflow opts config project = runCheck $ checks $> root
         paths :: [FilePath]
         paths
           | null h.path = [projectDir]
-          | otherwise = [dropTrailingPathSeparator (normalise (projectDir </> T.unpack p.value)) | p <- h.path]
+          | otherwise = [dropTrailingPathSeparator (normalise (projectDir </> T.unpack p.value.value)) | p <- h.path]
 
         jsonString :: T.Text -> T.Text
         jsonString t = "\"" <> T.concatMap (\c -> if c `elem` ['"', '\\'] then T.pack ['\\', c] else T.singleton c) t <> "\""
@@ -414,7 +420,7 @@ workflow opts config project = runCheck $ checks $> root
           ]
         , [ sourceStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript config.doctest p)
           | p <- project.packages
-          , T.pack p.name `notElem` config.doctest.skip
+          , T.pack p.name `notElem` map (.value) config.doctest.skip
           , not (null p.doctestArgs)
           , let es = [e.ghc | e <- project.matrix, e.ghc `elem` doctestEntries, p.directory `elem` map (.directory) e.packages]
           , not (null es)
@@ -434,7 +440,7 @@ workflow opts config project = runCheck $ checks $> root
     -- accepts the extra steps.
     doctestEntries :: [GhcEntry]
     doctestEntries
-      | config.doctest.enabled = [e | e <- entries, decide config.doctest.ghc e == Included]
+      | config.doctest.enabled = [e | e <- entries, decide config.doctest.ghc.value e == Included]
       | otherwise = []
 
     -- The key of the main cache does not depend on the doctest version, so
