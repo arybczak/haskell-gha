@@ -390,6 +390,10 @@ code as the release `v2.4.10`. When a new release comes out, set
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on
   x86_64. It assumes that no project selects its packages by operating
   system or architecture.
+- The matrix contains the `tested-with` versions of all local packages,
+  also of a package that no job builds, e.g. one that is in the project only
+  for `os(windows)`. Such a package can add a job or cause a misleading
+  error. Give it the same `tested-with` versions as the other packages.
 - The tool reads all branches of the conditional blocks in `cabal.project`,
   also a branch that no job selects. cabal reads only the branch that it
   selects. Thus the rules for package locations and `import:` lines apply
