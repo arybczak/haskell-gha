@@ -25,6 +25,7 @@ projectTests =
     , testCase "exact and series entries" test_exactAndSeries
     , testCase "an exact entry next to a series entry" test_exactNextToSeries
     , testCase "a missing conditional block" test_missingBlock
+    , testCase "a tested-with version that the project excludes" test_untestedVersion
     , testCase "a condition that includes a part of a series" test_partialCondition
     , testCase "a condition on the first release of a series" test_firstRelease
     , testCase "a flag condition" test_flagCondition
@@ -144,6 +145,20 @@ test_missingBlock = do
       , ("servant-client/servant-client.cabal", cabal "servant-client" "GHC ^>= 9.10 || ^>= 9.12" False)
       ]
   assertEqual "errors" [missingBlock "servant-client" "9.6.7" "^>=9.10 || ^>=9.12" "servant-client"] errors
+
+test_untestedVersion :: Assertion
+test_untestedVersion = do
+  errors <-
+    readErrors
+      [ ("cabal.project", "packages: a\nif impl(ghc >= 9.10)\n  packages: b\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.8 || ^>= 9.10" False)
+      , ("b/b.cabal", cabal "b" "GHC ^>= 9.8 || ^>= 9.10" False)
+      ]
+  assertEqual
+    "errors"
+    [ "Package b lists GHC 9.8 in tested-with, but PROJECT/cabal.project does not include the package for that GHC version, so no job tests it. Remove the version from tested-with, or change the conditional block in cabal.project."
+    ]
+    errors
 
 test_partialCondition :: Assertion
 test_partialCondition = do

@@ -118,7 +118,11 @@ if impl(ghc >= 9.10)
 
 The tool reads these blocks as cabal does. If a package is in the project
 for a GHC version that its `tested-with` field does not list, the tool shows
-the block to add.
+the block to add. The opposite is also an error. Take a package that lists
+a GHC version in `tested-with`. If the project does not include the package
+for that version, no job tests the package with it. This rule does not
+apply to a package that no job builds, e.g. one that is in the project only
+for `os(windows)`.
 
 A condition must include all versions of a matrix entry or none of them. If
 the matrix has the entry `9.10`, the condition `impl(ghc >= 9.10.2)` is an

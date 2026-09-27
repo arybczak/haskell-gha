@@ -389,7 +389,9 @@ projectFrom
 projectFrom exists dir packages byToken parts = do
   entries <- traverse (\p -> fromErrors $ entriesFromRange p.name p.ghcRange) packages
   let axis = L.sort (L.nub (concat entries))
-  (\m -> Project packages m (imports parts)) <$> dedupe (traverse matrixEntry axis)
+  matrix <- dedupe (traverse matrixEntry axis)
+  traverse_ (untested matrix) (zip packages entries)
+  pure (Project packages matrix (imports parts))
   where
     imports :: [Part] -> [Import]
     imports = concatMap $ \case
@@ -446,6 +448,30 @@ projectFrom exists dir packages byToken parts = do
             , "if impl(ghc " ++ prettyShow p.ghcRange ++ ")"
             , "  packages: " ++ p.directory
             ]
+
+    -- A package that some jobs build must be in the project for each version
+    -- of its tested-with field, or no job tests that version. A package that
+    -- no job builds, e.g. one only for Windows, is out of scope.
+    untested :: [MatrixEntry] -> (Package, [GhcEntry]) -> Check ()
+    untested matrix (p, own)
+      | not (any builds matrix) = pure ()
+      | otherwise =
+          sequenceA_
+            [ failure $
+                "Package "
+                  ++ p.name
+                  ++ " lists GHC "
+                  ++ T.unpack (entryText e.ghc)
+                  ++ " in tested-with, but "
+                  ++ projectDescription exists dir
+                  ++ " does not include the package for that GHC version, so no job tests it. Remove the version from tested-with, or change the conditional block in cabal.project."
+            | e <- matrix
+            , e.ghc `elem` own
+            , not (builds e)
+            ]
+      where
+        builds :: MatrixEntry -> Bool
+        builds e = p.directory `elem` map (.directory) e.packages
 
     -- The same error for several matrix entries is shown once.
     dedupe :: Check a -> Check a

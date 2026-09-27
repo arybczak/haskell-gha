@@ -252,6 +252,12 @@ block to add. The condition of the block is the `tested-with` range of the
 package. The `packages:` line gives the directory of the package, because
 the original entry can be a glob that also matches other packages.
 
+A package can list an entry in `tested-with` that the project does not
+include it for. This is an error, because no job then tests the package
+with that version. A package that no job builds is exempt, e.g. a package
+only for Windows. Such a package must still list a GHC version. If the rule
+applied to it, the tool would reject every project with such a package.
+
 ## The generated workflow
 
 The expected output of the golden test
