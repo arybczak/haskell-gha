@@ -37,6 +37,7 @@ import Distribution.Parsec
 import Distribution.Pretty
 import Distribution.Simple.FileMonitor.Types
 import Distribution.Simple.Glob
+import Distribution.Simple.Glob.Internal
 import Distribution.System
 import Distribution.Utils.Path qualified as Path
 import Distribution.Version
@@ -248,16 +249,35 @@ findPackages root projectDir required t
       Just (RootedGlob FilePathRelative glob) -> do
         matches <- matchGlob dir glob
         if null matches
-          then pure $ if required then Left ["The package location " ++ show t ++ " matches no files."] else Right []
+          then pure $ missing (if literal glob then "does not exist" else "matches no files")
           else collect <$> mapM classify matches
       -- A glob from the root or the home directory.
       Just _ -> notRelative
+      -- As in cabal, a location that is not a glob can still be a path.
       Nothing -> do
         exists <- (||) <$> doesFileExist (dir </> t) <*> doesDirectoryExist (dir </> t)
         if exists
           then collect . pure <$> classify t
-          else pure $ if required then Left ["The package location " ++ show t ++ " does not exist."] else Right []
+          else pure $ missing "is not a valid glob, and no file or directory has this path"
   where
+    missing :: String -> Either [String] [FilePath]
+    missing reason
+      | required = Left ["The package location " ++ show t ++ " " ++ reason ++ "."]
+      | otherwise = Right []
+
+    -- A glob without a wildcard or a union names one path.
+    literal :: Glob -> Bool
+    literal = \case
+      GlobDir pieces rest -> all literalPiece pieces && literal rest
+      GlobDirRecursive _ -> False
+      GlobFile pieces -> all literalPiece pieces
+      GlobDirTrailing -> True
+      where
+        literalPiece :: GlobPiece -> Bool
+        literalPiece = \case
+          Literal _ -> True
+          _ -> False
+
     dir :: FilePath
     dir = root </> projectDir
 
