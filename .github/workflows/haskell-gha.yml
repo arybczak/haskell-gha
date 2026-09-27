@@ -56,7 +56,7 @@ jobs:
         fail-on: suggestion
 
   build:
-    name: GHC ${{ matrix.ghc }}
+    name: 'GHC ${{ matrix.ghc }}, ${{ matrix.dependencies }}'
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     strategy:
@@ -68,6 +68,9 @@ jobs:
         - '9.10'
         - '9.12'
         - '9.14'
+        dependencies:
+        - newest
+        - oldest
     steps:
     - uses: actions/checkout@v7
 
@@ -107,6 +110,12 @@ jobs:
           ghc-options: -Werror
         EOF
 
+    - name: Prefer the oldest dependencies
+      if: matrix.dependencies == 'oldest'
+      working-directory: ${{ runner.temp }}/haskell-gha
+      run: |
+        echo 'prefer-oldest: True' >> cabal.project.local
+
     - name: Enable parallel module builds for the local packages
       if: contains(fromJSON('["9.6"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
@@ -133,8 +142,8 @@ jobs:
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ steps.plan.outputs.hash }}
-        restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-${{ steps.plan.outputs.hash }}
+        restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-
 
     - name: Build the dependencies
       working-directory: ${{ runner.temp }}/haskell-gha
