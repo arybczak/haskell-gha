@@ -402,19 +402,21 @@ runner. E.g. a runner that another team manages can have only Ubuntu 24.04.
 Only the build job uses the container. The fourmolu and HLint jobs need no
 GHC and no system libraries, so the runner is enough for them.
 
-The value is one of a fixed list of `buildpack-deps` images, with the
-Ubuntu version in the tag, e.g. `buildpack-deps:26.04`. A plain `ubuntu`
-image lacks tools that the workflow and GHC need, e.g. `git`, `xz-utils`,
-`gcc` and `libgmp-dev`. The list is the Ubuntu tags that `buildpack-deps`
-publishes, so a new Ubuntu release needs a new release of the tool. The
-version tag, not the codename, is the only accepted spelling. Thus one image
-gives one cache key, and the value reads like `runs-on: ubuntu-26.04`. The
-full image name needs no quotes in YAML, but a bare `26.10` does.
+The value is one of a fixed list of `buildpack-deps` images, with the Ubuntu
+version in the tag, e.g. `buildpack-deps:26.04`. A plain `ubuntu` image lacks
+tools that the workflow and GHC need, e.g. `git`, `xz-utils`, `gcc` and
+`libgmp-dev`. The list is the tags of the LTS releases that `buildpack-deps`
+publishes. An interim release has support for only 9 months. With interim
+releases, the list changes every six months, and each change needs a new release
+of the tool. The version tag, not the codename, is the only accepted spelling.
+Thus one image gives one cache key, and the value reads like
+`runs-on: ubuntu-26.04`. The full image name needs no quotes in YAML, but a bare
+`26.04` does.
 
 A job in a container runs as root, and the image has no `sudo`. Thus the
 `apt` step and the gold step call `apt-get` without `sudo`. The package
 lists of the image are empty, so the steps still run `apt-get update`.
-Ubuntu 26.04 and 26.10 have no gold by default, so the gold step stays.
+Ubuntu 26.04 has no gold by default, so the gold step stays.
 
 A test on GitHub showed these facts:
 

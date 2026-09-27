@@ -220,12 +220,14 @@ instance FromYaml Container where
       images :: [T.Text]
       images = map ("buildpack-deps:" <>) containerVersions
 
--- | The Ubuntu versions of the buildpack-deps images, from the file
--- library/buildpack-deps of docker-library/official-images on 2026-09-27. The
--- tool accepts only the images that it knows, because another image can lack
--- a package that the workflow needs, e.g. git or xz-utils.
+-- | The Ubuntu versions of the buildpack-deps images of the LTS releases, from
+-- the file library/buildpack-deps of docker-library/official-images on
+-- 2026-09-27. An interim release has support for only 9 months, so the list
+-- leaves it out. The tool accepts only the images that it knows, because
+-- another image can lack a package that the workflow needs, e.g. git or
+-- xz-utils.
 containerVersions :: [T.Text]
-containerVersions = ["22.04", "24.04", "26.04", "26.10"]
+containerVersions = ["22.04", "24.04", "26.04"]
 
 -- | The versions of the dependencies that the build jobs use.
 data Dependencies
