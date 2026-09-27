@@ -1,6 +1,8 @@
 # Two workflows with the same name cancel each other, so this workflow has
 # its own name.
 name: CI (multi)
+# The main workflow runs on the runner, and this one in a container.
+container: buildpack-deps:26.04
 doctest:
   enabled: true
   ghc: '>=9.12'

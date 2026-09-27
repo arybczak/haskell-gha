@@ -36,6 +36,7 @@ jobs:
   build:
     name: GHC ${{ matrix.ghc }}
     runs-on: ubuntu-26.04
+    container: buildpack-deps:26.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -60,8 +61,8 @@ jobs:
       run: |
         ghc --version
         cabal --version
-        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
-        echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
+        echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image buildpack-deps:26.04" >> "$GITHUB_STEP_SUMMARY"
+        echo "image=buildpack-deps:26.04" >> "$GITHUB_OUTPUT"
 
     - name: Unpack the source tarballs
       if: contains(fromJSON('["9.6","9.8"]'), matrix.ghc)
