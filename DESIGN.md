@@ -392,6 +392,38 @@ keeps the relative path of a package outside the project directory, e.g.
 both cases and asks for `sdist: false`. A path such as `a/../b` stays inside
 the project directory, so it is legal.
 
+### Dependencies
+
+The versions of the dependencies are a matrix axis, not a separate job. The
+two kinds need the same steps, so a separate job copies all build steps for
+a difference of one line. The axis also applies the extra axes, `include`
+and `exclude` of the user to both kinds. With the default `newest`, the axis
+does not exist, and the workflow does not change.
+
+An oldest job writes `prefer-oldest: True` to `cabal.project.local`. The
+flag `--prefer-oldest` on the command line is not enough, because each
+later `cabal` command must use the same plan. A command without the flag
+solves the plan again with the newest versions. The line has its own step,
+like the semaphore, so the log of a newest job shows the step as skipped.
+
+The workflow puts no constraints on the dependencies, also not on the
+libraries that come with GHC. cabal can then build an older version of such
+a library from Hackage. A test with GHC 9.10.3 built the oldest plan of
+haskell-gha with e.g. `text-2.0.2` and `unix-2.7.3`, and its tests passed.
+
+The cache prefix contains the kind, because the prefix is also the restore
+key. Without it, an oldest job restores a store with the newest versions,
+and the reverse. With `both`, the prefix of the newest jobs also changes.
+When a user turns on the key, the cache of these jobs misses once.
+
+The job name shows only the value, e.g. `GHC 9.10, oldest`. The values are
+clear without the name of the axis.
+
+The value `oldest` has no axis, and every job uses the oldest versions. It
+is for a second workflow that tests only the lower bounds. A failure of an
+oldest job often comes from a dependency with wrong bounds, so a user can
+make that workflow an optional check.
+
 ### Doctest
 
 The doctest README recommends `cabal repl --with-compiler=doctest`. A test
@@ -587,7 +619,6 @@ The tool does not support these features:
 - macOS and Windows.
 - GHC prereleases and GHC head.
 - head.hackage.
-- A job that tests the lower bounds with `--prefer-oldest`.
 - Benchmark runs.
 - stack.
 

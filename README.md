@@ -186,6 +186,7 @@ cabal-project-local: |
 jobs: 4
 tests: true
 benchmarks: true
+dependencies: newest
 doctest:
   enabled: true
   ghc: '>=9.6 && <9.14'
@@ -232,6 +233,7 @@ actions:
 | `jobs` | `4` | The number of parallel build jobs. |
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
+| `dependencies` | `newest` | The versions of the dependencies: `newest`, `oldest` or `both`. See [Dependencies](#dependencies). |
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
 | `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
 | `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
@@ -258,11 +260,13 @@ The tool copies `matrix`, `services`, `permissions` and the hooks to the
 workflow without changes, together with their comments. You can use
 GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
 mapping must not contain the key `ghc`, because the tool makes that axis.
+With `dependencies: both`, the same applies to the key `dependencies`.
 The job name refers to each axis in an expression. Thus the name of an axis
 must start with a letter or `_`, and contain only letters, digits, `_` and
 `-`. A `ghc` value in `include` or `exclude` must be a quoted string, e.g.
 `'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
-entry must be `ghc` or an axis of the `matrix` mapping.
+entry must be `ghc`, an axis of the `matrix` mapping, or `dependencies`
+with `dependencies: both`.
 
 If a service has a health check, the runner starts the steps only when the
 service is healthy. Thus the workflow needs no step that waits for the
@@ -286,6 +290,41 @@ The default `cabal-version` is not `latest`. Now `latest` selects cabal
 3.18.1.0, and that version has a bug in the GHC job semaphore.
 [Cabal issue 12306](https://github.com/haskell/cabal/issues/12306) describes
 the bug.
+
+## Dependencies
+
+By default, cabal picks the newest versions of the dependencies that the
+bounds of the packages allow. Thus CI does not test the lower bounds. If a
+lower bound is too low, the build fails for a user who has an older version
+of that dependency.
+
+With `dependencies: oldest`, each job writes `prefer-oldest: True` to
+`cabal.project.local`. cabal then picks the oldest versions that the bounds
+allow. This also applies to the libraries that come with GHC, e.g. `text`,
+so cabal can build an older version of such a library from Hackage.
+
+With `dependencies: both`, the matrix gets the axis `dependencies` with the
+values `newest` and `oldest`. Each GHC version gets a job for each value,
+and the job name shows the value. The two kinds of jobs have separate
+caches. All other steps are the same for both kinds. To remove an oldest
+job, use `exclude`:
+
+```yaml
+dependencies: both
+matrix:
+  exclude:
+    - ghc: '9.6'
+      dependencies: oldest
+```
+
+A failure of an oldest job often comes from a dependency. E.g. an old
+version of a dependency has no upper bound on `base` and does not build
+with a new GHC. Then raise the lower bound in the `.cabal` file.
+
+`dependencies: oldest` is useful for a second workflow that tests only the
+lower bounds. Make it with `--config` and `--output`, and give it its own
+`name`. The main workflow can then be a required check on GitHub, and the
+second workflow an optional one.
 
 ## Source tarballs
 

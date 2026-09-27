@@ -6,22 +6,19 @@
 # Version: TEST
 #
 # For more information, see https://github.com/arybczak/haskell-gha
-name: Postgres CI
+name: CI
 
 on:
   push:
     branches:
     - master
-    - release/**
+    - main
   pull_request:
   merge_group:
   workflow_dispatch:
 
-# The test reporter writes check runs.
 permissions:
   contents: read
-  # For the annotations of the test results.
-  checks: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,83 +29,25 @@ defaults:
     shell: bash
 
 jobs:
-  fourmolu:
-    name: Fourmolu
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: haskell-actions/run-fourmolu@v12
-      with:
-        version: '0.19.0.1'
-        pattern: |
-          src/**/*.hs
-          !src/Generated.hs
-
-  hlint:
-    name: HLint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: haskell-actions/hlint-setup@v2
-      with:
-        version: '3.8'
-
-    - uses: haskell-actions/hlint-run@v2
-      with:
-        path: '["src", "test"]'
-        fail-on: error
-
   build:
-    name: 'GHC ${{ matrix.ghc }}, ${{ matrix.dependencies }}, postgres ${{ matrix.postgres }}'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    # The services of each build job.
-    services:
-      # The database for the tests.
-      postgres:
-        image: postgres:${{ matrix.postgres }}
-        env:
-          POSTGRES_PASSWORD: postgres # Only for CI.
-        ports:
-        - '5432:5432'
-        # The runner starts the steps when the database accepts connections.
-        options: >-
-          --health-cmd pg_isready --health-interval 5s --health-retries 10
+    name: GHC ${{ matrix.ghc }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
-      # The oldest and the newest supported Postgres.
       matrix:
         ghc:
+        - '9.6.7'
         - '9.10'
         - '9.12'
-        dependencies:
-        - newest
-        - oldest
-        postgres:
-        - '15'
-        - '18'
-        exclude:
-        - ghc: '9.10'
-          postgres: '15'
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: recursive
+    - uses: actions/checkout@v7
 
-    - name: Install the system packages
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends libpq-dev postgresql-client
-
-    - uses: haskell-actions/setup@v2.8.2
+    - uses: haskell-actions/setup@v2
       id: setup
       with:
         ghc-version: ${{ matrix.ghc }}
-        cabal-version: 'latest'
+        cabal-version: '3.16.1.0'
 
     - name: Show the versions
       id: versions
@@ -118,11 +57,6 @@ jobs:
         echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
         echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
-    # The steps for Postgres.
-    - name: Show the Postgres version
-      run: psql --version
-    # Postgres is ready for the build.
-
     - name: Unpack the source tarballs
       run: |
         shopt -s extglob
@@ -131,30 +65,36 @@ jobs:
         for f in cabal.project cabal.project.freeze cabal.project.local; do
           if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP"/haskell-gha; fi
         done
-        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/config-+([0-9.]).tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha
+        tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/oldest-+([0-9.]).tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha
 
     - name: Configure the project
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
-        jobs: 2
+        jobs: 4
+        tests: True
+        benchmarks: True
 
-        package config
-          ghc-options: -Werror -Wno-unused-imports
-
-        package config
-          flags: +postgres
-
-        constraints: postgresql-libpq >= 0.10
+        package oldest
+          ghc-options: -Werror
         EOF
 
     - name: Prefer the oldest dependencies
-      if: matrix.dependencies == 'oldest'
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         echo 'prefer-oldest: True' >> cabal.project.local
 
+    - name: Enable parallel module builds for the local packages
+      if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
+      run: |
+        cat >> cabal.project.local <<'EOF'
+        package oldest
+          ghc-options: -j4
+        EOF
+
     - name: Enable the GHC job semaphore
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         echo 'semaphore: True' >> cabal.project.local
@@ -166,19 +106,19 @@ jobs:
         cabal build all --dry-run
         echo "hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
-    - uses: runs-on/cache/restore@v4
+    - uses: actions/cache/restore@v6
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-${{ steps.plan.outputs.hash }}
-        restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-
+        key: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-oldest-${{ steps.plan.outputs.hash }}
+        restore-keys: ${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-oldest-
 
     - name: Build the dependencies
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cabal build all --only-dependencies
 
-    - uses: runs-on/cache/save@v4
+    - uses: actions/cache/save@v6
       if: steps.cache.outputs.cache-hit != 'true'
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
@@ -189,10 +129,10 @@ jobs:
       run: |
         cabal build all
 
-    # A check that the build made the programs.
-    - name: Show the executables
-      run: cabal list-bin all
-    # The package checks come next.
+    - name: Run the tests
+      working-directory: ${{ runner.temp }}/haskell-gha
+      run: |
+        cabal test all --test-show-details=direct
 
     - name: Check the packages
       working-directory: ${{ runner.temp }}/haskell-gha
@@ -202,7 +142,7 @@ jobs:
           echo "Checking the package $1"
           (cd "$2" && cabal check) || { echo "::error::cabal check failed for the package $1"; failed=1; }
         }
-        check config .
+        check oldest .
         exit "$failed"
 
     - name: Build the documentation

@@ -50,6 +50,7 @@ cabal-project-local: |
 jobs: 2
 tests: false
 benchmarks: false
+dependencies: both
 fourmolu:
   enabled: true
   version: '0.19.0.1'

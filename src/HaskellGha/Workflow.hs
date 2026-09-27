@@ -90,7 +90,8 @@ workflow opts source config project = runCheck $ checks $> root
 
     checks :: Check ()
     checks = do
-      traverse_ checkGhcValue (matrixGhcValues config)
+      traverse_ checkGhcValue (matrixValues ["include", "exclude"] "ghc" config)
+      checkDependencies
       when config.doctest.enabled $ do
         traverse_ (checkDoctestRange config.doctest.ghc) entries
         traverse_ checkSkip config.doctest.skip
@@ -158,6 +159,27 @@ workflow opts source config project = runCheck $ checks $> root
     checkSkip p
       | T.unpack p.value `elem` map (.name) project.packages = pure ()
       | otherwise = failureAt p.offset $ "the project has no local package " ++ T.unpack p.value
+
+    -- The tool makes the dependencies axis only for both. Otherwise the name
+    -- is free for an axis of the user.
+    checkDependencies :: Check ()
+    checkDependencies
+      | bothDependencies = do
+          traverse_ ownAxis [key.offset | (key@Node {content = Scalar _ "dependencies"}, _) <- matrixEntries config]
+          traverse_ value (matrixValues ["include", "exclude"] "dependencies" config)
+      | "dependencies" `elem` matrixAxes config = pure ()
+      | otherwise = traverse_ noAxis (matrixValues ["exclude"] "dependencies" config)
+      where
+        ownAxis :: Offset -> Check ()
+        ownAxis off = failureAt off "the tool makes the dependencies axis for dependencies: both, so the matrix must not contain it"
+
+        value :: Located T.Text -> Check ()
+        value v
+          | v.value `elem` ["newest", "oldest"] = pure ()
+          | otherwise = failureAt v.offset $ "dependencies " ++ T.unpack v.value ++ " is not in the dependencies axis, which contains only newest, oldest"
+
+        noAxis :: Located T.Text -> Check ()
+        noAxis v = failureAt v.offset "the matrix has no dependencies axis. Set dependencies: both to add it."
 
     checkGhcValue :: Located T.Text -> Check ()
     checkGhcValue v
@@ -328,9 +350,21 @@ workflow opts source config project = runCheck $ checks $> root
     uses repo path a = "uses" .= plain (fromMaybe repo a.repository <> path <> "@" <> a.ref)
 
     jobName :: Node
-    jobName = case matrixAxes config of
-      [] -> plain "GHC ${{ matrix.ghc }}"
-      axes -> singleQuoted . T.intercalate ", " $ "GHC ${{ matrix.ghc }}" : [a <> " ${{ matrix." <> a <> " }}" | a <- axes]
+    jobName = case parts of
+      [p] -> plain p
+      ps -> singleQuoted (T.intercalate ", " ps)
+      where
+        -- The values newest and oldest are clear without the axis name.
+        parts :: [T.Text]
+        parts =
+          concat
+            [ ["GHC ${{ matrix.ghc }}"]
+            , ["${{ matrix.dependencies }}" | bothDependencies]
+            , [a <> " ${{ matrix." <> a <> " }}" | a <- matrixAxes config]
+            ]
+
+    bothDependencies :: Bool
+    bothDependencies = config.dependencies == DependenciesBoth
 
     -- The comments after the matrix are in its entry, so the entry writes
     -- them after the new matrix.
@@ -338,6 +372,7 @@ workflow opts source config project = runCheck $ checks $> root
     matrix =
       mappingConcat
         [ ["ghc" .= sequenceNode (map (singleQuoted . entryText) entries)]
+        , ["dependencies" .= sequenceNode [plain "newest", plain "oldest"] | bothDependencies]
         , extraAxes
         ]
 
@@ -405,6 +440,7 @@ workflow opts source config project = runCheck $ checks $> root
           , (group, pkgs) <- packageGroups project.matrix
           ]
         , [sourceStep "Configure the project" Nothing configureScript]
+        , oldestStep
         , [ sourceStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, not (hasSemaphore e.ghc)]
           ]
@@ -669,6 +705,23 @@ workflow opts source config project = runCheck $ checks $> root
               ls -> "" : ls
           ]
 
+    -- Each later cabal command reads cabal.project.local, so all of them use
+    -- the plan with the oldest versions.
+    oldestStep :: [Node]
+    oldestStep = case config.dependencies of
+      DependenciesNewest -> []
+      DependenciesOldest -> [preferOldest []]
+      DependenciesBoth -> [preferOldest ["if" .= plain "matrix.dependencies == 'oldest'"]]
+      where
+        preferOldest :: [(Node, Node)] -> Node
+        preferOldest only =
+          mappingConcat
+            [ ["name" .= plain "Prefer the oldest dependencies"]
+            , only
+            , [sourceWorkingDirectory | config.sdist]
+            , ["run" .= literal "echo 'prefer-oldest: True' >> cabal.project.local\n"]
+            ]
+
     parallelScript :: [Package] -> T.Text
     parallelScript pkgs =
       heredoc . L.intercalate [""] $ [stanza p ("ghc-options: -j" <> tshow config.jobs.value) | p <- pkgs]
@@ -719,9 +772,14 @@ workflow opts source config project = runCheck $ checks $> root
         ]
 
     -- A store from another image can link against system libraries that this
-    -- image does not have.
+    -- image does not have. The prefix is also the restore key, so a job
+    -- restores only a store with its own kind of dependencies.
     cachePrefix :: T.Text
-    cachePrefix = "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-"
+    cachePrefix =
+      "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
+        DependenciesNewest -> ""
+        DependenciesOldest -> "oldest-"
+        DependenciesBoth -> "${{ matrix.dependencies }}-"
 
     cacheSave :: Node
     cacheSave =

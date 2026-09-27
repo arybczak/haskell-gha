@@ -8,6 +8,7 @@ module HaskellGha.Config
     Config (..)
   , CabalVersion (..)
   , Submodules (..)
+  , Dependencies (..)
   , Hooks (..)
   , Doctest (..)
   , Fourmolu (..)
@@ -37,7 +38,7 @@ module HaskellGha.Config
     -- * Matrix
   , matrixEntries
   , matrixAxes
-  , matrixGhcValues
+  , matrixValues
 
     -- * Reading
   , ConfigFile (..)
@@ -84,6 +85,7 @@ data Config = Config
   , jobs :: Positive
   , tests :: Bool
   , benchmarks :: Bool
+  , dependencies :: Dependencies
   , doctest :: Doctest
   , check :: Bool
   , sdist :: Bool
@@ -202,6 +204,19 @@ instance FromYaml CabalVersion where
         | otherwise -> pure $ CabalVersion v
       Nothing -> fail "expected latest or a version"
 
+-- | The versions of the dependencies that the build jobs use.
+data Dependencies
+  = DependenciesNewest
+  | -- | The oldest versions that the bounds allow.
+    DependenciesOldest
+  | -- | A job for each of the two, as the values of a matrix axis.
+    DependenciesBoth
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
+
+instance GenericYaml Dependencies where
+  yamlOptions = defaultYamlOptions {constructorTagModifier = map toLower . drop (length @[] "Dependencies")}
+
 -- | The Git submodules that the build jobs fetch.
 data Submodules
   = NoSubmodules
@@ -268,6 +283,7 @@ defaultConfig =
     , jobs = Positive 4
     , tests = True
     , benchmarks = True
+    , dependencies = DependenciesNewest
     , doctest = defaultDoctest
     , check = True
     , sdist = True
@@ -501,7 +517,9 @@ instance FromYaml Matrix where
       combination as isExclude item = case item.content of
         Mapping _ fields ->
           ghcValue fields
-            *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = Scalar _ k}, _) <- fields, k /= "ghc"])
+            -- The dependencies axis depends on another key, so the checks of
+            -- the workflow decide it.
+            *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = Scalar _ k}, _) <- fields, k `notElem` ["ghc", "dependencies"]])
         _ -> typeMismatch "a mapping" item
 
       ghcValue :: [(Node, Node)] -> Parser ()
@@ -533,14 +551,20 @@ matrixAxes config =
   , k `notElem` ["include", "exclude"]
   ]
 
--- | The values of @ghc@ in @include@ and @exclude@.
-matrixGhcValues :: Config -> [Located T.Text]
-matrixGhcValues config =
+-- | The values of a key in the entries of @include@ or @exclude@, e.g. of
+-- @ghc@.
+matrixValues
+  :: [T.Text]
+  -- ^ The lists, @include@ or @exclude@ or both.
+  -> T.Text
+  -> Config
+  -> [Located T.Text]
+matrixValues lists key config =
   [ v
   | (Node {content = Scalar _ k}, Node {content = Sequence _ entries}) <- matrixEntries config
-  , k `elem` ["include", "exclude"]
+  , k `elem` lists
   , Node {content = Mapping _ fields} <- entries
-  , v <- take 1 [Located t n.offset | (Node {content = Scalar _ "ghc"}, n@Node {content = Scalar _ t}) <- fields]
+  , v <- take 1 [Located t n.offset | (Node {content = Scalar _ f}, n@Node {content = Scalar _ t}) <- fields, f == key]
   ]
 
 ----------------------------------------

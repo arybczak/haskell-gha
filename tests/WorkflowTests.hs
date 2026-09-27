@@ -19,6 +19,7 @@ workflowTests =
   testGroup
     "Workflow"
     [ testCase "a ghc value of the matrix that is not in the axis" test_unknownGhcValue
+    , testCase "the dependencies axis" test_dependenciesAxis
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "an unknown package in doctest.skip" test_unknownSkip
     , testCase "the errors of independent checks are collected" test_independentChecks
@@ -168,6 +169,25 @@ test_unknownGhcValue =
   assertErrors
     "matrix:\n  x: [a, b]\n  exclude:\n    - ghc: '9.8'\n      x: a\n"
     ["conf.yml:4:12: matrix.exclude[0].ghc: GHC 9.8 is not in the ghc axis, which contains only 9.6.7, 9.10, 9.12"]
+
+test_dependenciesAxis :: Assertion
+test_dependenciesAxis = do
+  assertErrors
+    "dependencies: both\nmatrix:\n  dependencies: [a, b]\n  exclude:\n    - dependencies: older\n"
+    [ "conf.yml:3:3: matrix: the tool makes the dependencies axis for dependencies: both, so the matrix must not contain it"
+    , "conf.yml:5:21: matrix.exclude[0].dependencies: dependencies older is not in the dependencies axis, which contains only newest, oldest"
+    ]
+  assertErrors
+    "matrix:\n  exclude:\n    - dependencies: oldest\n"
+    ["conf.yml:3:21: matrix.exclude[0].dependencies: the matrix has no dependencies axis. Set dependencies: both to add it."]
+  assertValid "dependencies: both\nmatrix:\n  exclude:\n    - ghc: '9.10'\n      dependencies: oldest\n"
+  assertValid "matrix:\n  dependencies: [a, b]\n  exclude:\n    - dependencies: a\n"
+  where
+    assertValid :: String -> Assertion
+    assertValid input = do
+      (config, source) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
+      project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+      either (assertFailure . unlines) (const (pure ())) (workflow defaultOptions source config project)
 
 test_partialDoctestRange :: Assertion
 test_partialDoctestRange =

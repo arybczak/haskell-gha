@@ -74,6 +74,7 @@ test_example = do
         , "jobs: 2"
         , "tests: false"
         , "benchmarks: False"
+        , "dependencies: both"
         , "doctest:"
         , "  enabled: true"
         , "  ghc: '>=9.6 && <9.14'"
@@ -105,7 +106,7 @@ test_example = do
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))
   assertEqual "submodules" TopSubmodules config.submodules
   assertEqual "matrix axes" ["postgres"] (matrixAxes config)
-  assertEqual "matrix ghc values" ["9.10"] (map (.value) (matrixGhcValues config))
+  assertEqual "matrix ghc values" ["9.10"] (map (.value) (matrixValues ["include", "exclude"] "ghc" config))
   assertEqual "apt" ["libpq-dev"] config.apt
   assertBool "services" (isJust config.services)
   assertEqual "permissions" (plain "read-all") (normalize config.permissions.value.value)
@@ -116,6 +117,7 @@ test_example = do
   assertEqual "jobs" 2 config.jobs.value
   assertEqual "tests" False config.tests
   assertEqual "benchmarks" False config.benchmarks
+  assertEqual "dependencies" DependenciesBoth config.dependencies
   assertEqual "doctest enabled" True config.doctest.enabled
   assertEqual "doctest ghc" (intersectVersionRanges (orLaterVersion $ mkVersion [9, 6]) (earlierVersion $ mkVersion [9, 14])) config.doctest.ghc.value
   assertEqual "doctest version" (Just (orLaterVersion $ mkVersion [0, 24])) config.doctest.version
@@ -176,6 +178,7 @@ test_errors = do
   assertError "timeout-minutes" "timeout-minutes: expected a positive integer" "timeout-minutes: 0\n"
   assertError "tests" "tests: expected a boolean, but got a string" "tests: 'true'\n"
   assertError "branches" "branches: expected a non-empty list" "branches: []\n"
+  assertError "dependencies" "dependencies: unknown value \"old\", expected one of: newest, oldest, both" "dependencies: old\n"
   assertError "submodules" "submodules: expected true, false or recursive" "submodules: 'yes'\n"
   assertError "runs-on" "runs-on: expected a string, but got a list" "runs-on: [self-hosted, linux]\n"
   assertError "old cabal" "cabal-version: the tool supports only cabal 3.12 and later" "cabal-version: '3.10'\n"
