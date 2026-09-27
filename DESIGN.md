@@ -421,6 +421,11 @@ modules. But then GHC takes the compiled module from the environment file,
 and doctest finds no examples without an error. Thus the tool gives the
 files of the exposed modules, e.g. `A/B.hs`.
 
+A module can have no `.hs` or `.lhs` file in the package directory, e.g. a
+module that `hsc2hs` makes from a `.hsc` file. The tool then gives the
+module name, and doctest skips the module without an error. The README
+lists this as a known limit.
+
 ### Fourmolu
 
 The formatting does not depend on the GHC version, so the fourmolu job has no

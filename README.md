@@ -386,6 +386,16 @@ code as the release `v2.4.10`. When a new release comes out, set
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on
   x86_64. It assumes that no project selects its packages by operating
   system or architecture.
+- The tool reads all branches of the conditional blocks in `cabal.project`,
+  also a branch that no job selects. cabal reads only the branch that it
+  selects. Thus the rules for package locations and `import:` lines apply
+  to each branch. E.g. a location in `packages:` must exist, and with
+  `sdist: true` a local `import:` is an error.
+- doctest skips a module without an error in one case. The library has no
+  `hs-source-dirs` or has `.` in it, and the package directory has no
+  `.hs` or `.lhs` file for an exposed module. The module can come from
+  another file, e.g. a `.hsc` file for `hsc2hs`. The same applies to each
+  sublibrary.
 - A test suite counts, whatever its conditions are. If all test suites of a
   project have `buildable: False` for a GHC version, the test step fails for
   that version.
