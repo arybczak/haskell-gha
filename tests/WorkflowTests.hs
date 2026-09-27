@@ -21,6 +21,7 @@ workflowTests =
     [ testCase "a ghc value of the matrix that is not in the axis" test_unknownGhcValue
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "an unknown package in doctest.skip" test_unknownSkip
+    , testCase "the errors of independent checks are collected" test_independentChecks
     , testCase "the command line in the header" test_headerCommandLine
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
@@ -147,6 +148,14 @@ test_partialDoctestRange =
   assertErrors
     "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
     ["The range >=9.10.2 of the key doctest.ghc includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+
+test_independentChecks :: Assertion
+test_independentChecks =
+  assertErrors
+    "doctest:\n  enabled: true\n  skip: [other]\nhlint:\n  enabled: true\n  path: [../x]\n"
+    [ "The key doctest.skip names the package other, but the project has no such local package."
+    , "The key hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
+    ]
 
 test_unknownSkip :: Assertion
 test_unknownSkip =

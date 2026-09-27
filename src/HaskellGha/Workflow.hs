@@ -89,11 +89,16 @@ workflow opts config project = runCheck $ checks $> root
     entries = map (.ghc) project.matrix
 
     checks :: Check ()
-    checks =
+    checks = do
       traverse_ checkGhcValue (matrixGhcValues config)
-        *> when config.doctest.enabled (traverse_ (checkDoctestRange config.doctest) entries *> traverse_ checkSkip config.doctest.skip)
-        *> when config.sdist (traverse_ checkImport project.imports *> traverse_ checkInside project.packages)
-        *> when config.hlint.enabled (traverse_ (checkHLintPath . (.value)) config.hlint.path)
+      when config.doctest.enabled $ do
+        traverse_ (checkDoctestRange config.doctest) entries
+        traverse_ checkSkip config.doctest.skip
+      when config.sdist $ do
+        traverse_ checkImport project.imports
+        traverse_ checkInside project.packages
+      when config.hlint.enabled $
+        traverse_ (checkHLintPath . (.value)) config.hlint.path
 
     -- The action gets the path on the runner, where only the repository
     -- exists.

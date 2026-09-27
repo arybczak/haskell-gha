@@ -170,7 +170,9 @@ parseProjectFile file input = case readFields input of
         | n `elem` ["elif", "else"] -> failure (at pos $ BS8.unpack n ++ " without if") *> parts rest
         | otherwise -> parts rest
 
-    -- The elif and else sections that follow an if section.
+    -- The elif and else sections that follow an if section. ApplicativeDo
+    -- joins the independent statements with <*>, so the errors of the
+    -- condition and of the sections come back together.
     conditional :: Position -> [SectionArg Position] -> [Field Position] -> [Field Position] -> Check [Part]
     conditional pos args body rest = case rest of
       Section (Name pos' "elif") args' body' : rest' -> do
@@ -350,10 +352,10 @@ projectFrom
   -- ^ The packages of an entry of @packages:@.
   -> [Part]
   -> Check Project
-projectFrom exists dir packages byToken parts =
-  traverse (\p -> fromErrors $ entriesFromRange p.name p.ghcRange) packages `andThen` \entries ->
-    let axis = L.sort (L.nub (concat entries))
-    in (\m -> Project packages m (imports parts)) <$> dedupe (traverse matrixEntry axis)
+projectFrom exists dir packages byToken parts = do
+  entries <- traverse (\p -> fromErrors $ entriesFromRange p.name p.ghcRange) packages
+  let axis = L.sort (L.nub (concat entries))
+  (\m -> Project packages m (imports parts)) <$> dedupe (traverse matrixEntry axis)
   where
     imports :: [Part] -> [Import]
     imports = concatMap $ \case
@@ -362,13 +364,12 @@ projectFrom exists dir packages byToken parts =
       Conditional _ _ yes no -> imports yes ++ imports no
 
     matrixEntry :: GhcEntry -> Check MatrixEntry
-    matrixEntry entry =
-      included entry parts `andThen` \pkgs ->
-        let pkgs' = L.nubBy (\a b -> a.directory == b.directory) pkgs
-        in MatrixEntry entry pkgs'
-             <$ if null pkgs'
-               then failure $ "There are no packages in " ++ projectDescription exists dir ++ " for GHC " ++ T.unpack (entryText entry) ++ "."
-               else traverse_ (supports entry) pkgs'
+    matrixEntry entry = do
+      pkgs <- L.nubBy (\a b -> a.directory == b.directory) <$> included entry parts
+      if null pkgs
+        then failure $ "There are no packages in " ++ projectDescription exists dir ++ " for GHC " ++ T.unpack (entryText entry) ++ "."
+        else traverse_ (supports entry) pkgs
+      pure (MatrixEntry entry pkgs)
 
     included :: GhcEntry -> [Part] -> Check [Package]
     included entry =
@@ -377,8 +378,9 @@ projectFrom exists dir packages byToken parts =
           ( \case
               Packages _ ts -> pure (concatMap byToken ts)
               ImportLine _ -> pure []
-              Conditional pos c yes no ->
-                evaluate entry pos c `andThen` \b -> included entry (if b then yes else no)
+              Conditional pos c yes no -> do
+                b <- evaluate entry pos c
+                included entry (if b then yes else no)
           )
 
     supports :: GhcEntry -> Package -> Check ()

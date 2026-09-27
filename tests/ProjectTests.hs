@@ -28,6 +28,7 @@ projectTests =
     , testCase "a condition that includes a part of a series" test_partialCondition
     , testCase "a condition on the first release of a series" test_firstRelease
     , testCase "a flag condition" test_flagCondition
+    , testCase "all errors of cabal.project are collected" test_projectFileErrors
     , testCase "a condition that the other side decides" test_decidedCondition
     , testCase "os and arch conditions" test_osArch
     , testCase "tested-with errors" test_testedWithErrors
@@ -177,6 +178,19 @@ test_flagCondition = do
       ]
   case errors of
     [e] -> assertBool e ("the condition flag(dev) is not supported" `L.isInfixOf` e)
+    _ -> assertFailure (unlines errors)
+
+test_projectFileErrors :: Assertion
+test_projectFileErrors = do
+  errors <-
+    readErrors
+      [ ("cabal.project", "if foo(bar)\n  packages: a\nelse\n  packages: b\nelse\n  packages: c\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  case errors of
+    [condition, stray] -> do
+      assertBool condition ("cabal.project:1:" `L.isInfixOf` condition)
+      assertBool stray ("cabal.project:5:1: else without if" `L.isInfixOf` stray)
     _ -> assertFailure (unlines errors)
 
 test_decidedCondition :: Assertion
