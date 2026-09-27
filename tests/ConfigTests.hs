@@ -22,6 +22,7 @@ configTests =
     , testCase "the example configuration" test_example
     , testCase "a section without enabled stays off" test_sectionWithoutEnabled
     , testCase "cabal-version latest" test_latest
+    , testCase "a null container" test_nullContainer
     , testCase "recursive submodules" test_recursiveSubmodules
     , testCase "a folded ghc-options value" test_foldedGhcOptions
     , testCase "errors" test_errors
@@ -49,6 +50,7 @@ test_example = do
         [ "name: Tests"
         , "cabal-version: 3.14.2.0"
         , "runs-on: ubuntu-24.04"
+        , "container: buildpack-deps:22.04"
         , "timeout-minutes: 30"
         , "branches: [master]"
         , "submodules: true"
@@ -102,6 +104,7 @@ test_example = do
   assertEqual "name" "Tests" config.name.value
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
   assertEqual "runs-on" "ubuntu-24.04" config.runsOn.value
+  assertEqual "container" (Just (Container "buildpack-deps:22.04")) config.container
   assertEqual "timeout-minutes" 30 config.timeoutMinutes.value
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))
   assertEqual "submodules" TopSubmodules config.submodules
@@ -159,6 +162,11 @@ test_foldedGhcOptions = do
   config <- parseOk "ghc-options: >\n  -Wall\n  -Werror\n"
   assertEqual "ghc-options" "-Wall -Werror" config.ghcOptions.value
 
+test_nullContainer :: Assertion
+test_nullContainer = do
+  config <- parseOk "container: null\n"
+  assertEqual "container" Nothing config.container
+
 test_latest :: Assertion
 test_latest = do
   config <- parseOk "cabal-version: latest\n"
@@ -178,6 +186,8 @@ test_errors = do
   assertError "timeout-minutes" "timeout-minutes: expected a positive integer" "timeout-minutes: 0\n"
   assertError "tests" "tests: expected a boolean, but got a string" "tests: 'true'\n"
   assertError "branches" "branches: expected a non-empty list" "branches: []\n"
+  assertError "container" containerError "container: ubuntu:26.04\n"
+  assertError "container codename" containerError "container: buildpack-deps:resolute\n"
   assertError "dependencies" "dependencies: unknown value \"old\", expected one of: newest, oldest, both" "dependencies: old\n"
   assertError "submodules" "submodules: expected true, false or recursive" "submodules: 'yes'\n"
   assertError "runs-on" "runs-on: expected a string, but got a list" "runs-on: [self-hosted, linux]\n"
@@ -224,6 +234,9 @@ test_errors = do
     -- The file name has no space, so the location ends at the first space.
     dropLocation :: String -> String
     dropLocation = drop 1 . dropWhile (/= ' ')
+
+    containerError :: String
+    containerError = "container: expected one of: buildpack-deps:22.04, buildpack-deps:24.04, buildpack-deps:26.04, buildpack-deps:26.10"
 
     actionError :: String
     actionError = "actions.setup: expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"

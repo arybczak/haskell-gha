@@ -7,6 +7,7 @@ module HaskellGha.Config
   ( -- * Configuration
     Config (..)
   , CabalVersion (..)
+  , Container (..)
   , Submodules (..)
   , Dependencies (..)
   , Hooks (..)
@@ -72,6 +73,7 @@ data Config = Config
   { name :: Commented T.Text
   , cabalVersion :: CabalVersion
   , runsOn :: Commented T.Text
+  , container :: Maybe Container
   , timeoutMinutes :: Positive
   , branches :: Commented (NE.NonEmpty (Commented T.Text))
   , submodules :: Submodules
@@ -204,6 +206,27 @@ instance FromYaml CabalVersion where
         | otherwise -> pure $ CabalVersion v
       Nothing -> fail "expected latest or a version"
 
+-- | The image of the job container of the build jobs, e.g.
+-- @buildpack-deps:26.04@.
+newtype Container = Container {image :: T.Text}
+  deriving stock (Eq, Show)
+
+instance FromYaml Container where
+  parseYaml = withText $ \t ->
+    if t `elem` images
+      then pure $ Container t
+      else fail $ "expected one of: " ++ T.unpack (T.intercalate ", " images)
+    where
+      images :: [T.Text]
+      images = map ("buildpack-deps:" <>) containerVersions
+
+-- | The Ubuntu versions of the buildpack-deps images, from the file
+-- library/buildpack-deps of docker-library/official-images on 2026-09-27. The
+-- tool accepts only the images that it knows, because another image can lack
+-- a package that the workflow needs, e.g. git or xz-utils.
+containerVersions :: [T.Text]
+containerVersions = ["22.04", "24.04", "26.04", "26.10"]
+
 -- | The versions of the dependencies that the build jobs use.
 data Dependencies
   = DependenciesNewest
@@ -270,6 +293,7 @@ defaultConfig =
     { name = bare "CI"
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
     , runsOn = bare "ubuntu-26.04"
+    , container = Nothing
     , timeoutMinutes = Positive 60
     , branches = bare (bare "master" NE.:| [bare "main"])
     , submodules = NoSubmodules

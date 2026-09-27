@@ -252,8 +252,9 @@ workflow opts source config project = runCheck $ checks $> root
         [
           [ "name" .= jobName
           , runsOn
-          , timeout
           ]
+        , ["container" .= plain c.image | Just c <- [config.container]]
+        , [timeout]
         , ["services" .= copied s | Just s <- [config.services]]
         ,
           [ "strategy"
@@ -670,7 +671,8 @@ workflow opts source config project = runCheck $ checks $> root
       CabalVersion v -> T.pack (prettyShow v)
 
     -- An expression cannot read the environment variable ImageOS of the runner,
-    -- so the step gives it to the cache key as an output.
+    -- so the step gives it to the cache key as an output. In a container, the
+    -- variable is empty, and the image of the container takes its place.
     versionsStep :: Node
     versionsStep =
       mapping
@@ -681,12 +683,16 @@ workflow opts source config project = runCheck $ checks $> root
               ( T.unlines
                   [ "ghc --version"
                   , "cabal --version"
-                  , "echo \"GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion\" >> \"$GITHUB_STEP_SUMMARY\""
-                  , "echo \"image=$ImageOS\" >> \"$GITHUB_OUTPUT\""
+                  , "echo \"GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image " <> summaryImage <> "\" >> \"$GITHUB_STEP_SUMMARY\""
+                  , "echo \"image=" <> keyImage <> "\" >> \"$GITHUB_OUTPUT\""
                   ]
               )
         ]
-
+      where
+        summaryImage, keyImage :: T.Text
+        (summaryImage, keyImage) = case config.container of
+          Nothing -> ("$ImageOS $ImageVersion", "$ImageOS")
+          Just c -> (c.image, c.image)
     configureScript :: T.Text
     configureScript =
       heredoc $
@@ -793,12 +799,16 @@ workflow opts source config project = runCheck $ checks $> root
               ]
         ]
 
+    -- A job in a container runs as root, and the image has no sudo.
     aptScript :: [T.Text] -> T.Text
     aptScript packages =
       T.unlines
-        [ "sudo apt-get update"
-        , "sudo apt-get install -y --no-install-recommends " <> T.unwords (map shellQuote packages)
+        [ sudo <> "apt-get update"
+        , sudo <> "apt-get install -y --no-install-recommends " <> T.unwords (map shellQuote packages)
         ]
+      where
+        sudo :: T.Text
+        sudo = maybe "sudo " (const "") config.container
 
     tshow :: Int -> T.Text
     tshow = T.pack . show

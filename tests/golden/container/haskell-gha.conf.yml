@@ -1,0 +1,7 @@
+container: buildpack-deps:26.04
+apt: [libpq-dev]
+services:
+  postgres:
+    image: postgres:18
+    env:
+      POSTGRES_PASSWORD: postgres

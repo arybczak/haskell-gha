@@ -17,8 +17,8 @@ for projects that use only GitHub Actions on Linux. It improves on
 `haskell-ci` in these points:
 
 - The workflow is shorter and easier to read. The jobs use
-  `haskell-actions/setup` on the runner image, not a job container with a
-  manual installation of GHCup.
+  `haskell-actions/setup`, not a manual installation of GHCup. They run on
+  the runner image, or optionally in a job container.
 - A new GHC release needs no new release of the tool. `haskell-ci` only
   accepts the GHC versions of its built-in list. `haskell-gha` gives the
   version to `haskell-actions/setup`, and a series, e.g. `^>= 9.12`, gets
@@ -153,6 +153,7 @@ null, quote the value, e.g. `version: '3.10'`. Without quotes, YAML reads
 name: CI
 cabal-version: '3.16.1.0'
 runs-on: ubuntu-26.04
+container: buildpack-deps:26.04
 timeout-minutes: 60
 branches: [master, main]
 submodules: false
@@ -219,6 +220,7 @@ actions:
 | `name` | `CI` | The name of the workflow. Two workflows in one repository must have different names, because workflows with the same name cancel each other. |
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
 | `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. |
+| `container` | none | The image of a job container for the build jobs: `buildpack-deps:22.04`, `buildpack-deps:24.04`, `buildpack-deps:26.04` or `buildpack-deps:26.10`. See [Container](#container). |
 | `timeout-minutes` | `60` | The time limit of each job, in minutes. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |
 | `submodules` | `false` | Fetch the Git submodules in the build jobs: `true`, `false` or `recursive`. `recursive` also fetches the submodules of each submodule. The fourmolu and HLint jobs do not fetch them. |
@@ -290,6 +292,33 @@ The default `cabal-version` is not `latest`. Now `latest` selects cabal
 3.18.1.0, and that version has a bug in the GHC job semaphore.
 [Cabal issue 12306](https://github.com/haskell/cabal/issues/12306) describes
 the bug.
+
+## Container
+
+With `container`, the build jobs run in a job container, not directly on
+the runner image. The fourmolu and HLint jobs stay on the runner. A
+container lets the jobs use another Ubuntu release than the runner, e.g.
+Ubuntu 26.04 on a runner with Ubuntu 24.04.
+
+The tool accepts only the Ubuntu images of `buildpack-deps`, because the
+workflow needs their tools, e.g. `git`, `curl` and `xz-utils`. The images
+also contain the libraries that GHC needs, e.g. `libgmp-dev`.
+
+A job in a container runs as root, and the image has no `sudo`. Thus the
+workflow runs `apt-get` without `sudo`, and a hook step must also not use
+it. `haskell-actions/setup` installs GHC and cabal in each job, because the
+container does not have the tools of the runner image. Thus a job takes
+some minutes longer.
+
+These points are different in a container:
+
+- A service is reachable by its name, e.g. `postgres`, not by
+  `localhost`. The service then needs no `ports` mapping.
+- `git` does not work in the checkout, because the checkout belongs to
+  another user. If a hook runs `git`, first run
+  `git config --global --add safe.directory '*'` in the hook.
+- The cache keys contain the image of the container in place of the runner
+  image.
 
 ## Dependencies
 

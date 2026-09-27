@@ -35,8 +35,8 @@ The workflow needs this, because its first `cabal build` needs the package
 index.
 
 The action calls `sudo apt-get` only for GHC older than 8.3 and for GHC head.
-Both are out of scope. A job container has no `sudo`, and this is one reason
-why the jobs run on the runner image.
+Both are out of scope. Thus the action also works in a job container, which
+has no `sudo`.
 
 cabal decides `if impl(ghc ...)` blocks in `cabal.project` with the
 configured compiler, before it reads the local packages
@@ -63,8 +63,8 @@ versions, the user adds `if impl(ghc ...)` blocks to `cabal.project`. The
 tool finds a missing block and gives the exact block in the error message.
 Thus local builds and CI use the same project.
 
-The jobs run on the runner image, not in a job container. Service
-containers are supported.
+By default, the jobs run on the runner image. A job container is optional,
+see [Container](#container). Service containers are supported.
 
 The tool supports only Linux. Three rules keep macOS support easy to add
 later:
@@ -94,7 +94,8 @@ The cache key contains the image of the runner, from the environment
 variable `ImageOS`, e.g. `ubuntu26`. A cabal store from another image can
 link against system libraries that the new image does not have. The key
 does not contain `ImageVersion`, because GitHub updates the image each week,
-and each update would start a new cache.
+and each update would start a new cache. In a job container, both variables
+are empty, and the key contains the image of the container instead.
 
 The default `cabal-version` is `3.16.1.0`. For `latest`, the action now
 selects cabal `3.18.1.0`, and that version has a bug in the GHC job
@@ -392,6 +393,40 @@ keeps the relative path of a package outside the project directory, e.g.
 both cases and asks for `sdist: false`. A path such as `a/../b` stays inside
 the project directory, so it is legal.
 
+### Container
+
+A job container lets the build jobs use another Ubuntu release than the
+runner. E.g. a runner that another team manages can have only Ubuntu 24.04.
+Only the build job uses the container. The fourmolu and HLint jobs need no
+GHC and no system libraries, so the runner is enough for them.
+
+The value is one of a fixed list of `buildpack-deps` images, with the
+Ubuntu version in the tag, e.g. `buildpack-deps:26.04`. A plain `ubuntu`
+image lacks tools that the workflow and GHC need, e.g. `git`, `xz-utils`,
+`gcc` and `libgmp-dev`. The list is the Ubuntu tags that `buildpack-deps`
+publishes, so a new Ubuntu release needs a new release of the tool. The
+version tag, not the codename, is the only accepted spelling. Thus one image
+gives one cache key, and the value reads like `runs-on: ubuntu-26.04`. The
+full image name needs no quotes in YAML, but a bare `26.10` does.
+
+A job in a container runs as root, and the image has no `sudo`. Thus the
+`apt` step and the gold step call `apt-get` without `sudo`. The package
+lists of the image are empty, so the steps still run `apt-get update`.
+Ubuntu 26.04 and 26.10 have no gold by default, so the gold step stays.
+
+A test on GitHub showed these facts:
+
+- `ImageOS` and `ImageVersion` are empty in a container. The versions step
+  thus writes the image of the container to the job summary and to the
+  cache key.
+- The context `runner.temp` gives the path on the host, and `$RUNNER_TEMP`
+  gives the path in the container. A `working-directory` with the context
+  still works, because the runner translates it.
+- After `actions/checkout`, `git` fails in the checkout with "detected
+  dubious ownership", because the checkout belongs to the user of the
+  host. The workflow does not run `git` in the checkout, so it adds no step
+  for this. The README tells a user with a `git` hook what to do.
+
 ### Dependencies
 
 The versions of the dependencies are a matrix axis, not a separate job. The
@@ -614,7 +649,6 @@ copy of the source tarballs. The hook thus gets the binary with
 
 The tool does not support these features:
 
-- A job container.
 - GHC older than 8.10.
 - macOS and Windows.
 - GHC prereleases and GHC head.
