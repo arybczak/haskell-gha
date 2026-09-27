@@ -11,6 +11,8 @@ hooks:
         "$bin" --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml
         git diff --exit-code
 fourmolu:
+  enabled: true
   version: '0.20.1.0'
 hlint:
+  enabled: true
   version: '3.10'

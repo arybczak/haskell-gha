@@ -71,12 +71,12 @@ data Config = Config
   , jobs :: Int
   , tests :: Bool
   , benchmarks :: Bool
-  , doctest :: Maybe Doctest
+  , doctest :: Doctest
   , check :: Bool
   , sdist :: Bool
   , haddock :: Bool
-  , fourmolu :: Maybe Fourmolu
-  , hlint :: Maybe HLint
+  , fourmolu :: Fourmolu
+  , hlint :: HLint
   , actions :: Actions
   , keyComments :: KeyComments
   }
@@ -93,7 +93,8 @@ data KeyComments = KeyComments
 
 -- | The configuration of the HLint job.
 data HLint = HLint
-  { version :: Version
+  { enabled :: Bool
+  , version :: Version
   , failOn :: T.Text
   , path :: [T.Text]
   -- ^ Relative to the project directory. An empty list gives the project
@@ -103,7 +104,8 @@ data HLint = HLint
 
 -- | The configuration of the fourmolu job.
 data Fourmolu = Fourmolu
-  { version :: Version
+  { enabled :: Bool
+  , version :: Version
   , patterns :: [T.Text]
   -- ^ The files to check. An empty list gives the default of the action.
   }
@@ -166,7 +168,8 @@ noHook = Hook [] []
 
 -- | The configuration of doctest.
 data Doctest = Doctest
-  { ghc :: VersionRange
+  { enabled :: Bool
+  , ghc :: VersionRange
   , version :: Maybe VersionRange
   , skip :: [T.Text]
   , options :: [T.Text]
@@ -193,12 +196,12 @@ defaultConfig =
     , jobs = 4
     , tests = True
     , benchmarks = True
-    , doctest = Nothing
+    , doctest = defaultDoctest
     , check = True
     , sdist = True
     , haddock = True
-    , fourmolu = Nothing
-    , hlint = Nothing
+    , fourmolu = defaultFourmolu
+    , hlint = defaultHLint
     , actions =
         Actions
           { checkout = ActionRef Nothing "v7"
@@ -213,29 +216,32 @@ defaultConfig =
     , keyComments = KeyComments noComments noComments noComments
     }
 
--- | The HLint configuration of an empty @hlint@ field.
+-- | The HLint configuration without an @hlint@ field.
 defaultHLint :: HLint
 defaultHLint =
   HLint
-    { version = mkVersion [3, 10]
+    { enabled = False
+    , version = mkVersion [3, 10]
     , failOn = "suggestion"
     , path = []
     }
 
--- | The fourmolu configuration of an empty @fourmolu@ field. Version 0.20 and
+-- | The fourmolu configuration without a @fourmolu@ field. Version 0.20 and
 -- later needs run-fourmolu v13 or later.
 defaultFourmolu :: Fourmolu
 defaultFourmolu =
   Fourmolu
-    { version = mkVersion [0, 20, 1, 0]
+    { enabled = False
+    , version = mkVersion [0, 20, 1, 0]
     , patterns = []
     }
 
--- | The doctest configuration of an empty @doctest@ field.
+-- | The doctest configuration without a @doctest@ field.
 defaultDoctest :: Doctest
 defaultDoctest =
   Doctest
-    { ghc = anyVersion
+    { enabled = False
+    , ghc = anyVersion
     , version = Nothing
     , skip = []
     , options = []
@@ -354,12 +360,12 @@ configFromNode root = case root.content of
       jobs <- field "jobs" defaultConfig.jobs positiveInt
       tests <- field "tests" defaultConfig.tests bool
       benchmarks <- field "benchmarks" defaultConfig.benchmarks bool
-      doctest <- section "doctest" defaultDoctest doctestFields
+      doctest <- field "doctest" defaultConfig.doctest (mappingOf doctestFields)
       check <- field "check" defaultConfig.check bool
       sdist <- field "sdist" defaultConfig.sdist bool
       haddock <- field "haddock" defaultConfig.haddock bool
-      fourmolu <- section "fourmolu" defaultFourmolu fourmoluFields
-      hlint <- section "hlint" defaultHLint hlintFields
+      fourmolu <- field "fourmolu" defaultConfig.fourmolu (mappingOf fourmoluFields)
+      hlint <- field "hlint" defaultConfig.hlint (mappingOf hlintFields)
       actions <- field "actions" defaultConfig.actions (mappingOf actionsFields)
       keyComments <- KeyComments <$> keyComment "matrix" <*> keyComment "services" <*> keyComment "permissions"
       pure Config {..}
@@ -396,6 +402,7 @@ configFromNode root = case root.content of
 
     hlintFields :: Fields HLint
     hlintFields = do
+      enabled <- field "enabled" defaultHLint.enabled bool
       version <- field "version" defaultHLint.version versionField
       failOn <- field "fail-on" defaultHLint.failOn failOnField
       path <- field "path" defaultHLint.path textList
@@ -413,6 +420,7 @@ configFromNode root = case root.content of
 
     fourmoluFields :: Fields Fourmolu
     fourmoluFields = do
+      enabled <- field "enabled" defaultFourmolu.enabled bool
       version <- field "version" defaultFourmolu.version versionField
       patterns <- field "pattern" defaultFourmolu.patterns patternList
       pure Fourmolu {..}
@@ -483,6 +491,7 @@ configFromNode root = case root.content of
 
     doctestFields :: Fields Doctest
     doctestFields = do
+      enabled <- field "enabled" defaultDoctest.enabled bool
       ghc <- field "ghc" defaultDoctest.ghc versionRange
       version <- field "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
       skip <- field "skip" defaultDoctest.skip textList
@@ -646,15 +655,6 @@ leadHook :: [Line] -> Hook -> Hook
 leadHook ls h = case h.steps of
   x : xs -> Hook (addBefore ls x : xs) h.trailing
   [] -> h
-
--- | Read an optional field with a mapping. A missing field gives 'Nothing',
--- and a null value gives the default.
-section :: T.Text -> a -> Fields a -> Fields (Maybe a)
-section k def fields = Fields [k] $ \prefix entries -> case lookupKey k entries of
-  Nothing -> pure Nothing
-  Just n
-    | isNull n -> pure $ Just def
-    | otherwise -> Just <$> mappingOf fields (T.unpack $ prefix <> k) n
 
 -- | Read a mapping with the given fields.
 mappingOf :: Fields a -> String -> Node -> ConfigCheck a

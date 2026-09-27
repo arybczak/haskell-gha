@@ -183,6 +183,7 @@ jobs: 4
 tests: true
 benchmarks: true
 doctest:
+  enabled: true
   ghc: '>=9.6 && <9.14'
   version: '>=0.24'
   skip: [some-package]
@@ -191,9 +192,11 @@ check: true
 sdist: true
 haddock: true
 fourmolu:
+  enabled: true
   version: '0.20.1.0'
   pattern: ['src/**/*.hs', '!src/Generated.hs']
 hlint:
+  enabled: true
   version: '3.10'
   fail-on: suggestion
   path: [src, test]
@@ -308,14 +311,14 @@ the hook cases.
 
 ## Doctest
 
-If the configuration has a `doctest` key, the workflow installs doctest
-and runs it for the library and the sublibraries of each local package. An
-empty `doctest:` key enables doctest with the defaults. The workflow keeps
-the doctest binary in its own cache, so a job builds each doctest version
-only once for each GHC version.
+If `doctest.enabled` is `true`, the workflow installs doctest and runs it
+for the library and the sublibraries of each local package. The workflow
+keeps the doctest binary in its own cache, so a job builds each doctest
+version only once for each GHC version.
 
 | Key | Default | Meaning |
 |---|---|---|
+| `doctest.enabled` | `false` | Run doctest. The other `doctest` keys have no effect without it. |
 | `doctest.ghc` | all versions | The GHC versions to run doctest for. A new GHC release often works with doctest only after some weeks. |
 | `doctest.version` | any version | The versions of the doctest package. |
 | `doctest.skip` | `[]` | The packages to skip. |
@@ -323,14 +326,14 @@ only once for each GHC version.
 
 ## Fourmolu
 
-If the configuration has a `fourmolu` key, the workflow gets a second job
-that checks the formatting of the Haskell files with
-`haskell-actions/run-fourmolu`. The job needs no GHC, so it runs once, at
-the same time as the build jobs. fourmolu reads the `fourmolu.yaml` of the
-project. An empty `fourmolu:` key enables the job with the defaults.
+If `fourmolu.enabled` is `true`, the workflow gets a second job that checks
+the formatting of the Haskell files with `haskell-actions/run-fourmolu`.
+The job needs no GHC, so it runs once, at the same time as the build jobs.
+fourmolu reads the `fourmolu.yaml` of the project.
 
 | Key | Default | Meaning |
 |---|---|---|
+| `fourmolu.enabled` | `false` | Add the fourmolu job. The other `fourmolu` keys have no effect without it. |
 | `fourmolu.version` | `0.20.1.0` | The fourmolu version. |
 | `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
 
@@ -340,14 +343,15 @@ fourmolu 0.20.0.0 and later need `run-fourmolu` v13 or later.
 
 ## HLint
 
-If the configuration has an `hlint` key, the workflow gets a job that
-installs HLint with `haskell-actions/hlint-setup` and runs it with
+If `hlint.enabled` is `true`, the workflow gets a job that installs HLint
+with `haskell-actions/hlint-setup` and runs it with
 `haskell-actions/hlint-run`. Like the fourmolu job, it runs once, at the
 same time as the build jobs. The hints appear as annotations in the pull
-request. An empty `hlint:` key enables the job with the defaults.
+request.
 
 | Key | Default | Meaning |
 |---|---|---|
+| `hlint.enabled` | `false` | Add the HLint job. The other `hlint` keys have no effect without it. |
 | `hlint.version` | `3.10` | The HLint version. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
 | `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository. |

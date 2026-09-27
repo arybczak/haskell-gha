@@ -1,5 +1,7 @@
 # Fourmolu and HLint with the defaults.
 fourmolu:
+  enabled: true
 hlint:
+  enabled: true
 # Only the build job fetches the submodules.
 submodules: true

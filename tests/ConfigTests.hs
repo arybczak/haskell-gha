@@ -19,7 +19,7 @@ configTests =
     [ testCase "a missing file" test_missingFile
     , testCase "an empty file gives the defaults" test_emptyFile
     , testCase "the example configuration" test_example
-    , testCase "an empty doctest key enables doctest" test_emptyDoctest
+    , testCase "a section without enabled stays off" test_sectionWithoutEnabled
     , testCase "a null value gives the default" test_null
     , testCase "cabal-version latest" test_latest
     , testCase "recursive submodules" test_recursiveSubmodules
@@ -74,6 +74,7 @@ test_example = do
         , "tests: false"
         , "benchmarks: False"
         , "doctest:"
+        , "  enabled: true"
         , "  ghc: '>=9.6 && <9.14'"
         , "  version: '>=0.24'"
         , "  skip: [some-package]"
@@ -82,9 +83,11 @@ test_example = do
         , "sdist: false"
         , "haddock: false"
         , "fourmolu:"
+        , "  enabled: true"
         , "  version: 0.19.0.1"
         , "  pattern: ['src/**/*.hs']"
         , "hlint:"
+        , "  enabled: true"
         , "  fail-on: error"
         , "  path: [src]"
         , "actions:"
@@ -114,20 +117,19 @@ test_example = do
   assertEqual "benchmarks" False config.benchmarks
   assertEqual
     "doctest"
-    ( Just
-        Doctest
-          { ghc = intersectVersionRanges (orLaterVersion $ mkVersion [9, 6]) (earlierVersion $ mkVersion [9, 14])
-          , version = Just (orLaterVersion $ mkVersion [0, 24])
-          , skip = ["some-package"]
-          , options = ["--fast"]
-          }
-    )
+    Doctest
+      { enabled = True
+      , ghc = intersectVersionRanges (orLaterVersion $ mkVersion [9, 6]) (earlierVersion $ mkVersion [9, 14])
+      , version = Just (orLaterVersion $ mkVersion [0, 24])
+      , skip = ["some-package"]
+      , options = ["--fast"]
+      }
     config.doctest
   assertEqual "check" False config.check
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
-  assertEqual "fourmolu" (Just Fourmolu {version = mkVersion [0, 19, 0, 1], patterns = ["src/**/*.hs"]}) config.fourmolu
-  assertEqual "hlint" (Just HLint {version = mkVersion [3, 10], failOn = "error", path = ["src"]}) config.hlint
+  assertEqual "fourmolu" Fourmolu {enabled = True, version = mkVersion [0, 19, 0, 1], patterns = ["src/**/*.hs"]} config.fourmolu
+  assertEqual "hlint" HLint {enabled = True, version = mkVersion [3, 10], failOn = "error", path = ["src"]} config.hlint
   assertEqual
     "actions"
     ( Actions
@@ -141,10 +143,10 @@ test_example = do
     )
     config.actions
 
-test_emptyDoctest :: Assertion
-test_emptyDoctest = do
-  config <- parseOk "doctest:\n"
-  assertEqual "doctest" (Just defaultDoctest) config.doctest
+test_sectionWithoutEnabled :: Assertion
+test_sectionWithoutEnabled = do
+  config <- parseOk "hlint:\n  fail-on: error\n"
+  assertEqual "hlint" defaultHLint {failOn = "error"} config.hlint
 
 test_null :: Assertion
 test_null = do
@@ -171,7 +173,7 @@ test_errors = do
   assertError "not a mapping" "the configuration must be a mapping" "- a\n"
   assertError "unknown key" "unknown key \"job\"" "job: 4\n"
   assertError "unknown hooks key" "unknown key \"hooks.before-build\", expected one of: after-setup, after-build" "hooks:\n  before-build: []\n"
-  assertError "unknown doctest key" "unknown key \"doctest.flags\", expected one of: ghc, version, skip, options" "doctest:\n  flags: []\n"
+  assertError "unknown doctest key" "unknown key \"doctest.flags\", expected one of: enabled, ghc, version, skip, options" "doctest:\n  flags: []\n"
   assertError "jobs" "key \"jobs\": expected a positive integer" "jobs: 0\n"
   assertError "jobs type" "key \"jobs\": expected a positive integer" "jobs: four\n"
   assertError "timeout-minutes" "key \"timeout-minutes\": expected a positive integer" "timeout-minutes: 0\n"
@@ -201,7 +203,7 @@ test_errors = do
   assertError "unknown action" "unknown key \"actions.run-ormolu\", expected one of: checkout, setup, cache, run-fourmolu, hlint-setup, hlint-run" "actions:\n  run-ormolu: v17\n"
   assertError "fourmolu version" "key \"fourmolu.version\": expected a version, e.g. 0.20.1.0" "fourmolu:\n  version: latest\n"
   assertError "hlint fail-on" "key \"hlint.fail-on\": expected one of never, status, warning, suggestion, error" "hlint:\n  fail-on: warnings\n"
-  assertError "unknown fourmolu key" "unknown key \"fourmolu.extra-args\", expected one of: version, pattern" "fourmolu:\n  extra-args: [-q]\n"
+  assertError "unknown fourmolu key" "unknown key \"fourmolu.extra-args\", expected one of: enabled, version, pattern" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" actionError "actions:\n  setup: 'v 2'\n"
   assertError "action without owner" actionError "actions:\n  setup: setup@v2\n"
   assertError "action with a path" actionError "actions:\n  setup: a/b/c@v2\n"

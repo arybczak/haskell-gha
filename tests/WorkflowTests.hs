@@ -68,13 +68,15 @@ test_comments = do
 test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do
   assertErrors
-    "hlint:\n  path: [../x, /abs, a/../src]\n"
+    "hlint:\n  enabled: true\n  path: [../x, /abs, a/../src]\n"
     [ "The key hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
     , "The key hlint.path contains the path /abs, which is not in the repository. Give a path relative to the project directory."
     ]
-  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  path: [../x]\n"
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
   assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} config project)
+  off <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  path: [../x]\n"
+  assertBool "not enabled" (isRight $ workflow defaultOptions off project)
 
 test_namedDefaultConfig :: Assertion
 test_namedDefaultConfig = do
@@ -143,13 +145,13 @@ test_unknownGhcValue =
 test_partialDoctestRange :: Assertion
 test_partialDoctestRange =
   assertErrors
-    "doctest:\n  ghc: '>=9.10.2'\n"
+    "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
     ["The range >=9.10.2 of the key doctest.ghc includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
 
 test_unknownSkip :: Assertion
 test_unknownSkip =
   assertErrors
-    "doctest:\n  skip: [other]\n"
+    "doctest:\n  enabled: true\n  skip: [other]\n"
     ["The key doctest.skip names the package other, but the project has no such local package."]
 
 -- | The errors for a configuration and the project of the golden test @single@.

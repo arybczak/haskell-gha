@@ -2,4 +2,5 @@
 # its own name.
 name: CI (multi)
 doctest:
+  enabled: true
   ghc: '>=9.12'

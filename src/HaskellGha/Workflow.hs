@@ -82,9 +82,9 @@ workflow opts config project = runCheck $ checks $> root
     checks :: Check ()
     checks =
       traverse_ checkGhcValue (matrixGhcValues config)
-        *> for_ config.doctest (\d -> traverse_ (checkDoctestRange d) entries *> traverse_ checkSkip d.skip)
+        *> when config.doctest.enabled (traverse_ (checkDoctestRange config.doctest) entries *> traverse_ checkSkip config.doctest.skip)
         *> when config.sdist (traverse_ checkImport project.imports *> traverse_ checkInside project.packages)
-        *> for_ config.hlint (traverse_ checkHLintPath . (.path))
+        *> when config.hlint.enabled (traverse_ checkHLintPath config.hlint.path)
 
     -- The action gets the path on the runner, where only the repository
     -- exists.
@@ -158,8 +158,8 @@ workflow opts config project = runCheck $ checks $> root
             , -- The short jobs come first, so the long build job does not
               -- hide them.
               mapping $
-                [("fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
-                  ++ [("hlint", hlintJob h) | Just h <- [config.hlint]]
+                [("fourmolu", fourmoluJob config.fourmolu) | config.fourmolu.enabled]
+                  ++ [("hlint", hlintJob config.hlint) | config.hlint.enabled]
                   ++ [("build", job)]
             )
           ]
@@ -342,11 +342,7 @@ workflow opts config project = runCheck $ checks $> root
         , [cacheRestore]
         , [sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
         , [cacheSave]
-        , concat
-            [ doctestSteps d
-            | not (null doctestEntries)
-            , Just d <- [config.doctest]
-            ]
+        , concat [doctestSteps config.doctest | not (null doctestEntries)]
         , [sourceStep "Build" Nothing "cabal build all\n"]
         ]
 
@@ -357,10 +353,9 @@ workflow opts config project = runCheck $ checks $> root
           | config.tests
           , not (null testEntries)
           ]
-        , [ sourceStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript d p)
-          | Just d <- [config.doctest]
-          , p <- project.packages
-          , T.pack p.name `notElem` d.skip
+        , [ sourceStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript config.doctest p)
+          | p <- project.packages
+          , T.pack p.name `notElem` config.doctest.skip
           , not (null p.doctestArgs)
           , let es = [e.ghc | e <- project.matrix, e.ghc `elem` doctestEntries, p.directory `elem` map (.directory) e.packages]
           , not (null es)
@@ -379,9 +374,9 @@ workflow opts config project = runCheck $ checks $> root
     -- names all packages. Only an unusual configuration does that, so the tool
     -- accepts the extra steps.
     doctestEntries :: [GhcEntry]
-    doctestEntries = case config.doctest of
-      Just d -> [e | e <- entries, decide d.ghc e == Included]
-      Nothing -> []
+    doctestEntries
+      | config.doctest.enabled = [e | e <- entries, decide config.doctest.ghc e == Included]
+      | otherwise = []
 
     -- The key of the main cache does not depend on the doctest version, so
     -- doctest has its own cache with only the binary.
