@@ -141,9 +141,9 @@ Ubuntu 25.10 and later do not install it by default.
 
 All keys of the configuration file are optional. An unknown key is an
 error, and so is a key without a value. The tool reports all errors in the
-file together. If YAML reads a text value as a number, a boolean or a null, quote the
-value, e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the
-number 3.1. This example shows all keys:
+file together. If YAML reads a text value as a number, a boolean or a
+null, quote the value, e.g. `version: '3.10'`. Without quotes, YAML reads
+`3.10` as the number 3.1. This example shows all keys:
 
 ```yaml
 name: CI

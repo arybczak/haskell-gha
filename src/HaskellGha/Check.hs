@@ -28,8 +28,8 @@ instance Applicative (Validation e) where
   Validation (Right f) <*> Validation r = Validation (fmap f r)
 
 -- '>>=' cannot collect the errors of its second part after the first part
--- fails, so 'Control.Monad.ap' stops where '<*>' collects, against the law
--- @(<*>) = ap@.
+-- fails, but '<*>' and '>>' collect them. Thus the instance breaks the laws
+-- @(<*>) = ap@ and @m >> k = m >>= \_ -> k@.
 instance Monad (Validation e) where
   Validation r >>= f = either (Validation . Left) f r
   (>>) = (*>)
