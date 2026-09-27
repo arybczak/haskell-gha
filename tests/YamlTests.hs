@@ -5,6 +5,7 @@ module YamlTests (yamlTests) where
 import Data.Text qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
+import Yamlet
 
 import HaskellGha.Yaml
 
@@ -20,8 +21,6 @@ yamlTests =
     , testCase "a comment above the first key after the header" test_header
     , testCase "trailing empty lines of a block scalar" test_keep
     , testCase "a plain scalar that needs quotes" test_plainQuotes
-    , testCase "an empty input has no document" test_empty
-    , testCase "errors" test_errors
     ]
 
 test_styles :: Assertion
@@ -68,11 +67,11 @@ test_comments =
 
 test_emptyLines :: Assertion
 test_emptyLines = do
-  let node = mapping [("name", plain "CI"), ("steps", sequenceNode [plain "a", plain "b"]), ("more", sequenceNode [plain "c", plain "d"])]
+  let node = mapping ["name" .= plain "CI", "steps" .= sequenceNode [plain "a", plain "b"], "more" .= sequenceNode [plain "c", plain "d"]]
   assertEqual
     "rendered"
     (T.unlines ["# header", "name: CI", "", "steps:", "- a", "", "- b", "", "more:", "- c", "- d"])
-    (renderYaml ["header"] separated node)
+    (renderDocument ["header"] separated node)
   where
     separated :: [T.Text] -> Bool
     separated = \case
@@ -84,22 +83,22 @@ test_reparse :: Assertion
 test_reparse = do
   let node =
         mapping
-          [ ("on", mapping [("push", mapping [("branches", sequenceNode [plain "master"])]), ("pull_request", plain "")])
-          , ("run", literal "cabal build all\ncabal test all\n")
-          , ("ghc", sequenceNode [singleQuoted "9.10", singleQuoted "it's"])
+          [ "on" .= mapping ["push" .= mapping ["branches" .= sequenceNode [plain "master"]], "pull_request" .= plain ""]
+          , "run" .= literal "cabal build all\ncabal test all\n"
+          , "ghc" .= sequenceNode [singleQuoted "9.10", singleQuoted "it's"]
           ]
-  reparsed <- parse $ renderYaml ["header"] (const True) node
+  reparsed <- parse $ renderDocument ["header"] (const True) node
   assertEqual "reparsed tree" node (normalize reparsed)
 
 test_header :: Assertion
 test_header = do
-  let node = mappingNode [(addBefore [Comment "the name"] (plain "name"), plain "CI")]
-  assertEqual "rendered" (T.unlines ["# header", "", "# the name", "name: CI"]) (renderYaml ["header"] (const False) node)
+  let node = mapping [(addBefore [Comment "the name"] (plain "name"), plain "CI")]
+  assertEqual "rendered" (T.unlines ["# header", "", "# the name", "name: CI"]) (renderDocument ["header"] (const False) node)
 
 test_keep :: Assertion
 test_keep = do
-  let node = mapping [("run", literal "echo a\n\n"), ("next", plain "b")]
-  reparsed <- parse $ renderYaml [] (const True) node
+  let node = mapping ["run" .= literal "echo a\n\n", "next" .= plain "b"]
+  reparsed <- parse $ renderDocument [] (const True) node
   assertEqual "reparsed tree" node (normalize reparsed)
 
 test_plainQuotes :: Assertion
@@ -113,34 +112,17 @@ test_plainQuotes = do
     [scalarNode Plain t | t <- ["sub/dir", "-x", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
     (map plain ["sub/dir", "-x", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
 
-test_empty :: Assertion
-test_empty = do
-  assertEqual "empty" (Right Nothing) (parseDocument "")
-  assertEqual "only a comment" (Right Nothing) (parseDocument "# nothing\n")
-
-test_errors :: Assertion
-test_errors = do
-  assertError "two documents" "the file must contain only one YAML document" "a: 1\n---\nb: 2\n"
-  case parseDocument "a: [1\n" of
-    Left _ -> pure ()
-    Right _ -> assertFailure "a syntax error must fail"
-  where
-    assertError :: String -> String -> T.Text -> Assertion
-    assertError preface expected input = case parseDocument input of
-      Left e -> assertEqual preface expected e.message
-      Right _ -> assertFailure $ preface ++ ": no error"
-
 ----------------------------------------
 -- Helpers
 
 parse :: T.Text -> IO Node
-parse input = case parseDocument input of
-  Left e -> assertFailure $ prettyError "input" e
+parse input = case decodeText @(Maybe Node) input of
+  Left errors -> assertFailure $ foldMap ((++ "\n") . prettyError "input") errors
   Right Nothing -> assertFailure "no document"
   Right (Just node) -> pure node
 
 render :: Node -> T.Text
-render = renderYaml [] (const False)
+render = renderDocument [] (const False)
 
 assertRoundTrip :: T.Text -> Assertion
 assertRoundTrip input = do

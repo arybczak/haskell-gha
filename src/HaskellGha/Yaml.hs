@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | The YAML tree of yamlet, with helpers to build, parse and render it.
+-- | The YAML tree of yamlet, with helpers to build and render it.
 module HaskellGha.Yaml
   ( -- * Tree
     Node (..)
@@ -15,12 +15,10 @@ module HaskellGha.Yaml
     -- * Construction
   , plain
   , nullValue
-  , boolean
   , singleQuoted
   , literal
   , scalarNode
-  , mapping
-  , mappingNode
+  , Y.mapping
   , sequenceNode
   , addBefore
   , addAfter
@@ -30,21 +28,12 @@ module HaskellGha.Yaml
     -- * Queries
   , normalize
 
-    -- * Parsing
-  , Error (..)
-  , Location (..)
-  , errorAt
-  , prettyError
-  , decodeInput
-  , parseDocument
-
     -- * Rendering
-  , renderYaml
+  , renderDocument
   ) where
 
 import Data.Text qualified as T
 import Yamlet qualified as Y
-import Yamlet.Error
 import Yamlet.Schema
 import Yamlet.Syntax
 
@@ -60,10 +49,6 @@ plain t = scalarNode (if isPlainSafe t then Plain else SingleQuoted) t
 nullValue :: Node
 nullValue = plainNode ""
 
--- | A boolean.
-boolean :: Bool -> Node
-boolean b = plainNode (if b then "true" else "false")
-
 -- | A single-quoted scalar.
 singleQuoted :: T.Text -> Node
 singleQuoted = scalarNode SingleQuoted
@@ -71,10 +56,6 @@ singleQuoted = scalarNode SingleQuoted
 -- | A literal block scalar.
 literal :: T.Text -> Node
 literal = scalarNode Literal
-
--- | A mapping with plain keys.
-mapping :: [(T.Text, Node)] -> Node
-mapping entries = mappingNode [(plainNode k, v) | (k, v) <- entries]
 
 -- | Put lines above a node, in front of the lines that it already has.
 addBefore :: [Line] -> Node -> Node
@@ -103,25 +84,10 @@ normalize n = Node noOffset noOffset n.props noComments $ case n.content of
   c -> c
 
 ----------------------------------------
--- Parsing
-
--- | Parse a YAML document. An empty input gives 'Nothing'. The comments at
--- the end of the document are lost.
---
--- The offsets of the nodes refer to the input, so 'errorAt' with the same
--- input gives the line and the column of a node.
-parseDocument :: T.Text -> Either Error (Maybe Node)
-parseDocument input =
-  parseDocumentsText input >>= \case
-    [] -> pure Nothing
-    [doc] -> pure $ Just (copyNode doc.root)
-    _ : doc : _ -> Left $ errorAt input doc.root.offset "the file must contain only one YAML document"
-
-----------------------------------------
 -- Rendering
 
 -- | Render a node as a YAML document in the block style.
-renderYaml
+renderDocument
   :: [T.Text]
   -- ^ The header lines. They become comments at the start of the document.
   -> ([T.Text] -> Bool)
@@ -129,7 +95,7 @@ renderYaml
   -- on the path to them.
   -> Node
   -> T.Text
-renderYaml header separated root =
+renderDocument header separated root =
   renderSyntax
     RenderOptions {forceBlock = True}
     [Document Nothing False False (Comments (map Comment header) Nothing []) (separate [] (apart root))]

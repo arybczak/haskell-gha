@@ -58,7 +58,7 @@ import Distribution.Version
 import GHC.Generics
 import System.Directory hiding (Permissions)
 import System.FilePath
-import Yamlet hiding (Mapping, Sequence, mapping)
+import Yamlet hiding (Mapping, Sequence)
 
 import HaskellGha.Yaml
 
@@ -257,7 +257,7 @@ defaultConfig =
     , matrix = bare (Matrix (mapping []))
     , apt = []
     , services = Nothing
-    , permissions = bare (Permissions (mapping [("contents", plain "read")]))
+    , permissions = bare (Permissions (mapping ["contents" .= plain "read"]))
     , hooks = bare (Hooks (bare []) (bare []))
     , ghcOptions = GhcOptions "-Werror"
     , cabalProjectLocal = ProjectText ""
