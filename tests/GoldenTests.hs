@@ -44,7 +44,7 @@ golden fixture = do
   when accept $ BS.writeFile expectedFile (T.encodeUtf8 actual)
   expected <- T.decodeUtf8 <$> BS.readFile expectedFile
   assertEqual "workflow" (dropHeader expected) (dropHeader actual)
-  case parseYaml actual of
+  case parseDocument actual of
     Right (Just reparsed) -> assertEqual "reparsed workflow" (normalize node) (normalize reparsed)
     Right Nothing -> assertFailure "the workflow is empty"
     Left e -> assertFailure $ prettyError expectedFile e

@@ -140,20 +140,28 @@ configuration against the project, e.g. `doctest.skip`. In each phase, the
 tool collects all errors and prints them all. If a phase has errors, the
 tool does not start the next phase, because the next phase needs its result.
 
+The decoder of yamlet collects the errors of the independent parts of a
+value, e.g. the fields of a record or the items of a list. A check that
+the decoder must pass before the next one, e.g. that a value is a mapping,
+still stops there.
+
 ## Configuration
 
 An unknown key is an error, because it is usually a typing error.
 
-Each error of the configuration gives the line and the column of the node
-that caused it, and shows that line of the file. The errors come in the
-order of their positions in the file. The later checks of the configuration
-against the project, e.g. `doctest.skip`, give no position.
+An error of the configuration gives the line and the column of the node
+that caused it, the path of keys to it, e.g. `hlint.version`, and that line
+of the file. The later checks of the configuration against the project, e.g.
+`doctest.skip`, give no position.
 
-The value of a text key must be a YAML string. The parser gives the raw text
-of each scalar, so an unquoted `3.10` reaches the reader as the text `3.10`.
-But the workflow must quote such a value, and another YAML reader gets the
-number 3.1. Thus an unquoted value that the YAML 1.2 core schema reads as a
-number, a boolean or a null is an error.
+A key without a value is an error, not the default. Only a missing key
+takes the default, so a key that the user forgot to fill in does not
+silently disable or change a feature.
+
+The value of a text key must be a YAML string. Every YAML reader reads an
+unquoted `3.10` as the number 3.1. Thus an unquoted value that the YAML 1.2
+core schema reads as a number, a boolean or a null is an error. The error
+suggests the quotes.
 
 GitHub uses the workflow name in the concurrency group. If two workflows in
 one repository have the same name, a push starts both in one group, and one
@@ -451,16 +459,25 @@ tool does not use `aeson` or `Data.Yaml`. It reads and writes YAML with the
 syntax tree of `yamlet`, which is pure Haskell and implements YAML 1.2. The
 syntax tree keeps the key order and the scalar styles.
 
-The configuration and the workflow use the syntax tree directly. Each
-scalar keeps its style from the input, and each node keeps its position. An
-anchor, an alias, a tag or a duplicate key is an error. The output writes
-all sequences and mappings in the block style.
+The tool decodes the configuration into Haskell types with the generic
+instances of yamlet. The parts that the workflow copies, e.g. the hook steps
+and `services`, stay nodes of the syntax tree, so they keep their key order,
+their scalar styles and their comments. A `Commented` field keeps the
+comments around its entry, and the workflow writes them at its own key. The
+decoder replaces an alias with a copy of its node, so a copied part never
+refers to an anchor outside it. A duplicate key is an error.
+
+The workflow is a syntax tree that the tool builds. The output writes all
+sequences and mappings in the block style.
 
 The renderer of yamlet quotes a plain scalar that is not valid YAML, but it
 does not look at the schema. Thus the tool gives each scalar its style with
 these rules:
 
-- A copied scalar keeps its style from the input.
+- A scalar in a copied part, e.g. in a hook step, keeps its style from the
+  input.
+- A copied text value, e.g. `name` or a branch, is a plain scalar. If YAML
+  does not read the plain text as a string, the value is single-quoted.
 - Each `run:` script that the tool makes is a literal block. The first line
   of each script is fixed text from the tool, so user text in a later line
   cannot break the block.
@@ -490,7 +507,7 @@ copied value need these rules:
 
 - The comments above a copied key, e.g. `services`, go above the key that
   the workflow makes. A comment at the end of the line of the key stays at
-  the end of that line.
+  the end of that line. Each job gets the comments of `runs-on`.
 - The workflow adds the `ghc` axis as the first entry of `matrix`. The
   comments above the first entry of the configuration stay above that
   entry.
@@ -500,9 +517,9 @@ copied value need these rules:
   job, with an empty line between them and that step. If no step follows,
   they go after the last step. The comments after the last hook list of
   `hooks` go with them.
-- A comment at the top of the file belongs to the root mapping. If the
-  first key is a copied key, the comment goes above that key. Otherwise the
-  tool drops it.
+- A comment at the top of the file belongs to the first key. If the
+  workflow copies that key, the comment goes above the key, and an empty
+  line separates it from the header comment.
 
 The tool drops a comment above a key that the workflow does not copy, e.g.
 `apt`. Such a comment describes the configuration, and the workflow has no

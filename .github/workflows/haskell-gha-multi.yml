@@ -6,6 +6,9 @@
 # Version: 1.0
 #
 # For more information, see https://github.com/arybczak/haskell-gha
+
+# Two workflows with the same name cancel each other, so this workflow has
+# its own name.
 name: CI (multi)
 
 on:

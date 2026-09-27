@@ -140,8 +140,8 @@ Ubuntu 25.10 and later do not install it by default.
 ## Configuration
 
 All keys of the configuration file are optional. An unknown key is an
-error. A YAML anchor, alias or tag is also an error, e.g. in a hook step.
-If YAML reads a text value as a number, a boolean or a null, quote the
+error, and so is a key without a value. The tool reports all errors in the
+file together. If YAML reads a text value as a number, a boolean or a null, quote the
 value, e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the
 number 3.1. This example shows all keys:
 
@@ -354,7 +354,7 @@ request.
 | `hlint.enabled` | `false` | Add the HLint job. The other `hlint` keys have no effect without it. |
 | `hlint.version` | `3.10` | The HLint version. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
-| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository. |
+| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, and it must not contain a tab or another control character. |
 
 By default, every hint fails the job. To turn off a hint that the project
 does not want, add an `ignore` entry to `.hlint.yaml`, e.g.

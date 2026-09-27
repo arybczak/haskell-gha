@@ -17,6 +17,7 @@ yamlTests =
     , testCase "comments survive a round trip" test_comments
     , testCase "empty lines" test_emptyLines
     , testCase "the output parses to the same tree" test_reparse
+    , testCase "a comment above the first key after the header" test_header
     , testCase "trailing empty lines of a block scalar" test_keep
     , testCase "a plain scalar that needs quotes" test_plainQuotes
     , testCase "an empty input has no document" test_empty
@@ -90,6 +91,11 @@ test_reparse = do
   reparsed <- parse $ renderYaml ["header"] (const True) node
   assertEqual "reparsed tree" node (normalize reparsed)
 
+test_header :: Assertion
+test_header = do
+  let node = mappingNode [(addBefore [Comment "the name"] (plain "name"), plain "CI")]
+  assertEqual "rendered" (T.unlines ["# header", "", "# the name", "name: CI"]) (renderYaml ["header"] (const False) node)
+
 test_keep :: Assertion
 test_keep = do
   let node = mapping [("run", literal "echo a\n\n"), ("next", plain "b")]
@@ -109,23 +115,18 @@ test_plainQuotes = do
 
 test_empty :: Assertion
 test_empty = do
-  assertEqual "empty" (Right Nothing) (parseYaml "")
-  assertEqual "only a comment" (Right Nothing) (parseYaml "# nothing\n")
+  assertEqual "empty" (Right Nothing) (parseDocument "")
+  assertEqual "only a comment" (Right Nothing) (parseDocument "# nothing\n")
 
 test_errors :: Assertion
 test_errors = do
-  assertError "anchor" "anchors are not supported" "a: &x 1\n"
-  assertError "alias" "aliases are not supported" "b: *x\n"
-  assertError "tag" "tags are not supported" "a: !!str 1\n"
-  assertError "duplicate key" "duplicate key \"a\"" "a: 1\nb: 2\na: 3\n"
   assertError "two documents" "the file must contain only one YAML document" "a: 1\n---\nb: 2\n"
-  assertError "complex key" "a mapping key must be a scalar" "? [a]\n: 1\n"
-  case parseYaml "a: [1\n" of
+  case parseDocument "a: [1\n" of
     Left _ -> pure ()
     Right _ -> assertFailure "a syntax error must fail"
   where
     assertError :: String -> String -> T.Text -> Assertion
-    assertError preface expected input = case parseYaml input of
+    assertError preface expected input = case parseDocument input of
       Left e -> assertEqual preface expected e.message
       Right _ -> assertFailure $ preface ++ ": no error"
 
@@ -133,7 +134,7 @@ test_errors = do
 -- Helpers
 
 parse :: T.Text -> IO Node
-parse input = case parseYaml input of
+parse input = case parseDocument input of
   Left e -> assertFailure $ prettyError "input" e
   Right Nothing -> assertFailure "no document"
   Right (Just node) -> pure node

@@ -10,6 +10,7 @@ module HaskellGha.Yaml
   , Line (..)
   , noComments
   , Offset
+  , Y.Commented (..)
 
     -- * Construction
   , plain
@@ -23,14 +24,10 @@ module HaskellGha.Yaml
   , sequenceNode
   , addBefore
   , addAfter
-  , commentKeys
+  , Y.ToYaml (..)
+  , (Y..=)
 
     -- * Queries
-  , isString
-  , describeNode
-  , keyName
-  , lookupEntry
-  , lookupKey
   , normalize
 
     -- * Parsing
@@ -39,17 +36,14 @@ module HaskellGha.Yaml
   , errorAt
   , prettyError
   , decodeInput
-  , parseYaml
+  , parseDocument
 
     -- * Rendering
   , renderYaml
   ) where
 
-import Control.Monad
-import Data.Foldable
-import Data.Set qualified as S
 import Data.Text qualified as T
-import Yamlet.Decode hiding (failAt, lookupKey, parseYaml)
+import Yamlet qualified as Y
 import Yamlet.Error
 import Yamlet.Schema
 import Yamlet.Syntax
@@ -96,38 +90,8 @@ addAfter ls n = Node n.offset n.endOffset n.props (Comments c.before c.inline (c
     c :: Comments
     c = n.comments
 
--- | Give the keys of a mapping the comments from the list.
-commentKeys :: [(T.Text, Comments)] -> Node -> Node
-commentKeys cs n = case n.content of
-  Mapping style entries -> Node n.offset n.endOffset n.props n.comments (Mapping style (map entry entries))
-  _ -> n
-  where
-    entry :: (Node, Node) -> (Node, Node)
-    entry (k, v) = case keyName k >>= (`lookup` cs) of
-      Just c -> (Node k.offset k.endOffset k.props c k.content, v)
-      Nothing -> (k, v)
-
 ----------------------------------------
 -- Queries
-
--- | Whether YAML reads a scalar as a string. GitHub reads a plain scalar with
--- the YAML 1.2 core schema, e.g. @1.0@ is a number.
-isString :: ScalarStyle -> T.Text -> Bool
-isString style t = style /= Plain || isPlainString t
-
--- | The text of a scalar key.
-keyName :: Node -> Maybe T.Text
-keyName n = case n.content of
-  Scalar _ t -> Just t
-  _ -> Nothing
-
--- | Look up the entry of a key in a mapping.
-lookupEntry :: T.Text -> [(Node, Node)] -> Maybe (Node, Node)
-lookupEntry k entries = asum [Just e | e@(key, _) <- entries, keyName key == Just k]
-
--- | Look up the value of a key in a mapping.
-lookupKey :: T.Text -> [(Node, Node)] -> Maybe Node
-lookupKey k = fmap snd . lookupEntry k
 
 -- | Remove the positions and the comments, and give every collection the
 -- block style, as the renderer writes it. A parsed node then compares equal
@@ -142,48 +106,16 @@ normalize n = Node noOffset noOffset n.props noComments $ case n.content of
 -- Parsing
 
 -- | Parse a YAML document. An empty input gives 'Nothing'. The comments at
--- the end of the document are lost. An anchor, an alias, a tag, a duplicate
--- key and a key that is not a scalar are errors.
+-- the end of the document are lost.
 --
 -- The offsets of the nodes refer to the input, so 'errorAt' with the same
 -- input gives the line and the column of a node.
-parseYaml :: T.Text -> Either Error (Maybe Node)
-parseYaml input =
+parseDocument :: T.Text -> Either Error (Maybe Node)
+parseDocument input =
   parseDocumentsText input >>= \case
     [] -> pure Nothing
-    [doc] -> Just (copyNode doc.root) <$ check input doc.root
+    [doc] -> pure $ Just (copyNode doc.root)
     _ : doc : _ -> Left $ errorAt input doc.root.offset "the file must contain only one YAML document"
-
-check :: T.Text -> Node -> Either Error ()
-check input = node
-  where
-    node :: Node -> Either Error ()
-    node n =
-      checkProps n *> case n.content of
-        Scalar {} -> pure ()
-        Sequence _ items -> traverse_ node items
-        Mapping _ entries -> mappingEntries S.empty entries
-        Alias _ -> failAt n "aliases are not supported"
-
-    mappingEntries :: S.Set T.Text -> [(Node, Node)] -> Either Error ()
-    mappingEntries seen = \case
-      [] -> pure ()
-      (k, v) : rest -> case k.content of
-        Scalar _ name -> do
-          checkProps k
-          when (name `S.member` seen) . failAt k $ "duplicate key " ++ show name
-          node v
-          mappingEntries (S.insert name seen) rest
-        _ -> failAt k "a mapping key must be a scalar"
-
-    checkProps :: Node -> Either Error ()
-    checkProps n
-      | Just _ <- n.props.anchor = failAt n "anchors are not supported"
-      | n.props.tag /= NoTag = failAt n "tags are not supported"
-      | otherwise = pure ()
-
-    failAt :: Node -> String -> Either Error a
-    failAt n = Left . errorAt input n.offset
 
 ----------------------------------------
 -- Rendering
@@ -200,8 +132,18 @@ renderYaml
 renderYaml header separated root =
   renderSyntax
     RenderOptions {forceBlock = True}
-    [Document Nothing False False (Comments (map Comment header) Nothing []) (separate [] root)]
+    [Document Nothing False False (Comments (map Comment header) Nothing []) (separate [] (apart root))]
   where
+    -- An empty line keeps a comment above the first key apart from the
+    -- header.
+    apart :: Node -> Node
+    apart n = case n.content of
+      Mapping style ((k, v) : rest)
+        | not (null header)
+        , Comment _ : _ <- k.comments.before ->
+            Node n.offset n.endOffset n.props n.comments (Mapping style ((addBefore [EmptyLine] k, v) : rest))
+      _ -> n
+
     separate :: [T.Text] -> Node -> Node
     separate path n = case n.content of
       Mapping style entries -> withContent (Mapping style (zipWith entry [0 ..] entries))
@@ -212,7 +154,12 @@ renderYaml header separated root =
         withContent = Node n.offset n.endOffset n.props n.comments
 
         entry :: Int -> (Node, Node) -> (Node, Node)
-        entry i (k, v) = (spaced i k, maybe v (\name -> separate (path ++ [name]) v) (keyName k))
+        entry i (k, v) =
+          ( spaced i k
+          , case k.content of
+              Scalar _ name -> separate (path ++ [name]) v
+              _ -> v
+          )
 
         -- An entry that already has an empty line above it, e.g. from the
         -- comments after a hook, gets no second one.

@@ -84,7 +84,7 @@ workflow opts config project = runCheck $ checks $> root
       traverse_ checkGhcValue (matrixGhcValues config)
         *> when config.doctest.enabled (traverse_ (checkDoctestRange config.doctest) entries *> traverse_ checkSkip config.doctest.skip)
         *> when config.sdist (traverse_ checkImport project.imports *> traverse_ checkInside project.packages)
-        *> when config.hlint.enabled (traverse_ checkHLintPath config.hlint.path)
+        *> when config.hlint.enabled (traverse_ (checkHLintPath . (.value)) config.hlint.path)
 
     -- The action gets the path on the runner, where only the repository
     -- exists.
@@ -143,31 +143,34 @@ workflow opts config project = runCheck $ checks $> root
 
     root :: Node
     root =
-      commentKeys [("permissions", config.keyComments.permissions)] $
-        mapping
-          [ ("name", config.name)
-          , ("on", triggers)
-          , ("permissions", config.permissions)
-          , -- A push to a branch of the push trigger also cancels the older
-            -- run. The newer run tests the newer code and saves the cache
-            -- that the older run did not save.
-            ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", boolean True)])
-          , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
-          ,
-            ( "jobs"
-            , -- The short jobs come first, so the long build job does not
-              -- hide them.
-              mapping $
-                [("fourmolu", fourmoluJob config.fourmolu) | config.fourmolu.enabled]
+      mappingNode
+        [ "name" .= copied config.name
+        , "on" .= triggers
+        , "permissions" .= copied config.permissions
+        , -- A push to a branch of the push trigger also cancels the older
+          -- run. The newer run tests the newer code and saves the cache that
+          -- the older run did not save.
+          "concurrency" .= mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", boolean True)]
+        , "defaults" .= mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)]
+        , -- The short jobs come first, so the long build job does not hide
+          -- them.
+          "jobs"
+            .= mapping
+              ( [("fourmolu", fourmoluJob config.fourmolu) | config.fourmolu.enabled]
                   ++ [("hlint", hlintJob config.hlint) | config.hlint.enabled]
                   ++ [("build", job)]
-            )
-          ]
+              )
+        ]
+
+    -- The workflow has its own layout, so the empty lines above a copied
+    -- entry are left out.
+    copied :: Commented a -> Commented a
+    copied c = Commented c.value c.comments {before = filter (/= EmptyLine) c.comments.before}
 
     triggers :: Node
     triggers =
       mapping
-        [ ("push", mapping [("branches", sequenceNode config.branches)])
+        [ ("push", mappingNode ["branches" .= copied config.branches])
         , ("pull_request", nullValue)
         , ("merge_group", nullValue)
         , ("workflow_dispatch", nullValue)
@@ -181,30 +184,32 @@ workflow opts config project = runCheck $ checks $> root
 
     job :: Node
     job =
-      commentKeys [("services", config.keyComments.services)] . mapping $
-        [ ("name", jobName)
-        , ("runs-on", config.runsOn)
-        , ("timeout-minutes", timeout)
+      mappingNode $
+        [ "name" .= jobName
+        , runsOn
+        , "timeout-minutes" .= timeout
         ]
-          ++ [("services", s) | Just s <- [config.services]]
-          ++ [ ("strategy", commentKeys [("matrix", config.keyComments.matrix)] $ mapping [("fail-fast", boolean False), ("matrix", matrix)])
-             , ("steps", addAfter endLines (sequenceNode steps))
+          ++ ["services" .= copied s | Just s <- [config.services]]
+          ++ [ "strategy" .= mappingNode ["fail-fast" .= boolean False, "matrix" .= copied (Commented matrix config.matrix.comments)]
+             , "steps" .= addAfter endLines (sequenceNode steps)
              ]
+
+    runsOn :: (Node, Node)
+    runsOn = "runs-on" .= copied config.runsOn
 
     -- GitHub needs a number, and plain would quote it.
     timeout :: Node
-    timeout = scalarNode Plain (tshow config.timeoutMinutes)
+    timeout = scalarNode Plain (tshow config.timeoutMinutes.value)
 
     -- The job needs no GHC, so it runs once, next to the build jobs.
     fourmoluJob :: Fourmolu -> Node
     fourmoluJob f =
-      mapping
-        [ ("name", plain "Fourmolu")
-        , ("runs-on", config.runsOn)
-        , ("timeout-minutes", timeout)
-        ,
-          ( "steps"
-          , sequenceNode
+      mappingNode
+        [ "name" .= plain "Fourmolu"
+        , runsOn
+        , "timeout-minutes" .= timeout
+        , "steps"
+            .= sequenceNode
               [ checkoutStep NoSubmodules
               , mapping
                   [ uses "haskell-actions/run-fourmolu" "" config.actions.runFourmolu
@@ -212,24 +217,22 @@ workflow opts config project = runCheck $ checks $> root
                     ( "with"
                     , mapping $
                         [("version", singleQuoted (T.pack (prettyShow f.version)))]
-                          ++ [("pattern", literal (T.unlines f.patterns)) | not (null f.patterns)]
+                          ++ [("pattern", literal (T.unlines (map (.value) f.patterns))) | not (null f.patterns)]
                           -- The run defaults do not apply to an action.
                           ++ [("working-directory", plain (T.pack projectDir)) | projectDir /= "."]
                     )
                   ]
               ]
-          )
         ]
 
     hlintJob :: HLint -> Node
     hlintJob h =
-      mapping
-        [ ("name", plain "HLint")
-        , ("runs-on", config.runsOn)
-        , ("timeout-minutes", timeout)
-        ,
-          ( "steps"
-          , sequenceNode
+      mappingNode
+        [ "name" .= plain "HLint"
+        , runsOn
+        , "timeout-minutes" .= timeout
+        , "steps"
+            .= sequenceNode
               [ checkoutStep NoSubmodules
               , mapping
                   [ uses "haskell-actions/hlint-setup" "" config.actions.hlintSetup
@@ -237,10 +240,9 @@ workflow opts config project = runCheck $ checks $> root
                   ]
               , mapping
                   [ uses "haskell-actions/hlint-run" "" config.actions.hlintRun
-                  , ("with", mapping $ [("path", p) | Just p <- [hlintPath h]] ++ [("fail-on", plain h.failOn)])
+                  , ("with", mapping $ [("path", p) | Just p <- [hlintPath h]] ++ [("fail-on", toYaml h.failOn)])
                   ]
               ]
-          )
         ]
 
     -- The action runs in the root of the repository and takes one path, or a
@@ -254,7 +256,7 @@ workflow opts config project = runCheck $ checks $> root
         paths :: [FilePath]
         paths
           | null h.path = [projectDir]
-          | otherwise = [dropTrailingPathSeparator (normalise (projectDir </> T.unpack p)) | p <- h.path]
+          | otherwise = [dropTrailingPathSeparator (normalise (projectDir </> T.unpack p.value)) | p <- h.path]
 
         jsonString :: T.Text -> T.Text
         jsonString t = "\"" <> T.concatMap (\c -> if c `elem` ['"', '\\'] then T.pack ['\\', c] else T.singleton c) t <> "\""
@@ -279,26 +281,29 @@ workflow opts config project = runCheck $ checks $> root
       [] -> plain "GHC ${{ matrix.ghc }}"
       axes -> singleQuoted . T.intercalate ", " $ "GHC ${{ matrix.ghc }}" : [a <> " ${{ matrix." <> a <> " }}" | a <- axes]
 
+    -- The comments after the matrix are in its entry, so the entry writes
+    -- them after the new matrix.
     matrix :: Node
-    matrix =
-      addAfter config.matrix.comments.after . mappingNode $
-        (plain "ghc", sequenceNode (map (singleQuoted . entryText) entries)) : extraAxes
+    matrix = mappingNode $ (plain "ghc", sequenceNode (map (singleQuoted . entryText) entries)) : extraAxes
 
     -- The comments above the first entry of the matrix stay above that
     -- entry, not above the ghc axis. The empty lines there are dropped,
     -- because the ghc axis now comes before them.
     extraAxes :: [(Node, Node)]
     extraAxes = case matrixEntries config of
-      (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.comments.before k), v) : rest
+      (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.value.value.comments.before k), v) : rest
       [] -> []
       where
         dropEmptyLines :: Node -> Node
-        dropEmptyLines n = n {comments = n.comments {before = filter (/= EmptyLine) n.comments.before}}
+        dropEmptyLines n = Node n.offset n.endOffset n.props n.comments {before = filter (/= EmptyLine) n.comments.before} n.content
 
     -- A hook can install a library that the build plan needs, and the
     -- tarballs can contain a file that a hook makes.
     steps :: [Node]
-    steps = setupSteps ++ hookSteps config.hooks.afterSetup (buildSteps ++ hookSteps config.hooks.afterBuild testSteps)
+    steps = setupSteps ++ hookSteps setupHook (buildSteps ++ hookSteps buildHook testSteps)
+
+    setupHook, buildHook :: Hook
+    (setupHook, buildHook) = placedHooks config.hooks
 
     -- The comment lines after the last step of a hook go before the next
     -- step, and an empty line separates them from that step.
@@ -311,7 +316,7 @@ workflow opts config project = runCheck $ checks $> root
     -- The comment lines after the last hook if no step follows it.
     endLines :: [Line]
     endLines
-      | null testSteps = config.hooks.afterBuild.trailing
+      | null testSteps = buildHook.trailing
       | otherwise = []
 
     setupSteps :: [Node]
@@ -573,23 +578,23 @@ workflow opts config project = runCheck $ checks $> root
     configureScript =
       heredoc $
         concat
-          [ ["jobs: " <> tshow config.jobs]
+          [ ["jobs: " <> tshow config.jobs.value]
           , ["tests: True" | config.tests]
           , ["benchmarks: True" | config.benchmarks]
           , ["write-ghc-environment-files: always" | not (null doctestEntries)]
           ]
           ++ concat
-            [ "" : stanza p ("ghc-options: " <> config.ghcOptions)
-            | not (T.null config.ghcOptions)
+            [ "" : stanza p ("ghc-options: " <> config.ghcOptions.value)
+            | not (T.null config.ghcOptions.value)
             , p <- project.packages
             ]
-          ++ case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal) of
+          ++ case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal.value) of
             [] -> []
             ls -> "" : ls
 
     parallelScript :: [Package] -> T.Text
     parallelScript pkgs =
-      heredoc . L.intercalate [""] $ [stanza p ("ghc-options: -j" <> tshow config.jobs) | p <- pkgs]
+      heredoc . L.intercalate [""] $ [stanza p ("ghc-options: -j" <> tshow config.jobs.value) | p <- pkgs]
 
     stanza :: Package -> T.Text -> [T.Text]
     stanza p line = ["package " <> T.pack p.name, "  " <> line]

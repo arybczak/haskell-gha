@@ -1,6 +1,6 @@
-{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | The configuration file.
 module HaskellGha.Config
@@ -8,18 +8,31 @@ module HaskellGha.Config
     Config (..)
   , CabalVersion (..)
   , Submodules (..)
-  , KeyComments (..)
   , Hooks (..)
-  , Hook (..)
   , Doctest (..)
   , Fourmolu (..)
   , HLint (..)
+  , FailOn (..)
   , Actions (..)
   , ActionRef (..)
   , defaultConfig
   , defaultDoctest
   , defaultFourmolu
   , defaultHLint
+
+    -- * Values
+  , Positive (..)
+  , MappingNode (..)
+  , Permissions (..)
+  , Matrix (..)
+  , GhcOptions (..)
+  , ProjectText (..)
+  , Pattern (..)
+  , HLintPath (..)
+
+    -- * Hooks
+  , Hook (..)
+  , placedHooks
 
     -- * Matrix
   , matrixEntries
@@ -37,38 +50,34 @@ import Control.Monad
 import Data.ByteString qualified as BS
 import Data.Char
 import Data.Foldable
-import Data.List qualified as L
+import Data.List.NonEmpty qualified as NE
+import Data.Maybe
 import Data.Text qualified as T
 import Distribution.Parsec
 import Distribution.Version
-import System.Directory
+import GHC.Generics
+import System.Directory hiding (Permissions)
 import System.FilePath
+import Yamlet hiding (Mapping, Sequence, mapping)
 
-import HaskellGha.Check
 import HaskellGha.Yaml
 
 -- | The configuration.
 data Config = Config
-  { name :: Node
-  -- ^ A scalar.
+  { name :: Commented T.Text
   , cabalVersion :: CabalVersion
-  , runsOn :: Node
-  -- ^ A scalar.
-  , timeoutMinutes :: Int
-  , branches :: [Node]
-  -- ^ Scalars.
+  , runsOn :: Commented T.Text
+  , timeoutMinutes :: Positive
+  , branches :: Commented (NE.NonEmpty (Commented T.Text))
   , submodules :: Submodules
-  , matrix :: Node
-  -- ^ A mapping with the extra axes, @include@ and @exclude@.
+  , matrix :: Commented Matrix
   , apt :: [T.Text]
-  , services :: Maybe Node
-  , permissions :: Node
-  -- ^ A mapping, @read-all@ or @write-all@.
-  , hooks :: Hooks
-  , ghcOptions :: T.Text
-  , cabalProjectLocal :: T.Text
-  -- ^ Extra text for @cabal.project.local@.
-  , jobs :: Int
+  , services :: Maybe (Commented MappingNode)
+  , permissions :: Commented Permissions
+  , hooks :: Commented Hooks
+  , ghcOptions :: GhcOptions
+  , cabalProjectLocal :: ProjectText
+  , jobs :: Positive
   , tests :: Bool
   , benchmarks :: Bool
   , doctest :: Doctest
@@ -78,38 +87,61 @@ data Config = Config
   , fourmolu :: Fourmolu
   , hlint :: HLint
   , actions :: Actions
-  , keyComments :: KeyComments
   }
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
 
--- | The comments above the keys that the workflow copies with their values.
--- The comments inside a value stay in the value.
-data KeyComments = KeyComments
-  { matrix :: Comments
-  , services :: Comments
-  , permissions :: Comments
-  }
-  deriving stock (Eq, Show)
+instance GenericYaml Config where
+  yamlOptions = options
+  yamlDefault = Just defaultConfig
 
 -- | The configuration of the HLint job.
 data HLint = HLint
   { enabled :: Bool
   , version :: Version
-  , failOn :: T.Text
-  , path :: [T.Text]
+  , failOn :: FailOn
+  , path :: [HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
   -- directory.
   }
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
+
+instance GenericYaml HLint where
+  yamlOptions = options
+  yamlDefault = Just defaultHLint
+
+-- | The lowest hint level that fails the HLint job.
+data FailOn
+  = FailNever
+  | FailStatus
+  | FailWarning
+  | FailSuggestion
+  | FailError
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml, ToYaml)
+
+instance GenericYaml FailOn where
+  yamlOptions = defaultYamlOptions {constructorTagModifier = map toLower . drop (length @[] "Fail")}
 
 -- | The configuration of the fourmolu job.
 data Fourmolu = Fourmolu
   { enabled :: Bool
   , version :: Version
-  , patterns :: [T.Text]
+  , patterns :: [Pattern]
   -- ^ The files to check. An empty list gives the default of the action.
   }
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
+
+instance GenericYaml Fourmolu where
+  yamlOptions =
+    options
+      { fieldLabelModifier = \case
+          "patterns" -> "pattern"
+          f -> kebabCase f
+      }
+  yamlDefault = Just defaultFourmolu
 
 -- | The versions of the actions.
 data Actions = Actions
@@ -121,7 +153,12 @@ data Actions = Actions
   , hlintSetup :: ActionRef
   , hlintRun :: ActionRef
   }
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
+
+instance GenericYaml Actions where
+  yamlOptions = options
+  yamlDefault = Just defaultConfig.actions
 
 -- | The version of an action in @uses@.
 data ActionRef = ActionRef
@@ -132,11 +169,34 @@ data ActionRef = ActionRef
   }
   deriving stock (Eq, Show)
 
+-- | A Git ref, e.g. @v7@, or a repository with a Git ref, e.g.
+-- @runs-on/cache\@v4@.
+instance FromYaml ActionRef where
+  parseYaml = withText $ \t -> case T.splitOn "@" t of
+    [r] | word r -> pure $ ActionRef Nothing r
+    [repo, r]
+      | [owner, name] <- T.splitOn "/" repo
+      , all word [owner, name, r] ->
+          pure $ ActionRef (Just repo) r
+    _ -> fail "expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
+    where
+      word :: T.Text -> Bool
+      word w = not (T.null w) && not (T.any isSpace w)
+
 -- | The cabal version for @haskell-actions/setup@.
 data CabalVersion
   = CabalLatest
   | CabalVersion Version
   deriving stock (Eq, Show)
+
+instance FromYaml CabalVersion where
+  parseYaml = withText $ \case
+    "latest" -> pure CabalLatest
+    t -> case simpleParsec (T.unpack t) of
+      Just v
+        | take 2 (versionNumbers v) < [3, 12] -> fail "the tool supports only cabal 3.12 and later"
+        | otherwise -> pure $ CabalVersion v
+      Nothing -> fail "expected latest or a version"
 
 -- | The Git submodules that the build jobs fetch.
 data Submodules
@@ -146,25 +206,24 @@ data Submodules
   | RecursiveSubmodules
   deriving stock (Eq, Show)
 
+instance FromYaml Submodules where
+  parseYaml n = case view n of
+    StringView "recursive" -> pure RecursiveSubmodules
+    BoolView True -> pure TopSubmodules
+    BoolView False -> pure NoSubmodules
+    _ -> failAt n "expected true, false or recursive"
+
 -- | The steps that the tool puts in the workflow.
 data Hooks = Hooks
-  { afterSetup :: Hook
-  , afterBuild :: Hook
+  { afterSetup :: Commented [MappingNode]
+  , afterBuild :: Commented [MappingNode]
   }
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
 
--- | The steps of a hook. The comments above the hook list are in the first
--- step.
-data Hook = Hook
-  { steps :: [Node]
-  , trailing :: [Line]
-  -- ^ The comment lines after the last step.
-  }
-  deriving stock (Eq, Show)
-
--- | A hook without steps.
-noHook :: Hook
-noHook = Hook [] []
+instance GenericYaml Hooks where
+  yamlOptions = options
+  yamlDefault = Just defaultConfig.hooks.value
 
 -- | The configuration of doctest.
 data Doctest = Doctest
@@ -174,26 +233,35 @@ data Doctest = Doctest
   , skip :: [T.Text]
   , options :: [T.Text]
   }
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromYaml)
+
+instance GenericYaml Doctest where
+  yamlOptions = options
+  yamlDefault = Just defaultDoctest
+
+-- | The options of the records of the configuration.
+options :: YamlOptions
+options = defaultYamlOptions {fieldLabelModifier = kebabCase, rejectUnknownFields = True}
 
 -- | The configuration if the file does not exist.
 defaultConfig :: Config
 defaultConfig =
   Config
-    { name = plain "CI"
+    { name = bare "CI"
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
-    , runsOn = plain "ubuntu-26.04"
-    , timeoutMinutes = 60
-    , branches = [plain "master", plain "main"]
+    , runsOn = bare "ubuntu-26.04"
+    , timeoutMinutes = Positive 60
+    , branches = bare (bare "master" NE.:| [bare "main"])
     , submodules = NoSubmodules
-    , matrix = mapping []
+    , matrix = bare (Matrix (mapping []))
     , apt = []
     , services = Nothing
-    , permissions = mapping [("contents", plain "read")]
-    , hooks = Hooks noHook noHook
-    , ghcOptions = "-Werror"
-    , cabalProjectLocal = ""
-    , jobs = 4
+    , permissions = bare (Permissions (mapping [("contents", plain "read")]))
+    , hooks = bare (Hooks (bare []) (bare []))
+    , ghcOptions = GhcOptions "-Werror"
+    , cabalProjectLocal = ProjectText ""
+    , jobs = Positive 4
     , tests = True
     , benchmarks = True
     , doctest = defaultDoctest
@@ -213,7 +281,6 @@ defaultConfig =
             hlintSetup = ActionRef Nothing "c04631035af0a6787c85e33b3ea0128b8568b590"
           , hlintRun = ActionRef Nothing "d009541bdae0b8492992416e665bb6df8a3b5cde"
           }
-    , keyComments = KeyComments noComments noComments noComments
     }
 
 -- | The HLint configuration without an @hlint@ field.
@@ -222,7 +289,7 @@ defaultHLint =
   HLint
     { enabled = False
     , version = mkVersion [3, 10]
-    , failOn = "suggestion"
+    , failOn = FailSuggestion
     , path = []
     }
 
@@ -247,12 +314,210 @@ defaultDoctest =
     , options = []
     }
 
+-- | A value without comments.
+bare :: a -> Commented a
+bare a = Commented a noComments
+
+----------------------------------------
+-- Values
+
+-- | A version, e.g. @0.20.1.0@. It must be a string, because YAML reads e.g.
+-- @3.10@ as the number 3.1.
+instance FromYaml Version where
+  parseYaml = withText $ \t -> maybe (fail "expected a version, e.g. 0.20.1.0") pure (simpleParsec (T.unpack t))
+
+-- | A version range, e.g. @>=9.6 && <9.14@.
+instance FromYaml VersionRange where
+  parseYaml = withText $ \t -> maybe (fail "expected a version range") pure (simpleParsec (T.unpack t))
+
+-- | A positive integer.
+newtype Positive = Positive {value :: Int}
+  deriving newtype (Eq, Show)
+
+instance FromYaml Positive where
+  parseYaml n = case view n of
+    IntView i
+      | i > 0
+      , i <= toInteger (maxBound @Int) ->
+          pure $ Positive (fromInteger i)
+    _ -> failAt n "expected a positive integer"
+
+-- | A mapping that the workflow copies, e.g. a step of a hook.
+newtype MappingNode = MappingNode {value :: Node}
+  deriving newtype (Eq, Show, ToYaml)
+
+instance FromYaml MappingNode where
+  parseYaml n = case n.content of
+    Mapping {} -> MappingNode <$> parseYaml n
+    _ -> typeMismatch "a mapping" n
+
+-- | The permissions of the workflow: a mapping, @read-all@ or @write-all@.
+newtype Permissions = Permissions {value :: Node}
+  deriving newtype (Eq, Show, ToYaml)
+
+instance FromYaml Permissions where
+  parseYaml n = case view n of
+    MappingView _ -> Permissions <$> parseYaml n
+    StringView t | t `elem` ["read-all", "write-all"] -> Permissions <$> parseYaml n
+    _ -> failAt n "expected a mapping, read-all or write-all"
+
+-- | The @ghc-options@ of the local packages. The workflow writes them as one
+-- field of a package stanza, so they must be one line.
+newtype GhcOptions = GhcOptions {value :: T.Text}
+  deriving newtype (Eq, Show)
+
+instance FromYaml GhcOptions where
+  parseYaml = withText $ \t ->
+    if T.any (`elem` ['\n', '\r']) (T.dropWhileEnd isSpace t)
+      then fail "the value must be one line"
+      else pure $ GhcOptions (T.strip t)
+
+-- | Extra text for @cabal.project.local@. The workflow writes the text with a
+-- heredoc that ends at the line EOF.
+newtype ProjectText = ProjectText {value :: T.Text}
+  deriving newtype (Eq, Show)
+
+instance FromYaml ProjectText where
+  parseYaml = withText $ \t ->
+    if "EOF" `elem` T.lines t
+      then fail "a line must not be EOF"
+      else pure $ ProjectText t
+
+-- | A pattern of the files that fourmolu checks. The workflow gives the
+-- patterns to the action as a literal block with one pattern on each line.
+-- The YAML writer breaks the block if its first line starts with a space.
+newtype Pattern = Pattern {value :: T.Text}
+  deriving newtype (Eq, Show)
+
+instance FromYaml Pattern where
+  parseYaml = withText $ \p ->
+    if not (T.null p) && T.strip p == p && not (T.any (`elem` ['\n', '\r']) p)
+      then pure $ Pattern p
+      else fail "a pattern must be one line without spaces at the start or the end"
+
+-- | A path that the HLint job checks. The workflow gives the paths to the
+-- action in a JSON array, and a JSON string cannot contain a raw control
+-- character.
+newtype HLintPath = HLintPath {value :: T.Text}
+  deriving newtype (Eq, Show)
+
+instance FromYaml HLintPath where
+  parseYaml = withText $ \p ->
+    if T.any isControl p
+      then fail "a path must not contain a control character, e.g. a tab or a line break"
+      else pure $ HLintPath p
+
+----------------------------------------
+-- Hooks
+
+-- | The steps of a hook with the comments around them.
+data Hook = Hook
+  { steps :: [Node]
+  , trailing :: [Line]
+  -- ^ The comment lines after the last step.
+  }
+  deriving stock (Eq, Show)
+
+-- | The hooks @after-setup@ and @after-build@. The comments of a hook go
+-- before its first step. The comments above the hooks go before the first
+-- step of the hooks, and the comments after the last hook list go after
+-- their last step. The comments of an empty hook go to the other hook.
+placedHooks :: Commented Hooks -> (Hook, Hook)
+placedHooks c
+  | null setup.steps = (setup, end (leadHook (outer ++ setupLines ++ buildLines) build))
+  | null build.steps = (end (leadHook (outer ++ setupLines) setup), build)
+  | otherwise = (leadHook (outer ++ setupLines) setup, end (leadHook buildLines build))
+  where
+    setupLines, buildLines :: [Line]
+    setup, build :: Hook
+    (setupLines, setup) = hook c.value.afterSetup
+    (buildLines, build) = hook c.value.afterBuild
+
+    outer :: [Line]
+    outer = commentLines c.comments
+
+    hook :: Commented [MappingNode] -> ([Line], Hook)
+    hook h = (commentLines h.comments, Hook (map (.value) h.value) (withoutEmptyLines h.comments.after))
+
+    end :: Hook -> Hook
+    end h = Hook h.steps (h.trailing ++ withoutEmptyLines c.comments.after)
+
+    leadHook :: [Line] -> Hook -> Hook
+    leadHook ls h = case h.steps of
+      x : xs -> Hook (addBefore ls x : xs) h.trailing
+      [] -> h
+
+    -- The workflow has its own layout, so the empty lines are left out.
+    commentLines :: Comments -> [Line]
+    commentLines cs = withoutEmptyLines cs.before ++ [Comment t | Just t <- [cs.inline]]
+
+    withoutEmptyLines :: [Line] -> [Line]
+    withoutEmptyLines = filter (/= EmptyLine)
+
 ----------------------------------------
 -- Matrix
 
+-- | The extra axes of the matrix, with @include@ and @exclude@.
+newtype Matrix = Matrix {value :: Node}
+  deriving newtype (Eq, Show)
+
+instance FromYaml Matrix where
+  parseYaml n = case n.content of
+    Mapping _ entries -> traverse_ (entry (axes entries)) entries *> (Matrix <$> parseYaml n)
+    _ -> typeMismatch "a mapping" n
+    where
+      axes :: [(Node, Node)] -> [T.Text]
+      axes entries = [k | (Node {content = Scalar _ k}, _) <- entries, k `notElem` ["ghc", "include", "exclude"]]
+
+      entry :: [T.Text] -> (Node, Node) -> Parser ()
+      entry as = \case
+        (key@Node {content = Scalar _ k}, v)
+          | k == "ghc" -> failAt key "the tool makes the ghc axis, so the matrix must not contain it"
+          | k `elem` ["include", "exclude"] -> case v.content of
+              Sequence _ items -> traverse_ (combination as (k == "exclude")) items
+              _ -> typeMismatch "a list of mappings" v
+          | not (identifier k) ->
+              failAt key $
+                "the axis name "
+                  ++ show (T.unpack k)
+                  ++ " is not valid in a GitHub expression. A name must start with a letter or _, and contain only letters, digits, _ and -, e.g. os-version"
+          | otherwise -> pure ()
+        (key, _) -> failAt key "an axis name must be a string"
+
+      -- The job name refers to each axis as matrix.<name>.
+      identifier :: T.Text -> Bool
+      identifier t = case T.uncons t of
+        Just (c, rest) -> (isAsciiAlpha c || c == '_') && T.all (\x -> isAsciiAlpha x || isDigit x || x `elem` ['_', '-']) rest
+        Nothing -> False
+        where
+          isAsciiAlpha :: Char -> Bool
+          isAsciiAlpha x = isAsciiLower x || isAsciiUpper x
+
+      combination :: [T.Text] -> Bool -> Node -> Parser ()
+      combination as isExclude item = case item.content of
+        Mapping _ fields ->
+          ghcValue fields
+            *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = Scalar _ k}, _) <- fields, k /= "ghc"])
+        _ -> typeMismatch "a mapping" item
+
+      ghcValue :: [(Node, Node)] -> Parser ()
+      ghcValue fields = case [v | (Node {content = Scalar _ "ghc"}, v) <- fields] of
+        Node {content = Scalar s _} : _ | s `elem` [SingleQuoted, DoubleQuoted] -> pure ()
+        v : _ -> failAt v "a ghc value must be a quoted string, e.g. '9.10'"
+        [] -> pure ()
+
+      unknownAxis :: [T.Text] -> (Node, T.Text) -> Parser ()
+      unknownAxis as (key, axis)
+        | axis `elem` as = pure ()
+        | otherwise =
+            failAt key $
+              T.unpack axis
+                ++ " is not an axis of the matrix. The axes are: "
+                ++ T.unpack (T.intercalate ", " ("ghc" : as))
+
 -- | The entries of the @matrix@ mapping.
 matrixEntries :: Config -> [(Node, Node)]
-matrixEntries config = case config.matrix.content of
+matrixEntries config = case config.matrix.value.value.content of
   Mapping _ entries -> entries
   _ -> []
 
@@ -271,7 +536,7 @@ matrixGhcValues config =
   | (Node {content = Scalar _ k}, Node {content = Sequence _ entries}) <- matrixEntries config
   , k `elem` ["include", "exclude"]
   , Node {content = Mapping _ fields} <- entries
-  , Just Node {content = Scalar _ v} <- [lookupKey "ghc" fields]
+  , v <- take 1 [t | (Node {content = Scalar _ "ghc"}, Node {content = Scalar _ t}) <- fields]
   ]
 
 ----------------------------------------
@@ -309,411 +574,12 @@ readConfig root configFile =
       DefaultConfigFile -> defaultConfigPath
       ConfigFile path -> path
 
--- | Parse the configuration.
+-- | Parse the configuration. An empty file gives 'defaultConfig'.
 parseConfig
   :: FilePath
   -- ^ The file name for the error messages.
   -> BS.ByteString
   -> Either [String] Config
-parseConfig file bytes = case decodeInput bytes of
-  Left e -> Left [prettyError file e]
-  Right input -> case parseYaml input of
-    Left e -> Left [prettyError file e]
-    Right Nothing -> Right defaultConfig
-    Right (Just root) -> case runCheck (configFromNode root) of
-      Left errors -> Left [prettyError file (errorAt input off msg) | (off, msg) <- L.sortOn fst errors]
-      Right config -> Right config
-
--- | A check of the configuration. Each error has the position of the node
--- that caused it.
-type ConfigCheck = Validation (Offset, String)
-
-configFromNode :: Node -> ConfigCheck Config
-configFromNode root = case root.content of
-  Mapping _ entries -> runFields "" configFields (topComment entries)
-  _ -> failAt root "the configuration must be a mapping"
-  where
-    -- A comment at the top of the file belongs to the root. It goes to the
-    -- workflow only with a first key that the workflow copies.
-    topComment :: [(Node, Node)] -> [(Node, Node)]
-    topComment = \case
-      (k, v) : rest
-        | keyName k `elem` map Just ["matrix", "services", "permissions", "hooks"] ->
-            (addBefore root.comments.before k, v) : rest
-      entries -> entries
-
-    configFields :: Fields Config
-    configFields = do
-      name <- field "name" defaultConfig.name scalar
-      cabalVersion <- field "cabal-version" defaultConfig.cabalVersion cabalVersionField
-      runsOn <- field "runs-on" defaultConfig.runsOn scalar
-      timeoutMinutes <- field "timeout-minutes" defaultConfig.timeoutMinutes positiveInt
-      branches <- field "branches" defaultConfig.branches branchesField
-      submodules <- field "submodules" defaultConfig.submodules submodulesField
-      matrix <- field "matrix" defaultConfig.matrix matrixField
-      apt <- field "apt" defaultConfig.apt textList
-      services <- field "services" defaultConfig.services (\p n -> Just <$> mappingValue p n)
-      permissions <- field "permissions" defaultConfig.permissions permissionsField
-      hooks <- fieldWithKey "hooks" defaultConfig.hooks hooksField
-      ghcOptions <- field "ghc-options" defaultConfig.ghcOptions oneLine
-      cabalProjectLocal <- field "cabal-project-local" defaultConfig.cabalProjectLocal projectText
-      jobs <- field "jobs" defaultConfig.jobs positiveInt
-      tests <- field "tests" defaultConfig.tests bool
-      benchmarks <- field "benchmarks" defaultConfig.benchmarks bool
-      doctest <- field "doctest" defaultConfig.doctest (mappingOf doctestFields)
-      check <- field "check" defaultConfig.check bool
-      sdist <- field "sdist" defaultConfig.sdist bool
-      haddock <- field "haddock" defaultConfig.haddock bool
-      fourmolu <- field "fourmolu" defaultConfig.fourmolu (mappingOf fourmoluFields)
-      hlint <- field "hlint" defaultConfig.hlint (mappingOf hlintFields)
-      actions <- field "actions" defaultConfig.actions (mappingOf actionsFields)
-      keyComments <- KeyComments <$> keyComment "matrix" <*> keyComment "services" <*> keyComment "permissions"
-      pure Config {..}
-
-    -- The workflow makes the same key, so the comment at the end of its line
-    -- stays there.
-    keyComment :: T.Text -> Fields Comments
-    keyComment k = Fields [] $ \_ entries ->
-      pure $ case lookupEntry k entries of
-        Just (key, _) -> Comments (filter (/= EmptyLine) key.comments.before) key.comments.inline []
-        Nothing -> noComments
-
-    -- The comments above the hooks go before the first step, and the
-    -- comments after the last hook list go after the last step.
-    hooksField :: String -> Node -> Node -> ConfigCheck Hooks
-    hooksField path key n = place <$> mappingOf hooksFields path n
-      where
-        place :: Hooks -> Hooks
-        place (Hooks setup build)
-          | null setup.steps = Hooks setup (end (leadHook ls build))
-          | null build.steps = Hooks (end (leadHook ls setup)) build
-          | otherwise = Hooks (leadHook ls setup) (end build)
-
-        ls :: [Line]
-        ls = commentLines key.comments ++ commentLines n.comments
-
-        end :: Hook -> Hook
-        end h = Hook h.steps (h.trailing ++ filter (/= EmptyLine) n.comments.after)
-
-    hookField :: String -> Node -> Node -> ConfigCheck Hook
-    hookField path key n =
-      (\items -> leadHook (commentLines key.comments ++ commentLines n.comments) (Hook items (filter (/= EmptyLine) n.comments.after)))
-        <$> steps path n
-
-    hlintFields :: Fields HLint
-    hlintFields = do
-      enabled <- field "enabled" defaultHLint.enabled bool
-      version <- field "version" defaultHLint.version versionField
-      failOn <- field "fail-on" defaultHLint.failOn failOnField
-      path <- field "path" defaultHLint.path textList
-      pure HLint {..}
-
-    failOnField :: String -> Node -> ConfigCheck T.Text
-    failOnField path n =
-      text path n `andThen` \t ->
-        if t `elem` levels
-          then pure t
-          else expected path n ("one of " ++ T.unpack (T.intercalate ", " levels))
-      where
-        levels :: [T.Text]
-        levels = ["never", "status", "warning", "suggestion", "error"]
-
-    fourmoluFields :: Fields Fourmolu
-    fourmoluFields = do
-      enabled <- field "enabled" defaultFourmolu.enabled bool
-      version <- field "version" defaultFourmolu.version versionField
-      patterns <- field "pattern" defaultFourmolu.patterns patternList
-      pure Fourmolu {..}
-
-    -- The workflow gives the patterns to the action as a literal block with
-    -- one pattern on each line. The YAML writer breaks the block if its first
-    -- line starts with a space.
-    patternList :: String -> Node -> ConfigCheck [T.Text]
-    patternList path n =
-      textList path n `andThen` \ps ->
-        if all valid ps
-          then pure ps
-          else failAt n $ "key " ++ show path ++ ": a pattern must be one line without spaces at the start or the end"
-      where
-        valid :: T.Text -> Bool
-        valid p = not (T.null p) && T.strip p == p && not (T.any (`elem` ['\n', '\r']) p)
-
-    versionField :: String -> Node -> ConfigCheck Version
-    versionField path n =
-      text path n `andThen` \t -> case simpleParsec (T.unpack t) of
-        Just v -> pure v
-        Nothing -> expected path n "a version, e.g. 0.20.1.0"
-
-    actionsFields :: Fields Actions
-    actionsFields = do
-      checkout <- field "checkout" defaultConfig.actions.checkout actionRef
-      setup <- field "setup" defaultConfig.actions.setup actionRef
-      cache <- field "cache" defaultConfig.actions.cache actionRef
-      runFourmolu <- field "run-fourmolu" defaultConfig.actions.runFourmolu actionRef
-      hlintSetup <- field "hlint-setup" defaultConfig.actions.hlintSetup actionRef
-      hlintRun <- field "hlint-run" defaultConfig.actions.hlintRun actionRef
-      pure Actions {..}
-
-    actionRef :: String -> Node -> ConfigCheck ActionRef
-    actionRef path n =
-      text path n `andThen` \t -> case T.splitOn "@" t of
-        [r] | word r -> pure $ ActionRef Nothing r
-        [repo, r]
-          | [owner, name] <- T.splitOn "/" repo
-          , all word [owner, name, r] ->
-              pure $ ActionRef (Just repo) r
-        _ -> expected path n "a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
-      where
-        word :: T.Text -> Bool
-        word w = not (T.null w) && not (T.any isSpace w)
-
-    -- The workflow writes the text with a heredoc that ends at the line EOF.
-    projectText :: String -> Node -> ConfigCheck T.Text
-    projectText path n =
-      text path n `andThen` \t ->
-        if "EOF" `elem` T.lines t
-          then failAt n $ "key " ++ show path ++ ": a line must not be EOF"
-          else pure t
-
-    -- The workflow writes the text as one field of a package stanza.
-    oneLine :: String -> Node -> ConfigCheck T.Text
-    oneLine path n =
-      text path n `andThen` \t ->
-        if T.any (`elem` ['\n', '\r']) (T.dropWhileEnd isSpace t)
-          then failAt n $ "key " ++ show path ++ ": the value must be one line"
-          else pure (T.strip t)
-
-    hooksFields :: Fields Hooks
-    hooksFields = do
-      afterSetup <- fieldWithKey "after-setup" noHook hookField
-      afterBuild <- fieldWithKey "after-build" noHook hookField
-      pure Hooks {..}
-
-    doctestFields :: Fields Doctest
-    doctestFields = do
-      enabled <- field "enabled" defaultDoctest.enabled bool
-      ghc <- field "ghc" defaultDoctest.ghc versionRange
-      version <- field "version" defaultDoctest.version (\p n -> Just <$> versionRange p n)
-      skip <- field "skip" defaultDoctest.skip textList
-      options <- field "options" defaultDoctest.options textList
-      pure Doctest {..}
-
-    -- A number beyond the range of Int wraps around. No real job count is
-    -- that large, so the reader does not check for it.
-    positiveInt :: String -> Node -> ConfigCheck Int
-    positiveInt path n = case n.content of
-      Scalar Plain t
-        | not (T.null t)
-        , T.all (`elem` ['0' .. '9']) t
-        , i <- read @Int (T.unpack t)
-        , i > 0 ->
-            pure i
-      _ -> expected path n "a positive integer"
-
-    cabalVersionField :: String -> Node -> ConfigCheck CabalVersion
-    cabalVersionField path n =
-      text path n `andThen` \case
-        "latest" -> pure CabalLatest
-        t -> case simpleParsec (T.unpack t) of
-          Just v
-            | take 2 (versionNumbers v) < [3, 12] ->
-                failAt n $ "key " ++ show path ++ ": the tool supports only cabal 3.12 and later"
-            | otherwise -> pure $ CabalVersion v
-          Nothing -> expected path n "latest or a version"
-
-    branchesField :: String -> Node -> ConfigCheck [Node]
-    branchesField path n = case n.content of
-      Sequence _ [] -> failAt n $ "key " ++ show path ++ ": the list must not be empty"
-      Sequence _ items -> traverse (scalar path) items
-      _ -> mismatch path n "a list of branches"
-
-    submodulesField :: String -> Node -> ConfigCheck Submodules
-    submodulesField path n = case (n.content, boolValue n) of
-      (Scalar _ "recursive", _) -> pure RecursiveSubmodules
-      (_, Just True) -> pure TopSubmodules
-      (_, Just False) -> pure NoSubmodules
-      _ -> expected path n "true, false or recursive"
-
-    permissionsField :: String -> Node -> ConfigCheck Node
-    permissionsField path n = case n.content of
-      Mapping {} -> pure n
-      Scalar _ t | t `elem` ["read-all", "write-all"] -> pure n
-      _ -> expected path n "a mapping, read-all or write-all"
-
-    steps :: String -> Node -> ConfigCheck [Node]
-    steps path n = case n.content of
-      Sequence _ items -> items <$ traverse_ (mappingValue (path ++ " item")) items
-      _ -> mismatch path n "a list of steps"
-
-    matrixField :: String -> Node -> ConfigCheck Node
-    matrixField path n = case n.content of
-      Mapping _ entries -> n <$ traverse_ (entry [k | (Node {content = Scalar _ k}, _) <- entries, k `notElem` ["include", "exclude"]]) entries
-      _ -> mismatch path n "a mapping"
-      where
-        entry :: [T.Text] -> (Node, Node) -> ConfigCheck ()
-        entry axes (key@Node {content = Scalar _ k}, v)
-          | k == "ghc" = failAt key $ "key " ++ show path ++ ": the tool makes the ghc axis, so the matrix must not contain it"
-          | k `elem` ["include", "exclude"] = case v.content of
-              Sequence _ items -> traverse_ (combination axes (k == "exclude") (path ++ "." ++ T.unpack k)) items
-              _ -> mismatch (path ++ "." ++ T.unpack k) v "a list of mappings"
-          | not (identifier k) =
-              failAt key $
-                "key "
-                  ++ show path
-                  ++ ": the axis name "
-                  ++ show (T.unpack k)
-                  ++ " is not valid in a GitHub expression. A name must start with a letter or _, and contain only letters, digits, _ and -, e.g. os-version"
-          | otherwise = pure ()
-        -- The parser accepts only scalar keys.
-        entry _ _ = pure ()
-
-        -- The job name refers to each axis as matrix.<name>.
-        identifier :: T.Text -> Bool
-        identifier t = case T.uncons t of
-          Just (c, rest) -> (isAsciiAlpha c || c == '_') && T.all (\x -> isAsciiAlpha x || isDigit x || x `elem` ['_', '-']) rest
-          Nothing -> False
-          where
-            isAsciiAlpha :: Char -> Bool
-            isAsciiAlpha x = isAsciiLower x || isAsciiUpper x
-
-        combination :: [T.Text] -> Bool -> String -> Node -> ConfigCheck ()
-        combination axes isExclude p item = case item.content of
-          Mapping _ fields ->
-            ghcValue p fields
-              *> when isExclude (traverse_ (unknownAxis axes p) [(key, k) | (key@Node {content = Scalar _ k}, _) <- fields, k /= "ghc"])
-          _ -> mismatch (p ++ " item") item "a mapping"
-
-        ghcValue :: String -> [(Node, Node)] -> ConfigCheck ()
-        ghcValue p fields = case lookupKey "ghc" fields of
-          Just Node {content = Scalar s _} | s `elem` [SingleQuoted, DoubleQuoted] -> pure ()
-          Just value -> failAt value $ "key " ++ show p ++ ": a ghc value must be a quoted string, e.g. '9.10'"
-          Nothing -> pure ()
-
-        unknownAxis :: [T.Text] -> String -> (Node, T.Text) -> ConfigCheck ()
-        unknownAxis axes p (key, name)
-          | name `elem` axes = pure ()
-          | otherwise =
-              failAt key $
-                "key "
-                  ++ show p
-                  ++ ": "
-                  ++ T.unpack name
-                  ++ " is not an axis of the matrix. The axes are: "
-                  ++ T.unpack (T.intercalate ", " ("ghc" : axes))
-
-----------------------------------------
--- Fields
-
--- | A reader of the fields of a mapping. It knows the keys that it reads, so
--- each other key of the mapping is an error.
-data Fields a = Fields [T.Text] (T.Text -> [(Node, Node)] -> ConfigCheck a)
-
-instance Functor Fields where
-  fmap f (Fields keys reader) = Fields keys (\prefix entries -> f <$> reader prefix entries)
-
-instance Applicative Fields where
-  pure a = Fields [] (\_ _ -> pure a)
-  Fields keys1 reader1 <*> Fields keys2 reader2 =
-    Fields (keys1 ++ keys2) (\prefix entries -> reader1 prefix entries <*> reader2 prefix entries)
-
--- | Read the entries of a mapping.
-runFields
-  :: T.Text
-  -- ^ The prefix of the field paths for the error messages, e.g. @hlint.@.
-  -> Fields a
-  -> [(Node, Node)]
-  -> ConfigCheck a
-runFields prefix (Fields known reader) entries =
-  traverse_
-    (\(key, k) -> failAt key $ "unknown key " ++ show (T.unpack $ prefix <> k) ++ knownKeys)
-    [(key, k) | (key@Node {content = Scalar _ k}, _) <- entries, k `notElem` known]
-    *> reader prefix entries
-  where
-    -- The top level has too many keys for a list in one message.
-    knownKeys :: String
-    knownKeys
-      | T.null prefix = ""
-      | otherwise = ", expected one of: " ++ L.intercalate ", " (map T.unpack known)
-
--- | Read a field. A missing field or a null value gives the default.
-field :: T.Text -> a -> (String -> Node -> ConfigCheck a) -> Fields a
-field k def reader = fieldWithKey k def (\path _ n -> reader path n)
-
--- | Read a field with a reader that also gets the key node.
-fieldWithKey :: T.Text -> a -> (String -> Node -> Node -> ConfigCheck a) -> Fields a
-fieldWithKey k def reader = Fields [k] $ \prefix entries -> case lookupEntry k entries of
-  Just (key, n) | not (isNull n) -> reader (T.unpack $ prefix <> k) key n
-  _ -> pure def
-
--- | The comments above a node and at the end of its first line, as lines.
--- The empty lines are left out, because the workflow has its own layout.
-commentLines :: Comments -> [Line]
-commentLines c = filter (/= EmptyLine) c.before ++ [Comment t | Just t <- [c.inline]]
-
--- | Put lines before the first step of a hook.
-leadHook :: [Line] -> Hook -> Hook
-leadHook ls h = case h.steps of
-  x : xs -> Hook (addBefore ls x : xs) h.trailing
-  [] -> h
-
--- | Read a mapping with the given fields.
-mappingOf :: Fields a -> String -> Node -> ConfigCheck a
-mappingOf fields path n = case n.content of
-  Mapping _ entries -> runFields (T.pack path <> ".") fields entries
-  _ -> mismatch path n "a mapping"
-
-expected :: String -> Node -> String -> ConfigCheck a
-expected path n what = failAt n $ "key " ++ show path ++ ": expected " ++ what
-
--- | An error for a value of the wrong kind. The message names the kind that
--- the value has.
-mismatch :: String -> Node -> String -> ConfigCheck a
-mismatch path n what = expected path n (what ++ ", but got " ++ describeNode n)
-
-failAt :: Node -> String -> ConfigCheck a
-failAt n msg = failure (n.offset, msg)
-
-isNull :: Node -> Bool
-isNull n = case n.content of
-  Scalar Plain t -> t `elem` ["", "~", "null", "Null", "NULL"]
-  _ -> False
-
-scalar :: String -> Node -> ConfigCheck Node
-scalar path n = case n.content of
-  Scalar {} -> pure n
-  _ -> mismatch path n "a string"
-
--- The workflow needs quotes for a value that YAML does not read as a string,
--- so the configuration needs them too.
-text :: String -> Node -> ConfigCheck T.Text
-text path n = case n.content of
-  Scalar s t
-    | isString s t -> pure t
-    | otherwise -> expected path n ("a string, but got " ++ describeNode n ++ ". Quote the value, e.g. '" ++ T.unpack t ++ "'")
-  _ -> mismatch path n "a string"
-
-textList :: String -> Node -> ConfigCheck [T.Text]
-textList path n = case n.content of
-  Sequence _ items -> traverse (text path) items
-  _ -> mismatch path n "a list of strings"
-
-bool :: String -> Node -> ConfigCheck Bool
-bool path n = maybe (mismatch path n "true or false") pure (boolValue n)
-
-boolValue :: Node -> Maybe Bool
-boolValue n = case n.content of
-  Scalar Plain t
-    | t `elem` ["true", "True", "TRUE"] -> Just True
-    | t `elem` ["false", "False", "FALSE"] -> Just False
-  _ -> Nothing
-
-versionRange :: String -> Node -> ConfigCheck VersionRange
-versionRange path n =
-  text path n `andThen` \t -> case simpleParsec (T.unpack t) of
-    Just r -> pure r
-    Nothing -> expected path n "a version range"
-
-mappingValue :: String -> Node -> ConfigCheck Node
-mappingValue path n = case n.content of
-  Mapping {} -> pure n
-  _ -> mismatch path n "a mapping"
+parseConfig file bytes = case decode @(Maybe Config) bytes of
+  Left errors -> Left (map (prettyError file) (NE.toList errors))
+  Right config -> Right (fromMaybe defaultConfig config)
