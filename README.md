@@ -13,24 +13,35 @@ version in its own job. Only Linux is supported.
 ## Compared to `haskell-ci`
 
 `haskell-gha` replaces [`haskell-ci`](https://github.com/haskell-CI/haskell-ci)
-for projects that use only GitHub Actions on Linux. It improves on
-`haskell-ci` in these points:
+for projects that use only GitHub Actions on Linux. It improves on `haskell-ci`
+in these points:
 
-- The workflow is shorter and easier to read. The jobs use
-  `haskell-actions/setup`, not a manual installation of GHCup. They run on
-  the runner image, or optionally in a job container.
-- A new GHC release needs no new release of the tool. `haskell-ci` only
-  accepts the GHC versions of its built-in list. `haskell-gha` gives the
-  version to `haskell-actions/setup`, and a series, e.g. `^>= 9.12`, gets
-  the newest release of that series.
-- Service containers, hook steps and extra matrix axes are GitHub Actions
-  YAML. The tool copies them to the workflow without changes. `haskell-ci`
-  only supports a PostgreSQL service, and other changes need patch files
-  for the generated workflow.
+- The jobs install GHC and cabal with `haskell-actions/setup`, not with a manual
+  installation of GHCup. They run on the runner image, or optionally in a job
+  container. `haskell-ci` always runs the jobs in a container.
+- A new GHC release needs no new release of the tool. `haskell-ci` only accepts
+  the GHC versions of its built-in list. `haskell-gha` gives the version to
+  `haskell-actions/setup`, and a series, e.g. `^>= 9.12`, gets the newest
+  release of that series.
+- The workflow uses the `cabal.project` of the project with its conditional
+  blocks, and the tool checks the blocks against `tested-with`. `haskell-ci`
+  writes its own `cabal.project` for each job.
+- Service containers, hook steps and extra matrix axes are GitHub Actions YAML.
+  The tool copies them to the workflow without changes. `haskell-ci` only
+  supports a PostgreSQL service, and other changes need patch files for the
+  generated workflow.
+- The cache of a job changes only with its build plan. `haskell-ci` saves a new
+  cache for each commit.
+- With `dependencies: both`, separate jobs test the oldest versions that the
+  bounds allow, with the same steps as the other jobs. In `haskell-ci`, a
+  constraint set with `prefer-oldest` runs at the end of the same job, without
+  `cabal.project.local`, and without the tests by default.
+- The workflow can check the formatting with fourmolu and the code with HLint,
+  each in its own job. `haskell-ci` has no such jobs.
 
-`haskell-ci` has features that `haskell-gha` does not have, e.g. macOS
-jobs, GHC prereleases and head.hackage. If you need one of these features,
-use `haskell-ci`.
+`haskell-ci` has features that `haskell-gha` does not have, e.g. macOS jobs, GHC
+prereleases, head.hackage, GHCJS and constraint sets with arbitrary constraints.
+If you need one of these features, use `haskell-ci`.
 
 ## Installation
 
