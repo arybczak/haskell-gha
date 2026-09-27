@@ -59,7 +59,7 @@ The tool accepts these options:
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all fields take their defaults. A file that you name with this option must exist. |
+| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
 | `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
@@ -139,13 +139,11 @@ Ubuntu 25.10 and later do not install it by default.
 
 ## Configuration
 
-All fields of the configuration file are optional. An unknown field is an
-error. A YAML anchor, alias or tag is also an error, e.g. in a hook step. A
-block scalar with the `+` indicator, e.g. `|+`, is an error too. Write `|`
-or `|-` instead.
+All keys of the configuration file are optional. An unknown key is an
+error. A YAML anchor, alias or tag is also an error, e.g. in a hook step.
 If YAML reads a text value as a number, a boolean or a null, quote the
 value, e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the
-number 3.1. This example shows all fields:
+number 3.1. This example shows all keys:
 
 ```yaml
 name: CI
@@ -208,7 +206,7 @@ actions:
   hlint-run: d009541bdae0b8492992416e665bb6df8a3b5cde
 ```
 
-| Field | Default | Meaning |
+| Key | Default | Meaning |
 |---|---|---|
 | `name` | `CI` | The name of the workflow. Two workflows in one repository must have different names, because workflows with the same name cancel each other. |
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
@@ -250,14 +248,14 @@ repository in front of the ref, e.g. `cache: runs-on/cache@v4`. For
 `actions.cache`, the tool adds `/restore` and `/save` to the repository.
 
 The tool copies `matrix`, `services`, `permissions` and the hooks to the
-workflow without changes, but it does not copy their comments. You can use
+workflow without changes, together with their comments. You can use
 GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
-field must not contain the key `ghc`, because the tool makes that axis. The job
-name refers to each axis in an expression. Thus the name of an axis must
-start with a letter or `_`, and contain only letters, digits, `_` and `-`. A
-`ghc` value in `include` or `exclude` must be a quoted string, e.g.
+mapping must not contain the key `ghc`, because the tool makes that axis.
+The job name refers to each axis in an expression. Thus the name of an axis
+must start with a letter or `_`, and contain only letters, digits, `_` and
+`-`. A `ghc` value in `include` or `exclude` must be a quoted string, e.g.
 `'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
-entry must be `ghc` or an axis of the `matrix` field.
+entry must be `ghc` or an axis of the `matrix` mapping.
 
 If a service has a health check, the runner starts the steps only when the
 service is healthy. Thus the workflow needs no step that waits for the
@@ -310,13 +308,13 @@ the hook cases.
 
 ## Doctest
 
-If the configuration has a `doctest` field, the workflow installs doctest
+If the configuration has a `doctest` key, the workflow installs doctest
 and runs it for the library and the sublibraries of each local package. An
-empty `doctest:` field enables doctest with the defaults. The workflow keeps
+empty `doctest:` key enables doctest with the defaults. The workflow keeps
 the doctest binary in its own cache, so a job builds each doctest version
 only once for each GHC version.
 
-| Field | Default | Meaning |
+| Key | Default | Meaning |
 |---|---|---|
 | `doctest.ghc` | all versions | The GHC versions to run doctest for. A new GHC release often works with doctest only after some weeks. |
 | `doctest.version` | any version | The versions of the doctest package. |
@@ -325,13 +323,13 @@ only once for each GHC version.
 
 ## Fourmolu
 
-If the configuration has a `fourmolu` field, the workflow gets a second job
+If the configuration has a `fourmolu` key, the workflow gets a second job
 that checks the formatting of the Haskell files with
 `haskell-actions/run-fourmolu`. The job needs no GHC, so it runs once, at
 the same time as the build jobs. fourmolu reads the `fourmolu.yaml` of the
-project. An empty `fourmolu:` field enables the job with the defaults.
+project. An empty `fourmolu:` key enables the job with the defaults.
 
-| Field | Default | Meaning |
+| Key | Default | Meaning |
 |---|---|---|
 | `fourmolu.version` | `0.20.1.0` | The fourmolu version. |
 | `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
@@ -342,13 +340,13 @@ fourmolu 0.20.0.0 and later need `run-fourmolu` v13 or later.
 
 ## HLint
 
-If the configuration has an `hlint` field, the workflow gets a job that
+If the configuration has an `hlint` key, the workflow gets a job that
 installs HLint with `haskell-actions/hlint-setup` and runs it with
 `haskell-actions/hlint-run`. Like the fourmolu job, it runs once, at the
 same time as the build jobs. The hints appear as annotations in the pull
-request. An empty `hlint:` field enables the job with the defaults.
+request. An empty `hlint:` key enables the job with the defaults.
 
-| Field | Default | Meaning |
+| Key | Default | Meaning |
 |---|---|---|
 | `hlint.version` | `3.10` | The HLint version. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
@@ -396,4 +394,7 @@ code as the release `v2.4.10`. When a new release comes out, set
   earlier system of the runner can then link against system libraries that
   the runner no longer has. If you change the system of such a runner, delete
   the caches of the repository.
-- The workflow does not contain the comments of the configuration file.
+- The workflow contains only the comments in the copied keys and above
+  them. The tool drops a comment above another key, e.g. `apt`. If the
+  first key is a copied key, a comment at the top of the file goes to the
+  workflow with that key. Otherwise the tool drops it.

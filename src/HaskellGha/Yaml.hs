@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | An ordered YAML tree that keeps the key order and the scalar styles of its
--- input.
+-- | The YAML tree of yamlet, with helpers to build, parse and render it.
 module HaskellGha.Yaml
   ( -- * Tree
     Node (..)
-  , Item (..)
-  , Key (..)
-  , Y.ScalarStyle (..)
-  , Y.Chomp (..)
-  , Y.IndentOfs (..)
+  , Content (..)
+  , ScalarStyle (..)
+  , Comments (..)
+  , Line (..)
+  , noComments
+  , Offset
 
     -- * Construction
   , plain
@@ -17,272 +17,206 @@ module HaskellGha.Yaml
   , boolean
   , singleQuoted
   , literal
-  , item
+  , scalarNode
   , mapping
-  , sequenceOf
+  , mappingNode
+  , sequenceNode
+  , addBefore
+  , addAfter
+  , commentKeys
 
     -- * Queries
   , isString
+  , describeNode
+  , keyName
+  , lookupEntry
   , lookupKey
+  , normalize
 
     -- * Parsing
-  , YamlError (..)
-  , renderYamlError
+  , Error (..)
+  , Location (..)
+  , errorAt
+  , prettyError
+  , decodeInput
   , parseYaml
 
     -- * Rendering
   , renderYaml
   ) where
 
-import Data.ByteString.Lazy qualified as BL
+import Control.Monad
 import Data.Foldable
 import Data.Set qualified as S
 import Data.Text qualified as T
-import Data.Text.Lazy qualified as TL
-import Data.YAML qualified as YAML
-import Data.YAML.Event qualified as Y
-import Data.YAML.Schema qualified as YAML
-
--- | A YAML node.
-data Node
-  = Scalar Y.ScalarStyle T.Text
-  | Sequence [Item Node]
-  | Mapping [Item (Key, Node)]
-  deriving stock (Eq, Show)
-
--- | An entry of a mapping or an item of a sequence.
-data Item a = Item
-  { emptyLine :: Bool
-  -- ^ An empty line before the item. The writer of HsYAML cannot write it
-  -- before the first item of a collection.
-  , value :: a
-  }
-  deriving stock (Eq, Show)
-
--- | A mapping key.
-data Key = Key
-  { style :: Y.ScalarStyle
-  , name :: T.Text
-  }
-  deriving stock (Eq, Show)
+import Yamlet.Decode hiding (failAt, lookupKey, parseYaml)
+import Yamlet.Error
+import Yamlet.Schema
+import Yamlet.Syntax
 
 ----------------------------------------
 -- Construction
 
 -- | A string as a plain scalar, or as a single-quoted scalar if the plain
--- scalar is not valid or is not a string. The writer of HsYAML writes a plain
--- scalar without a check.
+-- scalar does not read back as the same string.
 plain :: T.Text -> Node
-plain t
-  | validPlain && isString Y.Plain t = Scalar Y.Plain t
-  | otherwise = Scalar Y.SingleQuoted t
-  where
-    -- A subset of the valid plain scalars in block context.
-    validPlain :: Bool
-    validPlain =
-      not (T.any (`elem` ("-?:,[]{}#&*!|>'\"%@` " :: String)) (T.take 1 t))
-        && not (T.any (`elem` (": " :: String)) (T.takeEnd 1 t))
-        && not (": " `T.isInfixOf` t || " #" `T.isInfixOf` t)
-        && T.all (\c -> c >= ' ' && c /= '\DEL') t
+plain t = scalarNode (if isPlainSafe t then Plain else SingleQuoted) t
 
 -- | The null value, as an empty plain scalar.
 nullValue :: Node
-nullValue = Scalar Y.Plain ""
+nullValue = plainNode ""
 
 -- | A boolean.
 boolean :: Bool -> Node
-boolean b = Scalar Y.Plain (if b then "true" else "false")
+boolean b = plainNode (if b then "true" else "false")
 
 -- | A single-quoted scalar.
 singleQuoted :: T.Text -> Node
-singleQuoted = Scalar Y.SingleQuoted
+singleQuoted = scalarNode SingleQuoted
 
--- | A literal block scalar with the default chomping.
+-- | A literal block scalar.
 literal :: T.Text -> Node
-literal = Scalar (Y.Literal Y.Clip Y.IndentAuto)
-
--- | An item without an empty line before it.
-item :: a -> Item a
-item = Item False
+literal = scalarNode Literal
 
 -- | A mapping with plain keys.
 mapping :: [(T.Text, Node)] -> Node
-mapping entries = Mapping [item (Key Y.Plain k, v) | (k, v) <- entries]
+mapping entries = mappingNode [(plainNode k, v) | (k, v) <- entries]
 
--- | A sequence.
-sequenceOf :: [Node] -> Node
-sequenceOf nodes = Sequence (map item nodes)
+-- | Put lines above a node, in front of the lines that it already has.
+addBefore :: [Line] -> Node -> Node
+addBefore ls n = Node n.offset n.endOffset n.props (Comments (ls ++ c.before) c.inline c.after) n.content
+  where
+    c :: Comments
+    c = n.comments
+
+-- | Put lines after the last entry of a collection.
+addAfter :: [Line] -> Node -> Node
+addAfter ls n = Node n.offset n.endOffset n.props (Comments c.before c.inline (c.after ++ ls)) n.content
+  where
+    c :: Comments
+    c = n.comments
+
+-- | Give the keys of a mapping the comments from the list.
+commentKeys :: [(T.Text, Comments)] -> Node -> Node
+commentKeys cs n = case n.content of
+  Mapping style entries -> Node n.offset n.endOffset n.props n.comments (Mapping style (map entry entries))
+  _ -> n
+  where
+    entry :: (Node, Node) -> (Node, Node)
+    entry (k, v) = case keyName k >>= (`lookup` cs) of
+      Just c -> (Node k.offset k.endOffset k.props c k.content, v)
+      Nothing -> (k, v)
 
 ----------------------------------------
 -- Queries
 
 -- | Whether YAML reads a scalar as a string. GitHub reads a plain scalar with
 -- the YAML 1.2 core schema, e.g. @1.0@ is a number.
-isString :: Y.ScalarStyle -> T.Text -> Bool
-isString style t = case YAML.schemaResolverScalar YAML.coreSchemaResolver Y.untagged style t of
-  Right (YAML.SStr _) -> True
-  _ -> False
+isString :: ScalarStyle -> T.Text -> Bool
+isString style t = style /= Plain || isPlainString t
+
+-- | The text of a scalar key.
+keyName :: Node -> Maybe T.Text
+keyName n = case n.content of
+  Scalar _ t -> Just t
+  _ -> Nothing
+
+-- | Look up the entry of a key in a mapping.
+lookupEntry :: T.Text -> [(Node, Node)] -> Maybe (Node, Node)
+lookupEntry k entries = asum [Just e | e@(key, _) <- entries, keyName key == Just k]
 
 -- | Look up the value of a key in a mapping.
-lookupKey :: T.Text -> [Item (Key, Node)] -> Maybe Node
-lookupKey k = fmap (snd . (.value)) . find (\i -> (fst i.value).name == k)
+lookupKey :: T.Text -> [(Node, Node)] -> Maybe Node
+lookupKey k = fmap snd . lookupEntry k
+
+-- | Remove the positions and the comments, and give every collection the
+-- block style, as the renderer writes it. A parsed node then compares equal
+-- to a built one.
+normalize :: Node -> Node
+normalize n = Node noOffset noOffset n.props noComments $ case n.content of
+  Sequence _ xs -> Sequence Block (map normalize xs)
+  Mapping _ kvs -> Mapping Block [(normalize k, normalize v) | (k, v) <- kvs]
+  c -> c
 
 ----------------------------------------
 -- Parsing
 
--- | An error in the YAML input.
-data YamlError = YamlError
-  { line :: Int
-  -- ^ 1-based.
-  , column :: Int
-  -- ^ 1-based.
-  , message :: String
-  }
-  deriving stock (Eq, Show)
+-- | Parse a YAML document. An empty input gives 'Nothing'. The comments at
+-- the end of the document are lost. An anchor, an alias, a tag, a duplicate
+-- key and a key that is not a scalar are errors.
+--
+-- The offsets of the nodes refer to the input, so 'errorAt' with the same
+-- input gives the line and the column of a node.
+parseYaml :: T.Text -> Either Error (Maybe Node)
+parseYaml input =
+  parseDocumentsText input >>= \case
+    [] -> pure Nothing
+    [doc] -> Just (copyNode doc.root) <$ check input doc.root
+    _ : doc : _ -> Left $ errorAt input doc.root.offset "the file must contain only one YAML document"
 
--- | Render an error for a file.
-renderYamlError :: FilePath -> YamlError -> String
-renderYamlError file e = file ++ ":" ++ show e.line ++ ":" ++ show e.column ++ ": " ++ e.message
-
--- | Parse a YAML document. An empty input gives 'Nothing'. The tree does not
--- keep the comments.
-parseYaml :: BL.ByteString -> Either YamlError (Maybe Node)
-parseYaml input = do
-  events <- traverse (either syntaxError Right) (Y.parseEvents input)
-  case filter (not . isComment) events of
-    Y.EvPos Y.StreamStart _ : rest -> stream rest
-    _ -> Left $ YamlError 1 1 "invalid YAML stream"
+check :: T.Text -> Node -> Either Error ()
+check input = node
   where
-    syntaxError :: (Y.Pos, String) -> Either YamlError a
-    syntaxError (pos, msg) = Left $ errorAt pos msg
+    node :: Node -> Either Error ()
+    node n =
+      checkProps n *> case n.content of
+        Scalar {} -> pure ()
+        Sequence _ items -> traverse_ node items
+        Mapping _ entries -> mappingEntries S.empty entries
+        Alias _ -> failAt n "aliases are not supported"
 
-    isComment :: Y.EvPos -> Bool
-    isComment ev = case ev.eEvent of
-      Y.Comment _ -> True
-      _ -> False
-
-    stream :: [Y.EvPos] -> Either YamlError (Maybe Node)
-    stream = \case
-      Y.EvPos Y.StreamEnd _ : _ -> pure Nothing
-      Y.EvPos (Y.DocumentStart _) _ : evs1 -> do
-        (root, evs2) <- node evs1
-        case evs2 of
-          Y.EvPos (Y.DocumentEnd _) _ : evs3 -> case evs3 of
-            Y.EvPos Y.StreamEnd _ : _ -> pure (Just root)
-            ev : _ -> Left $ errorAt ev.ePos "the file must contain only one YAML document"
-            [] -> unexpectedEnd
-          ev : _ -> unexpected ev
-          [] -> unexpectedEnd
-      ev : _ -> unexpected ev
-      [] -> unexpectedEnd
-
-    node :: [Y.EvPos] -> Either YamlError (Node, [Y.EvPos])
-    node = \case
-      ev@(Y.EvPos (Y.Scalar anchor tag s t) _) : evs -> do
-        checkProperties ev anchor tag
-        checkChomping ev s
-        pure (Scalar s t, evs)
-      ev@(Y.EvPos (Y.SequenceStart anchor tag _) _) : evs -> do
-        checkProperties ev anchor tag
-        (items, rest) <- sequenceItems evs
-        pure (Sequence items, rest)
-      ev@(Y.EvPos (Y.MappingStart anchor tag _) _) : evs -> do
-        checkProperties ev anchor tag
-        (entries, rest) <- mappingEntries S.empty evs
-        pure (Mapping entries, rest)
-      ev@(Y.EvPos (Y.Alias _) _) : _ -> Left $ errorAt ev.ePos "aliases are not supported"
-      ev : _ -> unexpected ev
-      [] -> unexpectedEnd
-
-    sequenceItems :: [Y.EvPos] -> Either YamlError ([Item Node], [Y.EvPos])
-    sequenceItems = \case
-      Y.EvPos Y.SequenceEnd _ : evs -> pure ([], evs)
-      evs1 -> do
-        (v, evs2) <- node evs1
-        (items, evs3) <- sequenceItems evs2
-        pure (item v : items, evs3)
-
-    mappingEntries :: S.Set T.Text -> [Y.EvPos] -> Either YamlError ([Item (Key, Node)], [Y.EvPos])
+    mappingEntries :: S.Set T.Text -> [(Node, Node)] -> Either Error ()
     mappingEntries seen = \case
-      Y.EvPos Y.MappingEnd _ : evs -> pure ([], evs)
-      ev@(Y.EvPos (Y.Scalar anchor tag s k) pos) : evs1 -> do
-        checkProperties ev anchor tag
-        if k `S.member` seen
-          then Left . errorAt pos $ "duplicate key " ++ show k
-          else do
-            (v, evs2) <- node evs1
-            (entries, evs3) <- mappingEntries (S.insert k seen) evs2
-            pure (item (Key s k, v) : entries, evs3)
-      ev : _ -> Left $ errorAt ev.ePos "a mapping key must be a scalar"
-      [] -> unexpectedEnd
+      [] -> pure ()
+      (k, v) : rest -> case k.content of
+        Scalar _ name -> do
+          checkProps k
+          when (name `S.member` seen) . failAt k $ "duplicate key " ++ show name
+          node v
+          mappingEntries (S.insert name seen) rest
+        _ -> failAt k "a mapping key must be a scalar"
 
-    checkProperties :: Y.EvPos -> Maybe Y.Anchor -> Y.Tag -> Either YamlError ()
-    checkProperties ev anchor tag
-      | Just _ <- anchor = Left $ errorAt ev.ePos "anchors are not supported"
-      | not (Y.isUntagged tag) = Left $ errorAt ev.ePos "tags are not supported"
+    checkProps :: Node -> Either Error ()
+    checkProps n
+      | Just _ <- n.props.anchor = failAt n "anchors are not supported"
+      | n.props.tag /= NoTag = failAt n "tags are not supported"
       | otherwise = pure ()
 
-    -- The writer puts an empty line before the next item, and a block scalar
-    -- with the keep indicator takes that line into its value.
-    checkChomping :: Y.EvPos -> Y.ScalarStyle -> Either YamlError ()
-    checkChomping ev = \case
-      Y.Literal Y.Keep _ -> keep
-      Y.Folded Y.Keep _ -> keep
-      _ -> pure ()
-      where
-        keep :: Either YamlError ()
-        keep = Left $ errorAt ev.ePos "the chomping indicator + is not supported. Remove the +, e.g. write | in place of |+"
-
-    unexpected :: Y.EvPos -> Either YamlError a
-    unexpected ev = Left . errorAt ev.ePos $ "unexpected " ++ show ev.eEvent
-
-    unexpectedEnd :: Either YamlError a
-    unexpectedEnd = Left $ YamlError 1 1 "unexpected end of the YAML stream"
-
-    errorAt :: Y.Pos -> String -> YamlError
-    errorAt pos = YamlError pos.posLine (pos.posColumn + 1)
+    failAt :: Node -> String -> Either Error a
+    failAt n = Left . errorAt input n.offset
 
 ----------------------------------------
 -- Rendering
 
--- | Render a node as a YAML document. The header lines become comments at the
--- start of the document.
+-- | Render a node as a YAML document in the block style.
 renderYaml
   :: [T.Text]
-  -- ^ The header lines.
+  -- ^ The header lines. They become comments at the start of the document.
+  -> ([T.Text] -> Bool)
+  -- ^ The collections with an empty line between their entries, by the keys
+  -- on the path to them.
   -> Node
   -> T.Text
-renderYaml header root = T.unlines . map replaceMarker . T.lines . TL.toStrict $ Y.writeEventsText events
+renderYaml header separated root =
+  renderSyntax
+    RenderOptions {forceBlock = True}
+    [Document Nothing False False (Comments (map Comment header) Nothing []) (separate [] root)]
   where
-    events :: [Y.Event]
-    events =
-      [Y.StreamStart, Y.DocumentStart Y.NoDirEndMarker]
-        ++ map (\h -> Y.Comment $ if T.null h then "" else " " <> h) header
-        ++ nodeEvents root
-        ++ [Y.DocumentEnd False, Y.StreamEnd]
+    separate :: [T.Text] -> Node -> Node
+    separate path n = case n.content of
+      Mapping style entries -> withContent (Mapping style (zipWith entry [0 ..] entries))
+      Sequence style items | separated path -> withContent (Sequence style (zipWith spaced [0 ..] items))
+      _ -> n
+      where
+        withContent :: Content -> Node
+        withContent = Node n.offset n.endOffset n.props n.comments
 
-    nodeEvents :: Node -> [Y.Event]
-    nodeEvents = \case
-      Scalar s t -> [Y.Scalar Nothing Y.untagged s t]
-      Sequence items ->
-        [Y.SequenceStart Nothing Y.untagged Y.Block]
-          ++ concat [emptyLineEvent i ++ nodeEvents i.value | i <- items]
-          ++ [Y.SequenceEnd]
-      Mapping entries ->
-        [Y.MappingStart Nothing Y.untagged Y.Block]
-          ++ concat
-            [ emptyLineEvent i ++ Y.Scalar Nothing Y.untagged k.style k.name : nodeEvents v
-            | i@(Item _ (k, v)) <- entries
-            ]
-          ++ [Y.MappingEnd]
+        entry :: Int -> (Node, Node) -> (Node, Node)
+        entry i (k, v) = (spaced i k, maybe v (\name -> separate (path ++ [name]) v) (keyName k))
 
-    -- The writer has no event for an empty line, so a comment with a marker
-    -- stands for it.
-    emptyLineEvent :: Item a -> [Y.Event]
-    emptyLineEvent i = [Y.Comment emptyLineMarker | i.emptyLine]
-
-    replaceMarker :: T.Text -> T.Text
-    replaceMarker l = if T.strip l == "#" <> emptyLineMarker then "" else l
-
-    emptyLineMarker :: T.Text
-    emptyLineMarker = "\x1F"
+        -- An entry that already has an empty line above it, e.g. from the
+        -- comments after a hook, gets no second one.
+        spaced :: Int -> Node -> Node
+        spaced i x
+          | i > 0 && separated path && EmptyLine `notElem` x.comments.before = addBefore [EmptyLine] x
+          | otherwise = x

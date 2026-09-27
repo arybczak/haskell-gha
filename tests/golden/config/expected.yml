@@ -17,8 +17,10 @@ on:
   merge_group:
   workflow_dispatch:
 
+# The test reporter writes check runs.
 permissions:
   contents: read
+  # For the annotations of the test results.
   checks: write
 
 concurrency:
@@ -64,17 +66,21 @@ jobs:
     name: 'GHC ${{ matrix.ghc }}, postgres ${{ matrix.postgres }}'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    # The services of each build job.
     services:
+      # The database for the tests.
       postgres:
         image: postgres:${{ matrix.postgres }}
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: postgres # Only for CI.
         ports:
         - '5432:5432'
+        # The runner starts the steps when the database accepts connections.
         options: >-
           --health-cmd pg_isready --health-interval 5s --health-retries 10
     strategy:
       fail-fast: false
+      # The oldest and the newest supported Postgres.
       matrix:
         ghc:
         - '9.10'
@@ -109,8 +115,10 @@ jobs:
         echo "GHC ${{ steps.setup.outputs.ghc-version }}, cabal ${{ steps.setup.outputs.cabal-version }}, image $ImageOS $ImageVersion" >> "$GITHUB_STEP_SUMMARY"
         echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
+    # The steps for Postgres.
     - name: Show the Postgres version
       run: psql --version
+    # Postgres is ready for the build.
 
     - name: Unpack the source tarballs
       run: |
@@ -172,8 +180,10 @@ jobs:
       run: |
         cabal build all
 
+    # A check that the build made the programs.
     - name: Show the executables
       run: cabal list-bin all
+    # The package checks come next.
 
     - name: Check the packages
       working-directory: ${{ runner.temp }}/haskell-gha

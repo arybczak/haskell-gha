@@ -1,7 +1,8 @@
 -- | Checks that collect all their errors.
 module HaskellGha.Check
   ( -- * Check
-    Check
+    Validation
+  , Check
   , runCheck
   , failure
   , fromEither
@@ -17,34 +18,37 @@ module HaskellGha.Check
 -- that shows the difference. The missing instance also protects the parsers
 -- that use @ApplicativeDo@: a statement that uses the result of an earlier one
 -- is a compile error, and not a silent loss of errors.
-newtype Check a = Check (Either [String] a)
+newtype Validation e a = Validation (Either [e] a)
   deriving stock (Show)
 
-instance Functor Check where
-  fmap f (Check r) = Check (fmap f r)
+-- | A check with error messages.
+type Check = Validation String
 
-instance Applicative Check where
-  pure = Check . Right
-  Check (Left e1) <*> Check (Left e2) = Check (Left (e1 ++ e2))
-  Check (Left e) <*> _ = Check (Left e)
-  Check (Right f) <*> Check r = Check (fmap f r)
+instance Functor (Validation e) where
+  fmap f (Validation r) = Validation (fmap f r)
+
+instance Applicative (Validation e) where
+  pure = Validation . Right
+  Validation (Left e1) <*> Validation (Left e2) = Validation (Left (e1 ++ e2))
+  Validation (Left e) <*> _ = Validation (Left e)
+  Validation (Right f) <*> Validation r = Validation (fmap f r)
 
 -- | Get the errors or the result.
-runCheck :: Check a -> Either [String] a
-runCheck (Check r) = r
+runCheck :: Validation e a -> Either [e] a
+runCheck (Validation r) = r
 
 -- | A check with one error.
-failure :: String -> Check a
-failure e = Check (Left [e])
+failure :: e -> Validation e a
+failure e = Validation (Left [e])
 
 -- | Convert an 'Either' with one error.
-fromEither :: Either String a -> Check a
-fromEither = Check . either (Left . pure) Right
+fromEither :: Either e a -> Validation e a
+fromEither = Validation . either (Left . pure) Right
 
 -- | Convert an 'Either' with a list of errors.
-fromErrors :: Either [String] a -> Check a
-fromErrors = Check
+fromErrors :: Either [e] a -> Validation e a
+fromErrors = Validation
 
 -- | Run the second check only if the first one succeeds.
-andThen :: Check a -> (a -> Check b) -> Check b
-andThen (Check r) f = either (Check . Left) f r
+andThen :: Validation e a -> (a -> Validation e b) -> Validation e b
+andThen (Validation r) f = either (Validation . Left) f r

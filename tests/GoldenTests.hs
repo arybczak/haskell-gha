@@ -2,7 +2,6 @@ module GoldenTests (goldenTests) where
 
 import Control.Monad
 import Data.ByteString qualified as BS
-import Data.ByteString.Lazy qualified as BL
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
@@ -45,23 +44,16 @@ golden fixture = do
   when accept $ BS.writeFile expectedFile (T.encodeUtf8 actual)
   expected <- T.decodeUtf8 <$> BS.readFile expectedFile
   assertEqual "workflow" (dropHeader expected) (dropHeader actual)
-  case parseYaml (BL.fromStrict $ T.encodeUtf8 actual) of
-    Right (Just reparsed) -> assertEqual "reparsed workflow" (dropEmptyLines node) reparsed
+  case parseYaml actual of
+    Right (Just reparsed) -> assertEqual "reparsed workflow" (normalize node) (normalize reparsed)
     Right Nothing -> assertFailure "the workflow is empty"
-    Left e -> assertFailure $ renderYamlError expectedFile e
+    Left e -> assertFailure $ prettyError expectedFile e
   where
     readArgs :: FilePath -> IO [String]
     readArgs path =
       doesFileExist path >>= \case
         True -> words <$> readFile path
         False -> pure []
-
-    -- The parser does not keep the empty lines.
-    dropEmptyLines :: Node -> Node
-    dropEmptyLines = \case
-      Scalar s t -> Scalar s t
-      Sequence items -> Sequence [item (dropEmptyLines i.value) | i <- items]
-      Mapping entries -> Mapping [item (k, dropEmptyLines v) | Item _ (k, v) <- entries]
 
     dropHeader :: T.Text -> T.Text
     dropHeader = T.unlines . dropWhile ((== Just '#') . fmap fst . T.uncons) . T.lines

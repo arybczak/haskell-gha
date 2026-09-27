@@ -4,12 +4,15 @@ runs-on: ubuntu-24.04
 timeout-minutes: 90
 branches: [master, 'release/**']
 submodules: recursive
+# The oldest and the newest supported Postgres.
 matrix:
   postgres: ['15', '18']
   exclude:
     - ghc: '9.10'
       postgres: '15'
+# The workflow does not copy this key, so it drops this comment.
 apt: [libpq-dev, postgresql-client]
+# The services of each build job.
 services:
   # The database for the tests.
   postgres:
@@ -22,17 +25,22 @@ services:
       --health-cmd pg_isready
       --health-interval 5s
       --health-retries 10
+# The test reporter writes check runs.
 permissions:
   contents: read
   # For the annotations of the test results.
   checks: write
+# The steps for Postgres.
 hooks:
   after-setup:
     - name: Show the Postgres version
       run: psql --version
+    # Postgres is ready for the build.
   after-build:
+    # A check that the build made the programs.
     - name: Show the executables
       run: cabal list-bin all
+    # The package checks come next.
 ghc-options: -Werror -Wno-unused-imports
 cabal-project-local: |
   package config

@@ -57,6 +57,14 @@ renderWorkflow version opts =
     , ""
     , "For more information, see https://github.com/arybczak/haskell-gha"
     ]
+    separated
+  where
+    separated :: [T.Text] -> Bool
+    separated = \case
+      [] -> True
+      ["jobs"] -> True
+      ["jobs", _, "steps"] -> True
+      _ -> False
 
 -- | Quote a word for bash, if it needs quotes.
 shellQuote :: T.Text -> T.Text
@@ -84,7 +92,7 @@ workflow opts config project = runCheck $ checks $> root
     checkHLintPath p
       | isAbsolute (T.unpack p) || leadsAbove (projectDir </> T.unpack p) =
           failure $
-            "The field hlint.path contains the path "
+            "The key hlint.path contains the path "
               ++ T.unpack p
               ++ ", which is not in the repository. Give a path relative to the project directory."
       | otherwise = pure ()
@@ -115,12 +123,12 @@ workflow opts config project = runCheck $ checks $> root
       | otherwise = pure ()
 
     checkDoctestRange :: Doctest -> GhcEntry -> Check ()
-    checkDoctestRange d = fromEither . void . decideRange ("The range " ++ prettyShow d.ghc ++ " of the field doctest.ghc") d.ghc
+    checkDoctestRange d = fromEither . void . decideRange ("The range " ++ prettyShow d.ghc ++ " of the key doctest.ghc") d.ghc
 
     checkSkip :: T.Text -> Check ()
     checkSkip p
       | T.unpack p `elem` map (.name) project.packages = pure ()
-      | otherwise = failure $ "The field doctest.skip names the package " ++ T.unpack p ++ ", but the project has no such local package."
+      | otherwise = failure $ "The key doctest.skip names the package " ++ T.unpack p ++ ", but the project has no such local package."
 
     checkGhcValue :: T.Text -> Check ()
     checkGhcValue value
@@ -135,35 +143,31 @@ workflow opts config project = runCheck $ checks $> root
 
     root :: Node
     root =
-      Mapping
-        ( topLevel
-            [ ("name", config.name)
-            , ("on", triggers)
-            , ("permissions", config.permissions)
-            , -- A push to a branch of the push trigger also cancels the older
-              -- run. The newer run tests the newer code and saves the cache
-              -- that the older run did not save.
-              ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", boolean True)])
-            , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
-            ,
-              ( "jobs"
-              , -- The short jobs come first, so the long build job does not
-                -- hide them.
-                Mapping . separate $
-                  [item (Key Plain "fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
-                    ++ [item (Key Plain "hlint", hlintJob h) | Just h <- [config.hlint]]
-                    ++ [item (Key Plain "build", job)]
-              )
-            ]
-        )
-
-    topLevel :: [(T.Text, Node)] -> [Item (Key, Node)]
-    topLevel = zipWith (\i (k, v) -> Item (i > (0 :: Int)) (Key Plain k, v)) [0 ..]
+      commentKeys [("permissions", config.keyComments.permissions)] $
+        mapping
+          [ ("name", config.name)
+          , ("on", triggers)
+          , ("permissions", config.permissions)
+          , -- A push to a branch of the push trigger also cancels the older
+            -- run. The newer run tests the newer code and saves the cache
+            -- that the older run did not save.
+            ("concurrency", mapping [("group", plain "${{ github.workflow }}-${{ github.ref }}"), ("cancel-in-progress", boolean True)])
+          , ("defaults", mapping [("run", mapping $ ("shell", plain "bash") : workingDirectory)])
+          ,
+            ( "jobs"
+            , -- The short jobs come first, so the long build job does not
+              -- hide them.
+              mapping $
+                [("fourmolu", fourmoluJob f) | Just f <- [config.fourmolu]]
+                  ++ [("hlint", hlintJob h) | Just h <- [config.hlint]]
+                  ++ [("build", job)]
+            )
+          ]
 
     triggers :: Node
     triggers =
       mapping
-        [ ("push", mapping [("branches", sequenceOf config.branches)])
+        [ ("push", mapping [("branches", sequenceNode config.branches)])
         , ("pull_request", nullValue)
         , ("merge_group", nullValue)
         , ("workflow_dispatch", nullValue)
@@ -177,21 +181,19 @@ workflow opts config project = runCheck $ checks $> root
 
     job :: Node
     job =
-      Mapping
-        ( map item $
-            [ (Key Plain "name", jobName)
-            , (Key Plain "runs-on", config.runsOn)
-            , (Key Plain "timeout-minutes", timeout)
-            ]
-              ++ [(Key Plain "services", s) | Just s <- [config.services]]
-              ++ [ (Key Plain "strategy", mapping [("fail-fast", boolean False), ("matrix", matrix)])
-                 , (Key Plain "steps", Sequence (separate steps))
-                 ]
-        )
+      commentKeys [("services", config.keyComments.services)] . mapping $
+        [ ("name", jobName)
+        , ("runs-on", config.runsOn)
+        , ("timeout-minutes", timeout)
+        ]
+          ++ [("services", s) | Just s <- [config.services]]
+          ++ [ ("strategy", commentKeys [("matrix", config.keyComments.matrix)] $ mapping [("fail-fast", boolean False), ("matrix", matrix)])
+             , ("steps", addAfter endLines (sequenceNode steps))
+             ]
 
     -- GitHub needs a number, and plain would quote it.
     timeout :: Node
-    timeout = Scalar Plain (tshow config.timeoutMinutes)
+    timeout = scalarNode Plain (tshow config.timeoutMinutes)
 
     -- The job needs no GHC, so it runs once, next to the build jobs.
     fourmoluJob :: Fourmolu -> Node
@@ -202,23 +204,20 @@ workflow opts config project = runCheck $ checks $> root
         , ("timeout-minutes", timeout)
         ,
           ( "steps"
-          , Sequence
-              ( separate
-                  [ item (checkoutStep NoSubmodules)
-                  , item $
-                      mapping
-                        [ uses "haskell-actions/run-fourmolu" "" config.actions.runFourmolu
-                        ,
-                          ( "with"
-                          , mapping $
-                              [("version", singleQuoted (T.pack (prettyShow f.version)))]
-                                ++ [("pattern", literal (T.unlines f.patterns)) | not (null f.patterns)]
-                                -- The run defaults do not apply to an action.
-                                ++ [("working-directory", plain (T.pack projectDir)) | projectDir /= "."]
-                          )
-                        ]
+          , sequenceNode
+              [ checkoutStep NoSubmodules
+              , mapping
+                  [ uses "haskell-actions/run-fourmolu" "" config.actions.runFourmolu
+                  ,
+                    ( "with"
+                    , mapping $
+                        [("version", singleQuoted (T.pack (prettyShow f.version)))]
+                          ++ [("pattern", literal (T.unlines f.patterns)) | not (null f.patterns)]
+                          -- The run defaults do not apply to an action.
+                          ++ [("working-directory", plain (T.pack projectDir)) | projectDir /= "."]
+                    )
                   ]
-              )
+              ]
           )
         ]
 
@@ -230,21 +229,17 @@ workflow opts config project = runCheck $ checks $> root
         , ("timeout-minutes", timeout)
         ,
           ( "steps"
-          , Sequence
-              ( separate
-                  [ item (checkoutStep NoSubmodules)
-                  , item $
-                      mapping
-                        [ uses "haskell-actions/hlint-setup" "" config.actions.hlintSetup
-                        , ("with", mapping [("version", singleQuoted (T.pack (prettyShow h.version)))])
-                        ]
-                  , item $
-                      mapping
-                        [ uses "haskell-actions/hlint-run" "" config.actions.hlintRun
-                        , ("with", mapping $ [("path", p) | Just p <- [hlintPath h]] ++ [("fail-on", plain h.failOn)])
-                        ]
+          , sequenceNode
+              [ checkoutStep NoSubmodules
+              , mapping
+                  [ uses "haskell-actions/hlint-setup" "" config.actions.hlintSetup
+                  , ("with", mapping [("version", singleQuoted (T.pack (prettyShow h.version)))])
                   ]
-              )
+              , mapping
+                  [ uses "haskell-actions/hlint-run" "" config.actions.hlintRun
+                  , ("with", mapping $ [("path", p) | Just p <- [hlintPath h]] ++ [("fail-on", plain h.failOn)])
+                  ]
+              ]
           )
         ]
 
@@ -286,50 +281,83 @@ workflow opts config project = runCheck $ checks $> root
 
     matrix :: Node
     matrix =
-      Mapping (item (Key Plain "ghc", sequenceOf (map (singleQuoted . entryText) entries)) : config.matrix)
+      addAfter config.matrix.comments.after . mappingNode $
+        (plain "ghc", sequenceNode (map (singleQuoted . entryText) entries)) : extraAxes
 
-    -- An empty line before each item except the first.
-    separate :: [Item a] -> [Item a]
-    separate = zipWith (\i s -> s {emptyLine = i > (0 :: Int)}) [0 ..]
+    -- The comments above the first entry of the matrix stay above that
+    -- entry, not above the ghc axis. The empty lines there are dropped,
+    -- because the ghc axis now comes before them.
+    extraAxes :: [(Node, Node)]
+    extraAxes = case matrixEntries config of
+      (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.comments.before k), v) : rest
+      [] -> []
+      where
+        dropEmptyLines :: Node -> Node
+        dropEmptyLines n = n {comments = n.comments {before = filter (/= EmptyLine) n.comments.before}}
 
-    steps :: [Item Node]
-    steps =
+    -- A hook can install a library that the build plan needs, and the
+    -- tarballs can contain a file that a hook makes.
+    steps :: [Node]
+    steps = setupSteps ++ hookSteps config.hooks.afterSetup (buildSteps ++ hookSteps config.hooks.afterBuild testSteps)
+
+    -- The comment lines after the last step of a hook go before the next
+    -- step, and an empty line separates them from that step.
+    hookSteps :: Hook -> [Node] -> [Node]
+    hookSteps h rest =
+      h.steps ++ case rest of
+        x : xs | not (null h.trailing) -> addBefore (h.trailing ++ [EmptyLine]) x : xs
+        _ -> rest
+
+    -- The comment lines after the last hook if no step follows it.
+    endLines :: [Line]
+    endLines
+      | null testSteps = config.hooks.afterBuild.trailing
+      | otherwise = []
+
+    setupSteps :: [Node]
+    setupSteps =
       concat
-        [ [item (checkoutStep config.submodules)]
-        , [item $ runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
-        , [item $ runStep "Install the gold linker" (Just goldEntries) (aptScript ["binutils-gold"]) | not (null goldEntries)]
-        , [item setupStep]
-        , [item versionsStep]
-        , -- A hook can install a library that the build plan needs, and the
-          -- tarballs can contain a file that a hook makes.
-          config.hooks.afterSetup
-        , [ item $ runStep "Unpack the source tarballs" (Just group) (unpackScript pkgs)
+        [ [checkoutStep config.submodules]
+        , [runStep "Install the system packages" Nothing (aptScript config.apt) | not (null config.apt)]
+        , [runStep "Install the gold linker" (Just goldEntries) (aptScript ["binutils-gold"]) | not (null goldEntries)]
+        , [setupStep]
+        , [versionsStep]
+        ]
+
+    buildSteps :: [Node]
+    buildSteps =
+      concat
+        [ [ runStep "Unpack the source tarballs" (Just group) (unpackScript pkgs)
           | config.sdist
           , (group, pkgs) <- packageGroups project.matrix
           ]
-        , [item $ sourceStep "Configure the project" Nothing configureScript]
-        , [ item $ sourceStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
+        , [sourceStep "Configure the project" Nothing configureScript]
+        , [ sourceStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, not (hasSemaphore e.ghc)]
           ]
-        , [ item $ sourceStep "Enable the GHC job semaphore" (Just semaphoreEntries) "echo 'semaphore: True' >> cabal.project.local\n"
+        , [ sourceStep "Enable the GHC job semaphore" (Just semaphoreEntries) "echo 'semaphore: True' >> cabal.project.local\n"
           | not (null semaphoreEntries)
           ]
-        , [item planStep]
-        , [item cacheRestore]
-        , [item $ sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
-        , [item cacheSave]
+        , [planStep]
+        , [cacheRestore]
+        , [sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
+        , [cacheSave]
         , concat
             [ doctestSteps d
             | not (null doctestEntries)
             , Just d <- [config.doctest]
             ]
-        , [item $ sourceStep "Build" Nothing "cabal build all\n"]
-        , config.hooks.afterBuild
-        , [ item $ sourceStep "Run the tests" (Just testEntries) "cabal test all --test-show-details=direct\n"
+        , [sourceStep "Build" Nothing "cabal build all\n"]
+        ]
+
+    testSteps :: [Node]
+    testSteps =
+      concat
+        [ [ sourceStep "Run the tests" (Just testEntries) "cabal test all --test-show-details=direct\n"
           | config.tests
           , not (null testEntries)
           ]
-        , [ item $ sourceStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript d p)
+        , [ sourceStep ("Run doctest for " <> T.pack p.name) (Just es) (doctestScript d p)
           | Just d <- [config.doctest]
           , p <- project.packages
           , T.pack p.name `notElem` d.skip
@@ -337,11 +365,11 @@ workflow opts config project = runCheck $ checks $> root
           , let es = [e.ghc | e <- project.matrix, e.ghc `elem` doctestEntries, p.directory `elem` map (.directory) e.packages]
           , not (null es)
           ]
-        , [ item $ sourceStep "Check the packages" (Just group) (checkScript pkgs)
+        , [ sourceStep "Check the packages" (Just group) (checkScript pkgs)
           | config.check
           , (group, pkgs) <- packageGroups project.matrix
           ]
-        , [ item $ sourceStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage\n"
+        , [ sourceStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage\n"
           | config.haddock
           ]
         ]
@@ -357,46 +385,44 @@ workflow opts config project = runCheck $ checks $> root
 
     -- The key of the main cache does not depend on the doctest version, so
     -- doctest has its own cache with only the binary.
-    doctestSteps :: Doctest -> [Item Node]
+    doctestSteps :: Doctest -> [Node]
     doctestSteps d =
-      map
-        item
-        [ mapping $
-            [("name", plain "Find the doctest version"), ("id", plain "doctest")]
-              ++ doctestIf []
-              ++ [("run", literal findDoctest)]
-        , mapping $
-            [uses "actions/cache" "/restore" config.actions.cache, ("id", plain "doctest-cache")]
-              ++ doctestIf []
-              ++ [
-                   ( "with"
-                   , mapping
-                       [ ("path", plain "~/.local/bin/doctest")
-                       , ("key", plain "${{ runner.os }}-${{ steps.versions.outputs.image }}-doctest-${{ steps.doctest.outputs.version }}-ghc-${{ steps.setup.outputs.ghc-version }}")
-                       ]
-                   )
-                 ]
-        , mapping $
-            [("name", plain "Install doctest")]
-              ++ doctestIf [cacheMiss]
-              ++ [
-                   ( "run"
-                   , literal "cabal install doctest --ignore-project --install-method=copy --installdir=\"$HOME/.local/bin\" --overwrite-policy=always --constraint='doctest ==${{ steps.doctest.outputs.version }}'\n"
-                   )
-                 ]
-        , -- A separate save step keeps the binary also if a later step fails.
-          mapping $
-            [uses "actions/cache" "/save" config.actions.cache]
-              ++ doctestIf [cacheMiss]
-              ++ [
-                   ( "with"
-                   , mapping
-                       [ ("path", plain "~/.local/bin/doctest")
-                       , ("key", plain "${{ steps.doctest-cache.outputs.cache-primary-key }}")
-                       ]
-                   )
-                 ]
-        ]
+      [ mapping $
+          [("name", plain "Find the doctest version"), ("id", plain "doctest")]
+            ++ doctestIf []
+            ++ [("run", literal findDoctest)]
+      , mapping $
+          [uses "actions/cache" "/restore" config.actions.cache, ("id", plain "doctest-cache")]
+            ++ doctestIf []
+            ++ [
+                 ( "with"
+                 , mapping
+                     [ ("path", plain "~/.local/bin/doctest")
+                     , ("key", plain "${{ runner.os }}-${{ steps.versions.outputs.image }}-doctest-${{ steps.doctest.outputs.version }}-ghc-${{ steps.setup.outputs.ghc-version }}")
+                     ]
+                 )
+               ]
+      , mapping $
+          [("name", plain "Install doctest")]
+            ++ doctestIf [cacheMiss]
+            ++ [
+                 ( "run"
+                 , literal "cabal install doctest --ignore-project --install-method=copy --installdir=\"$HOME/.local/bin\" --overwrite-policy=always --constraint='doctest ==${{ steps.doctest.outputs.version }}'\n"
+                 )
+               ]
+      , -- A separate save step keeps the binary also if a later step fails.
+        mapping $
+          [uses "actions/cache" "/save" config.actions.cache]
+            ++ doctestIf [cacheMiss]
+            ++ [
+                 ( "with"
+                 , mapping
+                     [ ("path", plain "~/.local/bin/doctest")
+                     , ("key", plain "${{ steps.doctest-cache.outputs.cache-primary-key }}")
+                     ]
+                 )
+               ]
+      ]
       where
         cacheMiss :: T.Text
         cacheMiss = "steps.doctest-cache.outputs.cache-hit != 'true'"

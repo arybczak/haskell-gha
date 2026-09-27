@@ -110,10 +110,10 @@ for all jobs is simpler than a limit for each GHC version. Also, nobody
 tests older cabal versions with the tool. The tool compares only the first
 two parts of the version, so `3.10` and `3.10.3.0` are both errors.
 
-The versions of the actions are fields of the configuration, with the
+The versions of the actions are keys of the configuration, with the
 current major versions as defaults. Thus a user can take a new major version
 of an action without a new release of haskell-gha. `actions.cache` is one
-field for `actions/cache/restore` and `actions/cache/save`, because both come
+key for `actions/cache/restore` and `actions/cache/save`, because both come
 from one repository. A value is any Git ref without spaces, so a user can
 also pin an action to a commit SHA.
 
@@ -142,26 +142,31 @@ tool does not start the next phase, because the next phase needs its result.
 
 ## Configuration
 
-An unknown field is an error, because it is usually a typing error.
+An unknown key is an error, because it is usually a typing error.
 
-A text field must hold a YAML string. The parser gives the raw text of each
-scalar, so an unquoted `3.10` reaches the reader as the text `3.10`. But the
-workflow must quote such a value, and another YAML reader gets the number
-3.1. Thus an unquoted value that the YAML 1.2 core schema reads as a number,
-a boolean or a null is an error.
+Each error of the configuration gives the line and the column of the node
+that caused it, and shows that line of the file. The errors come in the
+order of their positions in the file. The later checks of the configuration
+against the project, e.g. `doctest.skip`, give no position.
+
+The value of a text key must be a YAML string. The parser gives the raw text
+of each scalar, so an unquoted `3.10` reaches the reader as the text `3.10`.
+But the workflow must quote such a value, and another YAML reader gets the
+number 3.1. Thus an unquoted value that the YAML 1.2 core schema reads as a
+number, a boolean or a null is an error.
 
 GitHub uses the workflow name in the concurrency group. If two workflows in
 one repository have the same name, a push starts both in one group, and one
 run cancels the other.
 
-The `matrix` field must not contain the key `ghc`, because the tool makes
+The `matrix` mapping must not contain the key `ghc`, because the tool makes
 that axis. A `ghc` value in `include` or `exclude` must be a quoted string
 and an entry of the `ghc` axis. Thus an `include` entry cannot add a job for
 a new GHC version, because the tool cannot check the packages for such a
 job.
 
 Each key of an `exclude` entry must be `ghc` or an axis of the `matrix`
-field, because GitHub rejects the workflow otherwise. An `include` entry can
+mapping, because GitHub rejects the workflow otherwise. An `include` entry can
 have any key, because GitHub adds a new key to the jobs as a variable.
 
 The name of an axis must start with a letter or `_`, and contain only
@@ -171,7 +176,7 @@ index syntax, e.g. `matrix['os x']`, accepts any name. But the hooks and the
 services of the user then also need the index syntax. A user can rename the
 axis easily, so the tool rejects such a name.
 
-If a workflow has no `permissions` field, the `GITHUB_TOKEN` gets the
+If a workflow has no `permissions` key, the `GITHUB_TOKEN` gets the
 default permissions of the repository. In many older repositories and
 organizations, these permissions include write access. The jobs only read
 the code, so the default is `contents: read`.
@@ -443,18 +448,19 @@ defaults to it.
 The tool must keep the key order of the fragments that it copies, because a
 reordered step is hard to review. `aeson` objects sort their keys, so the
 tool does not use `aeson` or `Data.Yaml`. It reads and writes YAML with the
-event API of `HsYAML`, which is pure Haskell and implements YAML 1.2.
+syntax tree of `yamlet`, which is pure Haskell and implements YAML 1.2. The
+syntax tree keeps the key order and the scalar styles.
 
-From the events, the tool builds a small ordered tree. Each scalar keeps its
-style from the input. An anchor, an alias, a tag or a duplicate key is an
-error. The output writes all sequences and mappings in the block style.
+The configuration and the workflow use the syntax tree directly. Each
+scalar keeps its style from the input, and each node keeps its position. An
+anchor, an alias, a tag or a duplicate key is an error. The output writes
+all sequences and mappings in the block style.
 
-The writer of HsYAML does not make sure that a plain scalar is valid. Thus
-the tool gives each scalar its style with these rules:
+The renderer of yamlet quotes a plain scalar that is not valid YAML, but it
+does not look at the schema. Thus the tool gives each scalar its style with
+these rules:
 
-- A copied scalar keeps its style from the input. A plain scalar that is
-  valid in the input is also valid in the output, because the output uses
-  the block style.
+- A copied scalar keeps its style from the input.
 - Each `run:` script that the tool makes is a literal block. The first line
   of each script is fixed text from the tool, so user text in a later line
   cannot break the block.
@@ -466,22 +472,42 @@ the tool gives each scalar its style with these rules:
   schema.
 
 Each golden test also parses the output and compares the result with the
-tree that the tool wrote. Thus a wrong style fails the test.
+tree that the tool wrote. The comparison ignores the positions and the
+collection styles. Thus a wrong scalar style fails the test.
 
-The writer cannot write empty lines. The tool writes a comment with a marker
-in place of each empty line, and then replaces the marker lines in the text.
-The writer cannot write a comment before the first entry of a mapping or a
-sequence, so that entry never gets an empty line.
+The header comment goes before the document. The workflow names the
+collections with an empty line between their entries: the top level, the
+jobs and the steps of each job. Before the tool renders the tree, it adds
+an empty line above each entry of these collections except the first one.
 
 A block scalar with the keep indicator, e.g. `|+`, keeps the empty lines at
 its end. It would take the empty line before the next item into its value.
-Thus the `+` indicator is an error. It is rare in a workflow, so the writer
-has no special case for it.
+Thus the renderer writes such a value as a double-quoted scalar.
 
-The parser drops the YAML comments, so the workflow does not contain the
-comments of the copied fragments. A comment near a key or at the end of a
-list can belong to more than one place. Thus a correct copy of the comments
-needs much code.
+The syntax tree keeps each comment at a node, so the comments inside a
+copied value go to the workflow with the value. The comments around a
+copied value need these rules:
+
+- The comments above a copied key, e.g. `services`, go above the key that
+  the workflow makes. A comment at the end of the line of the key stays at
+  the end of that line.
+- The workflow adds the `ghc` axis as the first entry of `matrix`. The
+  comments above the first entry of the configuration stay above that
+  entry.
+- The comments above `hooks` and above a hook list go above the first step
+  of the hook.
+- The comments after the last step of a hook go above the next step of the
+  job, with an empty line between them and that step. If no step follows,
+  they go after the last step. The comments after the last hook list of
+  `hooks` go with them.
+- A comment at the top of the file belongs to the root mapping. If the
+  first key is a copied key, the comment goes above that key. Otherwise the
+  tool drops it.
+
+The tool drops a comment above a key that the workflow does not copy, e.g.
+`apt`. Such a comment describes the configuration, and the workflow has no
+place for it. The empty lines around a copied value are also dropped,
+because the workflow has its own layout.
 
 ## Dependencies
 
@@ -533,5 +559,5 @@ The tool does not support these features:
 - Benchmark runs.
 - stack.
 
-Each feature can come later as a new optional field, without a breaking
+Each feature can come later as a new optional key, without a breaking
 change to the configuration format.

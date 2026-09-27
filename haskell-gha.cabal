@@ -64,7 +64,7 @@ library api
                     , Cabal-syntax >= 3.14     && < 3.20
                     , directory    >= 1.3
                     , filepath     >= 1.4
-                    , HsYAML       >= 0.2.1.1  && < 0.3
+                    , yamlet
                     , optparse-applicative >= 0.17
                     , text         >= 2.0
                     , transformers >= 0.5.6

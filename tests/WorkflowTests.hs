@@ -1,6 +1,6 @@
 module WorkflowTests (workflowTests) where
 
-import Data.ByteString.Lazy.Char8 qualified as BL8
+import Data.ByteString.Char8 qualified as BS8
 import Data.Either
 import Data.List qualified as L
 import Data.Text qualified as T
@@ -27,16 +27,52 @@ workflowTests =
     , testCase "a project directory outside the repository" test_projectDirOutside
     , testCase "a named default configuration file" test_namedDefaultConfig
     , testCase "an hlint path outside the repository" test_hlintPathOutside
+    , testCase "comments at the start of the file and after the last step" test_comments
     ]
+
+test_comments :: Assertion
+test_comments = do
+  config <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" . BS8.pack $
+      unlines
+        [ "# The permissions of the workflow."
+        , "permissions: read-all # For the checkout."
+        , "matrix:"
+        , "  # The first axis."
+        , ""
+        , "  os: [a, b]"
+        , "  # The end of the matrix."
+        , "tests: false"
+        , "check: false"
+        , "haddock: false"
+        , "hooks:"
+        , "  after-build:"
+        , "    - run: echo a"
+        , "    # The last lines."
+        , "  # The end of the hooks."
+        ]
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  node <- either (assertFailure . unlines) pure (workflow defaultOptions config project)
+  let rendered = T.lines $ renderWorkflow "TEST" defaultOptions node
+      assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
+  assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
+  assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
+  assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]
+  -- The renderer indents a list with lines after it, so that the lines belong
+  -- to the list and not to its last step.
+  assertEqual
+    "end of the steps"
+    (map T.pack ["      - run: echo a", "      # The last lines.", "      # The end of the hooks."])
+    (drop (length rendered - 3) rendered)
 
 test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do
   assertErrors
     "hlint:\n  path: [../x, /abs, a/../src]\n"
-    [ "The field hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
-    , "The field hlint.path contains the path /abs, which is not in the repository. Give a path relative to the project directory."
+    [ "The key hlint.path contains the path ../x, which is not in the repository. Give a path relative to the project directory."
+    , "The key hlint.path contains the path /abs, which is not in the repository. Give a path relative to the project directory."
     ]
-  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack "hlint:\n  path: [../x]\n"
+  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  path: [../x]\n"
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} config project)
 
@@ -95,7 +131,7 @@ test_sdistOutside = do
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do
   let opts = defaultOptions {projectDir = "my project", output = "it's.yml"}
-      line = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (Mapping []))
+      line = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (mapping []))
   assertEqual "command line" (Just "#   haskell-gha --project-dir 'my project' --output 'it'\\''s.yml'") line
 
 test_unknownGhcValue :: Assertion
@@ -108,17 +144,17 @@ test_partialDoctestRange :: Assertion
 test_partialDoctestRange =
   assertErrors
     "doctest:\n  ghc: '>=9.10.2'\n"
-    ["The range >=9.10.2 of the field doctest.ghc includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+    ["The range >=9.10.2 of the key doctest.ghc includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
 
 test_unknownSkip :: Assertion
 test_unknownSkip =
   assertErrors
     "doctest:\n  skip: [other]\n"
-    ["The field doctest.skip names the package other, but the project has no such local package."]
+    ["The key doctest.skip names the package other, but the project has no such local package."]
 
 -- | The errors for a configuration and the project of the golden test @single@.
 assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
-  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BL8.pack input
+  config <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   assertEqual "errors" (Left expected) (workflow defaultOptions config project)

@@ -2,9 +2,7 @@
 
 module YamlTests (yamlTests) where
 
-import Data.ByteString.Lazy qualified as BL
 import Data.Text qualified as T
-import Data.Text.Encoding qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -16,9 +14,10 @@ yamlTests =
     "Yaml"
     [ testCase "styles and key order survive a round trip" test_styles
     , testCase "flow collections become block collections" test_flow
-    , testCase "the parser drops the comments" test_comments
+    , testCase "comments survive a round trip" test_comments
     , testCase "empty lines" test_emptyLines
     , testCase "the output parses to the same tree" test_reparse
+    , testCase "trailing empty lines of a block scalar" test_keep
     , testCase "a plain scalar that needs quotes" test_plainQuotes
     , testCase "an empty input has no document" test_empty
     , testCase "errors" test_errors
@@ -48,62 +47,65 @@ test_styles =
 test_flow :: Assertion
 test_flow = do
   node <- parse "branches: [master, main]\nports: ['5432:5432']\nnone: []\n"
-  assertEqual "rendered" (T.unlines ["branches:", "- master", "- main", "ports:", "- '5432:5432'", "none: []"]) (renderYaml [] node)
+  assertEqual "rendered" (T.unlines ["branches:", "- master", "- main", "ports:", "- '5432:5432'", "none: []"]) (render node)
 
 test_comments :: Assertion
-test_comments = do
-  node <-
-    parse $
-      T.unlines
-        [ "# before a key"
-        , "services:"
-        , "  # first entry"
-        , "  postgres:"
-        , "    image: postgres # end of line"
-        , "hooks:"
-        , "- run: a"
-        , "# between items"
-        , "- run: b"
-        , "# at the end"
-        ]
-  assertEqual
-    "rendered"
-    (T.unlines ["services:", "  postgres:", "    image: postgres", "hooks:", "- run: a", "- run: b"])
-    (renderYaml [] node)
+test_comments =
+  assertRoundTrip $
+    T.unlines
+      [ "# before a key"
+      , "services:"
+      , "  # first entry"
+      , "  postgres:"
+      , "    image: postgres # end of line"
+      , "hooks:"
+      , "- run: a"
+      , "# between items"
+      , "- run: b"
+      , "# at the end"
+      ]
 
 test_emptyLines :: Assertion
 test_emptyLines = do
-  let node =
-        Mapping
-          [ item (Key Plain "name", plain "CI")
-          , Item True (Key Plain "steps", Sequence [item (plain "a"), Item True (plain "b")])
-          ]
+  let node = mapping [("name", plain "CI"), ("steps", sequenceNode [plain "a", plain "b"]), ("more", sequenceNode [plain "c", plain "d"])]
   assertEqual
     "rendered"
-    (T.unlines ["# header", "name: CI", "", "steps:", "- a", "", "- b"])
-    (renderYaml ["header"] node)
+    (T.unlines ["# header", "name: CI", "", "steps:", "- a", "", "- b", "", "more:", "- c", "- d"])
+    (renderYaml ["header"] separated node)
+  where
+    separated :: [T.Text] -> Bool
+    separated = \case
+      [] -> True
+      ["steps"] -> True
+      _ -> False
 
 test_reparse :: Assertion
 test_reparse = do
   let node =
         mapping
-          [ ("on", mapping [("push", mapping [("branches", sequenceOf [plain "master"])]), ("pull_request", plain "")])
+          [ ("on", mapping [("push", mapping [("branches", sequenceNode [plain "master"])]), ("pull_request", plain "")])
           , ("run", literal "cabal build all\ncabal test all\n")
-          , ("ghc", sequenceOf [singleQuoted "9.10", singleQuoted "it's"])
+          , ("ghc", sequenceNode [singleQuoted "9.10", singleQuoted "it's"])
           ]
-  reparsed <- parse $ renderYaml ["header"] node
-  assertEqual "reparsed tree" node reparsed
+  reparsed <- parse $ renderYaml ["header"] (const True) node
+  assertEqual "reparsed tree" node (normalize reparsed)
+
+test_keep :: Assertion
+test_keep = do
+  let node = mapping [("run", literal "echo a\n\n"), ("next", plain "b")]
+  reparsed <- parse $ renderYaml [] (const True) node
+  assertEqual "reparsed tree" node (normalize reparsed)
 
 test_plainQuotes :: Assertion
 test_plainQuotes = do
-  let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "-x", " x", "x ", "x:", "'x", "a\tb", "", "~", "null", "true", "False", "1", "1.0", "0x1F", ".inf"]
-      node = sequenceOf (map plain texts)
-  reparsed <- parse $ renderYaml [] node
-  assertEqual "texts" (Sequence [item (Scalar SingleQuoted t) | t <- texts]) reparsed
+  let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "- x", " x", "x ", "x:", "'x", "a\tb", "", "~", "null", "true", "False", "1", "1.0", "0x1F", ".inf"]
+      node = sequenceNode (map plain texts)
+  reparsed <- parse $ render node
+  assertEqual "texts" (sequenceNode [singleQuoted t | t <- texts]) (normalize reparsed)
   assertEqual
     "plain"
-    [Scalar Plain t | t <- ["sub/dir", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
-    (map plain ["sub/dir", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
+    [scalarNode Plain t | t <- ["sub/dir", "-x", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
+    (map plain ["sub/dir", "-x", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
 
 test_empty :: Assertion
 test_empty = do
@@ -115,8 +117,6 @@ test_errors = do
   assertError "anchor" "anchors are not supported" "a: &x 1\n"
   assertError "alias" "aliases are not supported" "b: *x\n"
   assertError "tag" "tags are not supported" "a: !!str 1\n"
-  assertError "literal keep" keepMessage "run: |+\n  echo a\n\nnext: 1\n"
-  assertError "folded keep" keepMessage "run: >+\n  echo a\n"
   assertError "duplicate key" "duplicate key \"a\"" "a: 1\nb: 2\na: 3\n"
   assertError "two documents" "the file must contain only one YAML document" "a: 1\n---\nb: 2\n"
   assertError "complex key" "a mapping key must be a scalar" "? [a]\n: 1\n"
@@ -124,10 +124,7 @@ test_errors = do
     Left _ -> pure ()
     Right _ -> assertFailure "a syntax error must fail"
   where
-    keepMessage :: String
-    keepMessage = "the chomping indicator + is not supported. Remove the +, e.g. write | in place of |+"
-
-    assertError :: String -> String -> BL.ByteString -> Assertion
+    assertError :: String -> String -> T.Text -> Assertion
     assertError preface expected input = case parseYaml input of
       Left e -> assertEqual preface expected e.message
       Right _ -> assertFailure $ preface ++ ": no error"
@@ -136,12 +133,15 @@ test_errors = do
 -- Helpers
 
 parse :: T.Text -> IO Node
-parse input = case parseYaml (BL.fromStrict $ T.encodeUtf8 input) of
-  Left e -> assertFailure $ renderYamlError "input" e
+parse input = case parseYaml input of
+  Left e -> assertFailure $ prettyError "input" e
   Right Nothing -> assertFailure "no document"
   Right (Just node) -> pure node
+
+render :: Node -> T.Text
+render = renderYaml [] (const False)
 
 assertRoundTrip :: T.Text -> Assertion
 assertRoundTrip input = do
   node <- parse input
-  assertEqual "rendered" input (renderYaml [] node)
+  assertEqual "rendered" input (render node)
