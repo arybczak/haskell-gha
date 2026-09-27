@@ -143,10 +143,11 @@ Ubuntu 25.10 and later do not install it by default.
 
 ## Configuration
 
-All keys of the configuration file are optional. An unknown key is an
-error, and so is a key without a value. The tool reports all errors in the
-file together. If YAML reads a text value as a number, a boolean or a
-null, quote the value, e.g. `version: '3.10'`. Without quotes, YAML reads
+All keys of the configuration file are optional. An unknown key is an error.
+YAML reads a key without a value as `null`, which is an error for most keys. For
+`container` and `services`, `null` is valid and means none. The tool reports all
+errors in the file together. If YAML reads a text value as a number, a boolean
+or a null, quote the value, e.g. `version: '3.10'`. Without quotes, YAML reads
 `3.10` as the number 3.1. This example shows all keys:
 
 ```yaml

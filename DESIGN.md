@@ -156,9 +156,11 @@ of the file. The checks of the configuration against the project run after
 the decode, e.g. for `doctest.skip`. The values that they check keep the
 position of their node, so their errors have the same form.
 
-A key without a value is an error, not the default. Only a missing key
-takes the default, so a key that the user forgot to fill in does not
-silently disable or change a feature.
+A key without a value is an error, not the default. Only a missing key takes the
+default, so a key that the user forgot to fill in does not silently disable or
+change a feature. YAML reads a key without a value as `null`. For `container`
+and `services`, `null` is a valid value, and it means none. That is also their
+default, so the value changes nothing.
 
 The value of a text key must be a YAML string. Every YAML reader reads an
 unquoted `3.10` as the number 3.1. Thus an unquoted value that the YAML 1.2
