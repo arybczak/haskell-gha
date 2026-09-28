@@ -178,7 +178,6 @@ test_errors = do
   assertError "unknown key" "unknown key \"job\", did you mean \"jobs\"?" "job: 4\n"
   assertError "unknown hooks key" "hooks: unknown key \"before-build\", expected one of: after-setup, after-build" "hooks:\n  before-build: []\n"
   assertError "unknown doctest key" "doctest: unknown key \"flags\", expected one of: enabled, ghc, version, skip, options" "doctest:\n  flags: []\n"
-  assertError "duplicate key" "duplicate key \"jobs\"" "jobs: 1\njobs: 2\n"
   assertError "two documents" "expected a single document, but got a second one" "jobs: 1\n---\njobs: 2\n"
   assertError "jobs" "jobs: expected a positive integer" "jobs: 0\n"
   assertError "jobs type" "jobs: expected a positive integer" "jobs: four\n"
@@ -250,7 +249,11 @@ test_locations = do
     (parse "hlint:\n  version: 3.10\n")
   assertEqual "root" (Left ["conf.yml:1:1: expected a mapping, but got a list"]) (firstLines $ parse "- a\n")
   assertEqual "nested key" (Left ["conf.yml:2:3: hooks: unknown key \"before-build\", expected one of: after-setup, after-build"]) (firstLines $ parse "hooks:\n  before-build: []\n")
-  assertEqual "list item" (Left ["conf.yml:1:13: apt[2]: expected a string, but got a boolean, quote the value, e.g. 'true'"]) (firstLines $ parse "apt: [a, b, true]\n")
+  assertEqual
+    "duplicate key"
+    (Left ["conf.yml:2:1: duplicate key \"jobs\"", "conf.yml:1:1: the first key \"jobs\""])
+    (firstLines $ parse "jobs: 1\njobs: 2\n")
+  assertEqual "list item"(Left ["conf.yml:1:13: apt[2]: expected a string, but got a boolean, quote the value, e.g. 'true'"]) (firstLines $ parse "apt: [a, b, true]\n")
   assertEqual
     "matrix key"
     (Left ["conf.yml:4:7: matrix.exclude[0]: version is not an axis of the matrix. The axes are: ghc, postgres"])

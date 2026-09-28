@@ -195,7 +195,9 @@ workflow opts source config project = runCheck $ checks $> root
     root =
       mapping
         [ "name" .= copied config.name
-        , "on" .= triggers
+        , -- GitHub reads a plain on as a string. The encoder quotes it,
+          -- because YAML 1.1 reads it as a boolean.
+          (plain "on", triggers)
         , "permissions" .= copied config.permissions
         , -- A push to a branch of the push trigger also cancels the older
           -- run. The newer run tests the newer code and saves the cache that
