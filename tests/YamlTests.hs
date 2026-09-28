@@ -70,7 +70,7 @@ test_emptyLines = do
   let node = mapping ["name" .= plain "CI", "steps" .= sequenceNode [plain "a", plain "b"], "more" .= sequenceNode [plain "c", plain "d"]]
   assertEqual
     "rendered"
-    (T.unlines ["# header", "name: CI", "", "steps:", "- a", "", "- b", "", "more:", "- c", "- d"])
+    (T.unlines ["# header", "", "name: CI", "", "steps:", "- a", "", "- b", "", "more:", "- c", "- d"])
     (renderDocument ["header"] separated node)
   where
     separated :: [T.Text] -> Bool

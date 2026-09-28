@@ -92,7 +92,8 @@ normalize n = Node noOffset noOffset n.props noComments $ case n.content of
 -- | Render a node as a YAML document in the block style.
 renderDocument
   :: [T.Text]
-  -- ^ The header lines. They become comments at the start of the document.
+  -- ^ The header lines. They become comments at the start of the document,
+  -- with an empty line below them.
   -> ([T.Text] -> Bool)
   -- ^ The collections with an empty line between their entries, by the keys
   -- on the path to them.
@@ -101,18 +102,9 @@ renderDocument
 renderDocument header separated root =
   renderSyntax
     RenderOptions {forceBlock = True}
-    [Document Nothing False False (Comments (map Comment header) Nothing []) (separate [] (apart root))]
+    -- On the document, the header would get a --- marker below it.
+    [Document Nothing False False noComments (addBefore (map Comment header) (separate [] root))]
   where
-    -- An empty line keeps a comment above the first key apart from the
-    -- header.
-    apart :: Node -> Node
-    apart n = case n.content of
-      Mapping style ((k, v) : rest)
-        | not (null header)
-        , Comment _ : _ <- k.comments.before ->
-            Node n.offset n.endOffset n.props n.comments (Mapping style ((addBefore [EmptyLine] k, v) : rest))
-      _ -> n
-
     separate :: [T.Text] -> Node -> Node
     separate path n = case n.content of
       Mapping style entries -> withContent (Mapping style (zipWith entry [0 ..] entries))

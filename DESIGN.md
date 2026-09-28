@@ -580,10 +580,14 @@ Each golden test also parses the output and compares the result with the
 tree that the tool wrote. The comparison ignores the positions and the
 collection styles. Thus a wrong scalar style fails the test.
 
-The header comment goes before the document. The workflow names the
-collections with an empty line between their entries: the top level, the
-jobs and the steps of each job. Before the tool renders the tree, it adds
-an empty line above each entry of these collections except the first one.
+The header comment belongs to the root mapping, and an empty line separates
+it from the first key. On the document, the header would need a `---`
+marker below it to read back there.
+
+The workflow names the collections with an empty line between their
+entries: the top level, the jobs and the steps of each job. Before the tool
+renders the tree, it adds an empty line above each entry of these
+collections except the first one.
 
 A block scalar with the keep indicator, e.g. `|+`, keeps the empty lines at
 its end. It would take the empty line before the next item into its value.
@@ -606,8 +610,8 @@ copied value need these rules:
   they go after the last step. The comments after the last hook list of
   `hooks` go with them.
 - A comment at the top of the file belongs to the first key. If the
-  workflow copies that key, the comment goes above the key, and an empty
-  line separates it from the header comment.
+  workflow copies that key, the comment goes above the key, below the empty
+  line after the header comment.
 
 The tool drops a comment above a key that the workflow does not copy, e.g.
 `apt`. Such a comment describes the configuration, and the workflow has no
