@@ -379,9 +379,10 @@ workflow opts source config project = runCheck $ checks $> root
         , extraAxes
         ]
 
-    -- The comments above the first entry of the matrix stay above that
-    -- entry, not above the ghc axis. The empty lines there are dropped,
-    -- because the ghc axis now comes before them.
+    -- The lines of the matrix itself, i.e. the lines above an empty line
+    -- before its first entry, go above that entry, not above the ghc axis.
+    -- The empty lines there are dropped, because the ghc axis now comes
+    -- before them.
     extraAxes :: [(Node, Node)]
     extraAxes = case matrixEntries config of
       (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.value.value.comments.before k), v) : rest

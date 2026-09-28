@@ -253,7 +253,7 @@ test_locations = do
     "duplicate key"
     (Left ["conf.yml:2:1: duplicate key \"jobs\"", "conf.yml:1:1: the first key \"jobs\""])
     (firstLines $ parse "jobs: 1\njobs: 2\n")
-  assertEqual "list item"(Left ["conf.yml:1:13: apt[2]: expected a string, but got a boolean, quote the value, e.g. 'true'"]) (firstLines $ parse "apt: [a, b, true]\n")
+  assertEqual "list item" (Left ["conf.yml:1:13: apt[2]: expected a string, but got a boolean, quote the value, e.g. 'true'"]) (firstLines $ parse "apt: [a, b, true]\n")
   assertEqual
     "matrix key"
     (Left ["conf.yml:4:7: matrix.exclude[0]: version is not an axis of the matrix. The axes are: ghc, postgres"])

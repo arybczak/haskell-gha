@@ -3,4 +3,4 @@ packages: .
 source-repository-package
   type: git
   location: https://github.com/arybczak/yamlet.git
-  tag: f078d382d17d3b5c10679c9d5441ebf9efdd3ec8
+  tag: 0096186d75944e09d9921b74c189e0598050a2d0
