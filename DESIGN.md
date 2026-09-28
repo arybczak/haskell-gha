@@ -126,15 +126,36 @@ the form `owner/name`, and the tool adds the path of a sub-action, e.g.
 
 ## Command line
 
-The tool has no subcommands. Each run writes the workflow file, but with
-`--check` the tool compares the workflow with the file instead. A run of the
-tool and then `git diff --exit-code` does not find a file that is not
-committed, and it changes the checkout. `--check` does not have these
+The tool has no subcommands, but it has three modes. With `--generate`, it
+makes one workflow from the options. Without options, it makes each
+generated workflow again. With `--check`, it makes each generated workflow
+in memory and compares it with its file. Most repositories have one
+workflow, so the common commands need no options for the workflow.
+
+Each mode has one meaning. A run without options never makes a new
+workflow, e.g. if no generated workflow exists, the run is an error.
+`--check` does not work with `--generate`, because every generated workflow
+has a header, and a run with `--check` already covers it.
+
+A run of the tool and then `git diff --exit-code` does not find a file that
+is not committed, and it changes the checkout. `--check` does not have these
 problems, and it needs no git.
 
 The header comment of the workflow gives the command that made the file. If
 the user gave `--config`, the command contains it, also with the default
 path. The command also contains each other option that is not a default.
+
+A run without `--generate` reads the command back from the header. The first
+line of the header marks a generated workflow, and the next line has the
+command. The command must start with `haskell-gha --generate`, and the tool
+parses the rest with the parser of the command line. The tool quotes each
+word of the command for bash, and the run removes the same quotes. The
+other files in the directory are not generated, and the tool skips them.
+
+The command keeps `--output`, so that a person can copy it from the header
+and run it. When the tool reads the command back, the output must be the
+file itself. If it is not, the tool stops with an error. Otherwise a renamed
+file would make the tool write to the old path.
 
 The tool works in a sequence of phases. It reads the configuration. Then it
 parses `cabal.project`, finds the packages, reads the `.cabal` files and
@@ -650,8 +671,8 @@ has the name `CI (multi)`, because two workflows with the same name cancel
 each other.
 
 An `after-build` hook in `.github/haskell-gha.conf.yml` runs the tool with
-`--check` for both files. Thus a pull request with an outdated workflow
-fails. The hook runs in the checkout, but the tool was built in the
+`--check`, which covers both workflows. Thus a pull request with an outdated
+workflow fails. The hook runs in the checkout, but the tool was built in the
 copy of the source tarballs. The hook thus gets the binary with
 `cabal list-bin` in the copy, and it does not build the tool again.
 

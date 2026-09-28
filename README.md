@@ -55,26 +55,29 @@ cabal install
 
 ## Usage
 
-Run the tool in the root of your repository:
+To make the first workflow, run the tool in the root of your repository with
+`--generate`:
 
 ```
-haskell-gha
+haskell-gha --generate
 ```
 
 The tool reads the project in the current directory and writes
-`.github/workflows/haskell-gha.yml`. Commit this file. When you change the
-`tested-with` field of a package, the packages of the project or the
-configuration, run the tool again.
+`.github/workflows/haskell-gha.yml`. Commit this file.
 
 The tool accepts these options:
 
 | Option | Default | Meaning |
 |---|---|---|
+| `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. |
 | `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
 | `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
-| `--check` | | Do not write the workflow file. If the file does not exist or is not up to date, exit with code 1. |
+| `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
+
+You can give `--config`, `--project-dir` and `--output` only after
+`--generate`. You cannot give `--check` with `--generate`.
 
 All paths are relative to the current directory, which must be the root of
 the repository.
@@ -86,19 +89,32 @@ and exits with code 1.
 
 ### Keep the workflow up to date
 
-To make sure that the committed workflow is up to date, run the tool in CI
-with `--check` and the same other options:
+When you change the `tested-with` field of a package, the packages of the
+project or the configuration, run the tool without options:
+
+```
+haskell-gha
+```
+
+The tool finds each file in `.github/workflows` that starts with its header,
+and runs the command from the header again. If no file has the header, the
+tool stops with an error. The `--output` of the command must be the file
+itself. If you rename a workflow file, run its command with the new
+`--output`.
+
+To make sure that the committed workflows are up to date, run the tool in CI
+with `--check`:
 
 ```
 haskell-gha --check
 ```
 
-The tool compares the workflow with the file and does not change the file.
+The tool compares each workflow with its file and does not change the files.
 The comparison also includes the header comment, e.g. the version of the
 tool.
 
-A new version of the tool writes its version into the file. After you
-upgrade the tool, run it again and commit the file.
+A new version of the tool writes its version into the files. After you
+upgrade the tool, run it again and commit the files.
 
 ## GHC versions
 
@@ -363,9 +379,9 @@ version of a dependency has no upper bound on `base` and does not build
 with a new GHC. Then raise the lower bound in the `.cabal` file.
 
 `dependencies: oldest` is useful for a second workflow that tests only the
-lower bounds. Make it with `--config` and `--output`, and give it its own
-`name`. The main workflow can then be a required check on GitHub, and the
-second workflow an optional one.
+lower bounds. Make it with `--generate`, `--config` and `--output`, and give
+it its own `name`. The main workflow can then be a required check on GitHub,
+and the second workflow an optional one.
 
 ## Source tarballs
 

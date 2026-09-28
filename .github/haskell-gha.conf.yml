@@ -9,10 +9,7 @@ hooks:
   - name: Make sure that the workflows are up to date
     run: |
       bin=$(cd "$RUNNER_TEMP"/haskell-gha && cabal list-bin haskell-gha)
-      failed=0
-      "$bin" --check || failed=1
-      "$bin" --check --project-dir examples/multi --config examples/multi/haskell-gha.conf.yml --output .github/workflows/haskell-gha-multi.yml || failed=1
-      exit "$failed"
+      "$bin" --check
 dependencies: both
 fourmolu:
   enabled: true
