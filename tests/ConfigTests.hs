@@ -129,7 +129,7 @@ test_example = do
   assertEqual "check" False config.check
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
-  assertEqual "fourmolu" Fourmolu {enabled = True, version = mkVersion [0, 19, 0, 1], patterns = [Pattern "src/**/*.hs"]} config.fourmolu
+  assertEqual "fourmolu" Fourmolu {enabled = True, version = mkVersion [0, 19, 0, 1], patterns = [Pattern "src/**/*.hs"], runsOn = Nothing} config.fourmolu
   assertEqual "hlint enabled" True config.hlint.enabled
   assertEqual "hlint version" (mkVersion [3, 10]) config.hlint.version
   assertEqual "hlint fail-on" FailError config.hlint.failOn
@@ -216,7 +216,7 @@ test_errors = do
   assertError "fourmolu version" "fourmolu.version: expected a version, e.g. 0.20.1.0" "fourmolu:\n  version: latest\n"
   assertError "hlint path" "hlint.path[1]: a path must not contain a control character, e.g. a tab or a line break" "hlint:\n  path: [src, \"a\\tb\"]\n"
   assertError "hlint fail-on" "hlint.fail-on: unknown value \"warnings\", did you mean \"warning\"?" "hlint:\n  fail-on: warnings\n"
-  assertError "unknown fourmolu key" "fourmolu: unknown key \"extra-args\", expected one of: enabled, version, pattern" "fourmolu:\n  extra-args: [-q]\n"
+  assertError "unknown fourmolu key" "fourmolu: unknown key \"extra-args\", expected one of: enabled, version, pattern, runs-on" "fourmolu:\n  extra-args: [-q]\n"
   assertError "action ref" actionError "actions:\n  setup: 'v 2'\n"
   assertError "action without owner" actionError "actions:\n  setup: setup@v2\n"
   assertError "action with a path" actionError "actions:\n  setup: a/b/c@v2\n"

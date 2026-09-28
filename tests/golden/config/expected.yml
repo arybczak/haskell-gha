@@ -50,7 +50,8 @@ jobs:
 
   hlint:
     name: HLint
-    runs-on: ubuntu-24.04
+    # HLint needs no large runner.
+    runs-on: ubuntu-slim
     timeout-minutes: 90
     steps:
     - uses: actions/checkout@v6

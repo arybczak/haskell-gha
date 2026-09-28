@@ -90,6 +90,11 @@ versions of the actions by default, and it pins the image for the same
 reason. Thus the workflow only changes with a new release of the tool or a
 change of the configuration.
 
+The fourmolu and HLint jobs have their own optional `runs-on`. They need
+much less than a build job, e.g. a smaller self-hosted runner. Without the
+key, they use the `runs-on` of the build jobs, not a default of their own.
+A repository that allows only self-hosted runners then needs no extra key.
+
 The cache key contains the image of the runner, from the environment
 variable `ImageOS`, e.g. `ubuntu26`. A cabal store from another image can
 link against system libraries that the new image does not have. The key
@@ -620,7 +625,8 @@ copied value need these rules:
 
 - The comments above a copied key, e.g. `services`, go above the key that
   the workflow makes. A comment at the end of the line of the key stays at
-  the end of that line. Each job gets the comments of `runs-on`.
+  the end of that line. Each job gets the comments of `runs-on`. A fourmolu
+  or HLint job with its own `runs-on` gets the comments of that key.
 - The workflow adds the `ghc` axis as the first entry of `matrix`. The
   comments above the first entry of the configuration stay above that
   entry.

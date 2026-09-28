@@ -62,6 +62,8 @@ hlint:
   version: '3.8'
   fail-on: error
   path: [src, test]
+  # HLint needs no large runner.
+  runs-on: ubuntu-slim
 actions:
   checkout: v6
   setup: v2.8.2

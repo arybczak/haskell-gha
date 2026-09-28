@@ -436,6 +436,7 @@ fourmolu reads the `fourmolu.yaml` of the project.
 | `fourmolu.enabled` | `false` | Add the fourmolu job. The other `fourmolu` keys have no effect without it. |
 | `fourmolu.version` | `0.20.1.0` | The fourmolu version. |
 | `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
+| `fourmolu.runs-on` | the value of `runs-on` | The runner of the fourmolu job, e.g. a smaller self-hosted runner than the build jobs need. |
 
 Set `fourmolu.version` to the version that the developers of the project
 use. A new fourmolu version can format the same code differently.
@@ -455,6 +456,7 @@ request.
 | `hlint.version` | `3.10` | The HLint version. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
 | `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, and it must not contain a tab or another control character. |
+| `hlint.runs-on` | the value of `runs-on` | The runner of the HLint job, as for `fourmolu.runs-on`. |
 
 By default, every hint fails the job. To turn off a hint that the project
 does not want, add an `ignore` entry to `.hlint.yaml`, e.g.

@@ -313,7 +313,7 @@ workflow opts source config project = runCheck $ checks $> root
       mappingConcat
         [
           [ "name" .= jobName
-          , runsOn
+          , runsOn config.runsOn
           ]
         , ["container" .= plain c.image | Just c <- [config.container]]
         , [timeout]
@@ -328,8 +328,8 @@ workflow opts source config project = runCheck $ checks $> root
         , ["steps" .= steps]
         ]
 
-    runsOn :: (Node, Node)
-    runsOn = "runs-on" .= copied config.runsOn
+    runsOn :: Commented T.Text -> (Node, Node)
+    runsOn r = "runs-on" .= copied r
 
     timeout :: (Node, Node)
     timeout = "timeout-minutes" .= config.timeoutMinutes.value
@@ -339,7 +339,7 @@ workflow opts source config project = runCheck $ checks $> root
     fourmoluJob f =
       mapping
         [ "name" .= plain "Fourmolu"
-        , runsOn
+        , runsOn (fromMaybe config.runsOn f.runsOn)
         , timeout
         , "steps"
             .= sequenceNode
@@ -361,7 +361,7 @@ workflow opts source config project = runCheck $ checks $> root
     hlintJob h =
       mapping
         [ "name" .= plain "HLint"
-        , runsOn
+        , runsOn (fromMaybe config.runsOn h.runsOn)
         , timeout
         , "steps"
             .= sequenceNode

@@ -111,6 +111,8 @@ data HLint = HLint
   , path :: [Located HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
   -- directory.
+  , runsOn :: Maybe (Commented T.Text)
+  -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromYaml)
@@ -138,6 +140,8 @@ data Fourmolu = Fourmolu
   , version :: Version
   , patterns :: [Pattern]
   -- ^ The files to check. An empty list gives the default of the action.
+  , runsOn :: Maybe (Commented T.Text)
+  -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromYaml)
@@ -337,6 +341,7 @@ defaultHLint =
     , version = mkVersion [3, 10]
     , failOn = FailSuggestion
     , path = []
+    , runsOn = Nothing
     }
 
 -- | The fourmolu configuration without a @fourmolu@ field. Version 0.20 and
@@ -347,6 +352,7 @@ defaultFourmolu =
     { enabled = False
     , version = mkVersion [0, 20, 1, 0]
     , patterns = []
+    , runsOn = Nothing
     }
 
 -- | The doctest configuration without a @doctest@ field.
