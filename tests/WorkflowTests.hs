@@ -163,7 +163,7 @@ test_headerCommandLine = do
   let opts = defaultOptions {projectDir = "my project", output = "it's.yml"}
       line = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (mapping []))
   assertEqual "command line" (Just "#   haskell-gha --project-dir 'my project' --output 'it'\\''s.yml'") line
-  assertEqual "workflow with --check" (renderWorkflow "TEST" opts (mapping [])) (renderWorkflow "TEST" opts {check = True} (mapping []))
+  assertEqual "workflow with --check" (renderWorkflow "TEST" opts (mapping [])) (renderWorkflow "TEST" opts {HaskellGha.Options.check = True} (mapping []))
 
 test_unknownGhcValue :: Assertion
 test_unknownGhcValue =

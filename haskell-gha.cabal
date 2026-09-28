@@ -35,6 +35,7 @@ source-repository head
 common language
     ghc-options:        -Wall
                         -Wunused-packages
+                        -Werror=ambiguous-fields
                         -Werror=missing-deriving-strategies
                         -Werror=prepositive-qualified-module
 
