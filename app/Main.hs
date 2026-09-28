@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Monad
 import Data.ByteString qualified as BS
 import Data.Text.Encoding qualified as T
 import Data.Version
@@ -21,5 +22,19 @@ main = do
       hPutStr stderr (unlines errors)
       exitFailure
     Right node -> do
-      createDirectoryIfMissing True (takeDirectory opts.output)
-      BS.writeFile opts.output . T.encodeUtf8 $ renderWorkflow (showVersion version) opts node
+      let rendered = T.encodeUtf8 $ renderWorkflow (showVersion version) opts node
+      if opts.check
+        then
+          doesFileExist opts.output >>= \case
+            False -> failWith $ "The workflow " ++ opts.output ++ " does not exist."
+            True -> do
+              current <- BS.readFile opts.output
+              when (current /= rendered) . failWith $ "The workflow " ++ opts.output ++ " is not up to date."
+        else do
+          createDirectoryIfMissing True (takeDirectory opts.output)
+          BS.writeFile opts.output rendered
+  where
+    failWith :: String -> IO ()
+    failWith message = do
+      hPutStrLn stderr $ message ++ " To write it, run the same command without --check."
+      exitFailure

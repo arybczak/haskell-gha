@@ -126,9 +126,11 @@ the form `owner/name`, and the tool adds the path of a sub-action, e.g.
 
 ## Command line
 
-The tool has no subcommands and no check mode. Each run writes the workflow
-file. To make sure that a committed workflow is up to date, run the tool and
-then `git diff --exit-code`.
+The tool has no subcommands. Each run writes the workflow file, but with
+`--check` the tool compares the workflow with the file instead. A run of the
+tool and then `git diff --exit-code` does not find a file that is not
+committed, and it changes the checkout. `--check` does not have these
+problems, and it needs no git.
 
 The header comment of the workflow gives the command that made the file. If
 the user gave `--config`, the command contains it, also with the default
@@ -643,9 +645,9 @@ The repository also tests itself on GitHub.
 has the name `CI (multi)`, because two workflows with the same name cancel
 each other.
 
-An `after-build` hook in `.github/haskell-gha.conf.yml` makes both files
-again and runs `git diff --exit-code`. Thus a pull request with an outdated
-workflow fails. The hook runs in the checkout, but the tool was built in the
+An `after-build` hook in `.github/haskell-gha.conf.yml` runs the tool with
+`--check` for both files. Thus a pull request with an outdated workflow
+fails. The hook runs in the checkout, but the tool was built in the
 copy of the source tarballs. The hook thus gets the binary with
 `cabal list-bin` in the copy, and it does not build the tool again.
 

@@ -73,6 +73,7 @@ The tool accepts these options:
 | `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
 | `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
+| `--check` | | Do not write the workflow file. If the file does not exist or is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
 
 All paths are relative to the current directory, which must be the root of
@@ -86,16 +87,15 @@ and exits with code 1.
 ### Keep the workflow up to date
 
 To make sure that the committed workflow is up to date, run the tool in CI
-and then compare the result with the committed file:
+with `--check` and the same other options:
 
 ```
-haskell-gha
-git diff --exit-code
+haskell-gha --check
 ```
 
-`git diff` does not show an untracked file. To also find a workflow file
-that is not committed, use `git status --porcelain` and make sure that its
-output is empty.
+The tool compares the workflow with the file and does not change the file.
+The comparison also includes the header comment, e.g. the version of the
+tool.
 
 A new version of the tool writes its version into the file. After you
 upgrade the tool, run it again and commit the file.

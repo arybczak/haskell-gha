@@ -23,6 +23,7 @@ data Options = Options
   { config :: ConfigFile
   , projectDir :: FilePath
   , output :: FilePath
+  , check :: Bool
   }
   deriving stock (Eq, Show)
 
@@ -33,6 +34,7 @@ defaultOptions =
     { config = DefaultConfigFile
     , projectDir = "."
     , output = ".github/workflows/haskell-gha.yml"
+    , check = False
     }
 
 -- | The parser of the options.
@@ -50,6 +52,7 @@ optionsParser version =
       config <- option (ConfigFile <$> str) (long "config" <> metavar "FILE" <> value DefaultConfigFile <> showDefaultWith (const defaultConfigPath) <> help "The configuration file")
       projectDir <- option projectDirReader (long "project-dir" <> metavar "DIR" <> value defaultOptions.projectDir <> showDefault <> help "The directory that contains cabal.project or the package")
       output <- strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
+      check <- switch (long "check" <> help "Do not write the workflow file. Exit with code 1 if it is not up to date.")
       pure Options {..}
 
     -- The workflow uses the directory on the runner, so it must be in the
@@ -65,7 +68,8 @@ optionsParser version =
     versionOption = infoOption ("haskell-gha " ++ version) (long "version" <> short 'v' <> help "Show the version")
 
 -- | The command line that gives the options. It contains @--config@ if the user
--- gave it, and each other option that is not a default.
+-- gave it, and each other option that is not a default. It does not contain
+-- @--check@, because that option does not change the workflow.
 commandLine :: Options -> [String]
 commandLine opts =
   "haskell-gha"
