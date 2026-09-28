@@ -36,7 +36,11 @@ defaults:
 jobs:
   fourmolu:
     name: Fourmolu
-    runs-on: ubuntu-24.04
+    runs-on:
+      group: small
+      labels:
+      - self-hosted
+      - linux
     timeout-minutes: 90
     steps:
     - uses: actions/checkout@v6

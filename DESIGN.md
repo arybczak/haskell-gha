@@ -54,8 +54,8 @@ allow wide bounds.
 
 The configuration is YAML. The services and the hook steps are GitHub
 Actions YAML, so users can copy them from the documentation of any action.
-The tool copies `services`, `permissions`, `hooks` and the extra matrix
-entries without changes. It does not model each service or each install
+The tool copies `runs-on`, `services`, `permissions`, `hooks` and the extra
+matrix entries without changes. It does not model each service or each install
 method.
 
 The tool does not rewrite `cabal.project`. If packages support different GHC

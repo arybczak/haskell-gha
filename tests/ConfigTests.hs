@@ -103,7 +103,7 @@ test_example = do
         ]
   assertEqual "name" "Tests" config.name.value
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
-  assertEqual "runs-on" "ubuntu-24.04" config.runsOn.value
+  assertEqual "runs-on" (plain "ubuntu-24.04") (normalize config.runsOn.value.value)
   assertEqual "container" (Just (Container "buildpack-deps:22.04")) config.container
   assertEqual "timeout-minutes" 30 config.timeoutMinutes.value
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))
@@ -190,7 +190,8 @@ test_errors = do
   assertError "container interim release" containerError "container: buildpack-deps:26.10\n"
   assertError "dependencies" "dependencies: unknown value \"old\", expected one of: newest, oldest, both" "dependencies: old\n"
   assertError "submodules" "submodules: expected true, false or recursive" "submodules: 'yes'\n"
-  assertError "runs-on" "runs-on: expected a string, but got a list" "runs-on: [self-hosted, linux]\n"
+  assertError "runs-on" "runs-on: expected a runner label, a list of labels or a mapping" "runs-on: 1\n"
+  assertError "runs-on label" "runs-on[1]: expected a string, but got an integer, quote the value, e.g. '1'" "runs-on: [self-hosted, 1]\n"
   assertError "old cabal" "cabal-version: the tool supports only cabal 3.12 and later" "cabal-version: '3.10'\n"
   assertError "unquoted number" "hlint.version: expected a string, but got a floating-point number, quote the value, e.g. '3.10'" "hlint:\n  version: 3.10\n"
   assertError "unquoted boolean" "apt[0]: expected a string, but got a boolean, quote the value, e.g. 'true'" "apt: [true]\n"

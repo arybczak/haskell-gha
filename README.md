@@ -247,7 +247,7 @@ actions:
 |---|---|---|
 | `name` | `CI` | The name of the workflow. Two workflows in one repository must have different names, because workflows with the same name cancel each other. |
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
-| `runs-on` | `ubuntu-26.04` | The name of the runner image, e.g. `ubuntu-latest`. |
+| `runs-on` | `ubuntu-26.04` | The runner of the build jobs, as GitHub Actions YAML: a label, e.g. `ubuntu-latest`, a list of labels, e.g. `[self-hosted, linux]`, or a mapping with `group` and `labels`. The tool copies it to the workflow without changes. |
 | `container` | none | The image of a job container for the build jobs: `buildpack-deps:22.04`, `buildpack-deps:24.04` or `buildpack-deps:26.04`. See [Container](#container). |
 | `timeout-minutes` | `60` | The time limit of each job, in minutes. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |

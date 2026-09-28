@@ -328,7 +328,7 @@ workflow opts source config project = runCheck $ checks $> root
         , ["steps" .= steps]
         ]
 
-    runsOn :: Commented T.Text -> (Node, Node)
+    runsOn :: Commented RunsOn -> (Node, Node)
     runsOn r = "runs-on" .= copied r
 
     timeout :: (Node, Node)

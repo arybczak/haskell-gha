@@ -26,6 +26,7 @@ module HaskellGha.Config
   , Positive (..)
   , MappingNode (..)
   , Permissions (..)
+  , RunsOn (..)
   , Matrix (..)
   , GhcOptions (..)
   , ProjectText (..)
@@ -72,7 +73,7 @@ import HaskellGha.Yaml
 data Config = Config
   { name :: Commented T.Text
   , cabalVersion :: CabalVersion
-  , runsOn :: Commented T.Text
+  , runsOn :: Commented RunsOn
   , container :: Maybe Container
   , timeoutMinutes :: Positive
   , branches :: Commented (NE.NonEmpty (Commented T.Text))
@@ -111,7 +112,7 @@ data HLint = HLint
   , path :: [Located HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
   -- directory.
-  , runsOn :: Maybe (Commented T.Text)
+  , runsOn :: Maybe (Commented RunsOn)
   -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
@@ -140,7 +141,7 @@ data Fourmolu = Fourmolu
   , version :: Version
   , patterns :: [Pattern]
   -- ^ The files to check. An empty list gives the default of the action.
-  , runsOn :: Maybe (Commented T.Text)
+  , runsOn :: Maybe (Commented RunsOn)
   -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
@@ -298,7 +299,7 @@ defaultConfig =
   Config
     { name = bare "CI"
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
-    , runsOn = bare "ubuntu-26.04"
+    , runsOn = bare (RunsOn (plain "ubuntu-26.04"))
     , container = Nothing
     , timeoutMinutes = Positive 60
     , branches = bare (bare "master" NE.:| [bare "main"])
@@ -412,6 +413,18 @@ instance FromYaml Permissions where
     MappingView _ -> Permissions <$> parseYaml n
     StringView t | t `elem` ["read-all", "write-all"] -> Permissions <$> parseYaml n
     _ -> failAt n "expected a mapping, read-all or write-all"
+
+-- | The runner of a job: a label, a list of labels or a mapping, e.g. with
+-- @group@ and @labels@.
+newtype RunsOn = RunsOn {value :: Node}
+  deriving newtype (Eq, Show, ToYaml)
+
+instance FromYaml RunsOn where
+  parseYaml n = case view n of
+    StringView _ -> RunsOn <$> parseYaml n
+    SequenceView _ -> parseYaml @[T.Text] n *> (RunsOn <$> parseYaml n)
+    MappingView _ -> RunsOn <$> parseYaml n
+    _ -> failAt n "expected a runner label, a list of labels or a mapping"
 
 -- | The @ghc-options@ of the local packages. The workflow writes them as one
 -- field of a package stanza, so they must be one line.

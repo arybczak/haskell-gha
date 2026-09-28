@@ -57,6 +57,9 @@ fourmolu:
   pattern:
     - 'src/**/*.hs'
     - '!src/Generated.hs'
+  runs-on:
+    group: small
+    labels: [self-hosted, linux]
 hlint:
   enabled: true
   version: '3.8'
