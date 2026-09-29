@@ -188,8 +188,8 @@ submodules: false
 matrix:
   postgres: ['15', '18']
   exclude:
-    - ghc: '9.10'
-      postgres: '15'
+  - ghc: '9.10'
+    postgres: '15'
 apt: [libpq-dev]
 services:
   postgres:
@@ -205,8 +205,8 @@ permissions:
   contents: read
 hooks:
   after-setup:
-    - name: Show the Postgres version
-      run: psql --version
+  - name: Show the Postgres version
+    run: psql --version
   after-build: []
 ghc-options: -Werror
 cabal-project-local: |
