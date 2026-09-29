@@ -84,7 +84,9 @@ jobs:
         - '5432:5432'
         # The runner starts the steps when the database accepts connections.
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-retries 10
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-retries 10
     strategy:
       fail-fast: false
       # The oldest and the newest supported Postgres.
