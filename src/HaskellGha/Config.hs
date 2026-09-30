@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -62,7 +62,6 @@ import Data.Maybe
 import Data.Text qualified as T
 import Distribution.Parsec
 import Distribution.Version
-import GHC.Generics
 import System.Directory hiding (Permissions)
 import System.FilePath
 import Yamlet hiding (Mapping, Sequence)
@@ -98,9 +97,9 @@ data Config = Config
   , actions :: Actions
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml Config
 
-instance GenericYaml Config where
+instance GenericYamlOptions Config where
   yamlOptions = options
   yamlDefault = Just defaultConfig
 
@@ -116,9 +115,9 @@ data HLint = HLint
   -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml HLint
 
-instance GenericYaml HLint where
+instance GenericYamlOptions HLint where
   yamlOptions = options
   yamlDefault = Just defaultHLint
 
@@ -130,9 +129,9 @@ data FailOn
   | FailSuggestion
   | FailError
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml, ToYaml)
+  deriving (FromYaml, ToYaml) via GenericYaml FailOn
 
-instance GenericYaml FailOn where
+instance GenericYamlOptions FailOn where
   yamlOptions = defaultYamlOptions {constructorTagModifier = map toLower . drop (length @[] "Fail")}
 
 -- | The configuration of the fourmolu job.
@@ -145,9 +144,9 @@ data Fourmolu = Fourmolu
   -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml Fourmolu
 
-instance GenericYaml Fourmolu where
+instance GenericYamlOptions Fourmolu where
   yamlOptions =
     options
       { fieldLabelModifier = \case
@@ -167,9 +166,9 @@ data Actions = Actions
   , hlintRun :: ActionRef
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml Actions
 
-instance GenericYaml Actions where
+instance GenericYamlOptions Actions where
   yamlOptions = options
   yamlDefault = Just defaultConfig.actions
 
@@ -242,9 +241,9 @@ data Dependencies
   | -- | A job for each of the two, as the values of a matrix axis.
     DependenciesBoth
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml Dependencies
 
-instance GenericYaml Dependencies where
+instance GenericYamlOptions Dependencies where
   yamlOptions = defaultYamlOptions {constructorTagModifier = map toLower . drop (length @[] "Dependencies")}
 
 -- | The Git submodules that the build jobs fetch.
@@ -268,9 +267,9 @@ data Hooks = Hooks
   , afterBuild :: Commented [MappingNode]
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml Hooks
 
-instance GenericYaml Hooks where
+instance GenericYamlOptions Hooks where
   yamlOptions = options
   yamlDefault = Just defaultConfig.hooks.value
 
@@ -283,9 +282,9 @@ data Doctest = Doctest
   , options :: [T.Text]
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromYaml)
+  deriving (FromYaml) via GenericYaml Doctest
 
-instance GenericYaml Doctest where
+instance GenericYamlOptions Doctest where
   yamlOptions = options
   yamlDefault = Just defaultDoctest
 
