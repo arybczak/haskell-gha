@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module YamlTests (yamlTests) where
 
 import Data.Text qualified as T

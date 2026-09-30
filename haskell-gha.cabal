@@ -44,11 +44,14 @@ common language
     default-extensions: DataKinds
                         DeepSubsumption
                         DerivingStrategies
+                        DerivingVia
                         DuplicateRecordFields
                         LambdaCase
                         NoFieldSelectors
                         NoStarIsType
                         OverloadedRecordDot
+                        OverloadedStrings
+                        RecordWildCards
                         RoleAnnotations
                         StrictData
                         TypeFamilies

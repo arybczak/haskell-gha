@@ -1,5 +1,4 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE RecordWildCards #-}
 
 -- | The command line options.
 module HaskellGha.Options

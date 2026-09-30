@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module ConfigTests (configTests) where
 
 import Data.List.NonEmpty qualified as NE

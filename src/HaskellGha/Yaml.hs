@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- | The YAML tree of yamlet, with helpers to build and render it.
 module HaskellGha.Yaml
   ( -- * Tree

@@ -1,5 +1,4 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | The reader of the project: the local packages and the GHC versions that
 -- each package is in the project for.

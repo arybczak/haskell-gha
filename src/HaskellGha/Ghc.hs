@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- | The entries of the @ghc@ axis of the matrix.
 module HaskellGha.Ghc
   ( -- * Entries

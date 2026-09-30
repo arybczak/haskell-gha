@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- The lists of the workflow join their parts with concat, also if there are
 -- only two parts.
 {- HLINT ignore "Use ++" -}
