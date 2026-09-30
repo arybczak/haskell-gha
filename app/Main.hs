@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Monad
 import Data.ByteString qualified as BS
 import Data.Text.Encoding qualified as T
 import Data.Version
@@ -32,18 +33,21 @@ main = do
         Left errors -> pure errors
         Right workflows -> concat <$> traverse (run check) workflows
 
-    -- With the check, the file exists, because the tool found it.
     run :: Bool -> Options -> IO [String]
     run check opts =
       generate "." opts >>= \case
         Left errors -> pure errors
         Right node -> do
           let rendered = T.encodeUtf8 $ renderWorkflow (showVersion version) opts node
+          exists <- doesFileExist opts.output
+          current <- if exists then Just <$> BS.readFile opts.output else pure Nothing
+          let upToDate = current == Just rendered
           if check
-            then do
-              current <- BS.readFile opts.output
-              pure ["The workflow " ++ opts.output ++ " is not up to date. To update it, run haskell-gha without --check." | current /= rendered]
+            then pure ["The workflow " ++ opts.output ++ " is not up to date. To update it, run haskell-gha without --check." | not upToDate]
             else do
-              createDirectoryIfMissing True (takeDirectory opts.output)
-              BS.writeFile opts.output rendered
+              -- A write of the same content changes the mtime. Then tools
+              -- that trust the Git index, e.g. gitk, list the file as changed.
+              unless upToDate $ do
+                createDirectoryIfMissing True (takeDirectory opts.output)
+                BS.writeFile opts.output rendered
               pure []
