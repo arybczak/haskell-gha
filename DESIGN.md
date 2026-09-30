@@ -97,10 +97,11 @@ A repository that allows only self-hosted runners then needs no extra key.
 
 The cache key contains the image of the runner, from the environment
 variable `ImageOS`, e.g. `ubuntu26`. A cabal store from another image can
-link against system libraries that the new image does not have. The key
-does not contain `ImageVersion`, because GitHub updates the image each week,
-and each update would start a new cache. In a job container, both variables
-are empty, and the key contains the image of the container instead.
+link against system libraries that the new image does not have. The cache
+key does not contain `ImageVersion`, because GitHub updates the image each
+week, and each update would start a new cache. In a job container, both
+variables are empty, and the cache key contains the image of the container
+instead.
 
 The default `cabal-version` is `3.16.1.0`. For `latest`, the action now
 selects cabal `3.18.1.0`, and that version has a bug in the GHC job
@@ -481,7 +482,7 @@ haskell-gha with e.g. `text-2.0.2` and `unix-2.7.3`, and its tests passed.
 The cache prefix contains the kind, because the prefix is also the restore
 key. Without it, an oldest job restores a store with the newest versions,
 and the reverse. With `both`, the prefix of the newest jobs also changes.
-When a user turns on the key, the cache of these jobs misses once.
+When a user sets `dependencies: both`, the cache of these jobs misses once.
 
 The job name shows only the value, e.g. `GHC 9.10, oldest`. The values are
 clear without the name of the axis.

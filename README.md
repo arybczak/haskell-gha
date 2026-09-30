@@ -511,7 +511,7 @@ code as the release `v2.4.10`. When a new release comes out, set
   options, e.g. `-Werror`.
 - The cache keys contain the runner image from the environment variable
   `ImageOS`. The runners of GitHub set this variable, but a self-hosted
-  runner can lack it. Then the keys have no image part. A cache from an
+  runner can lack it. Then the cache keys have no image part. A cache from an
   earlier system of the runner can then link against system libraries that
   the runner no longer has. If you change the system of such a runner, delete
   the caches of the repository.
