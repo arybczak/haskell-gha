@@ -16,6 +16,19 @@ only GitHub Actions on Linux.
 [Comparison with haskell-ci](#comparison-with-haskell-ci) gives the
 differences.
 
+## Contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Usage](#usage)
+- [What the workflow does](#what-the-workflow-does)
+- [GHC versions](#ghc-versions)
+- [Configuration](#configuration)
+- [Configuration topics](#configuration-topics)
+- [GHC prereleases](#ghc-prereleases)
+- [Known limits](#known-limits)
+- [Comparison with haskell-ci](#comparison-with-haskell-ci)
+
 ## Installation
 
 Build the tool from the source:
@@ -26,38 +39,38 @@ cd haskell-gha
 cabal install
 ```
 
-## Usage
+## Quick start
 
-To make the first workflow, run the tool in the root of your repository with
-`--generate`:
+For most projects with no special needs, one command in the root of the
+repository is enough:
 
 ```
 haskell-gha --generate
 ```
 
 The tool reads the project in the current directory and writes
-`.github/workflows/haskell-gha.yml`. Commit this file. The
+`.github/workflows/haskell-gha.yml`. Commit this file. Without a
+configuration file, all keys take their defaults. The
 [workflow of this repository](.github/workflows/haskell-gha.yml) is an example
 of the output.
 
-The tool accepts these options:
+If the project needs more, e.g. a system library or doctest, write the
+[configuration file](#configuration) `.github/haskell-gha.conf.yml`. Then
+[generate the workflow again](#generate-the-workflows-again). A typical file
+sets only some keys, e.g.:
 
-| Option | Default | Meaning |
-|---|---|---|
-| `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. |
-| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. |
-| `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
-| `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
-| `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
-| `-v`, `--version` | | Show the version of the tool and exit. |
+```yaml
+apt: [libpq-dev]
+dependencies: both
+doctest:
+  enabled: true
+hlint:
+  enabled: true
+```
 
-You can use `--config`, `--project-dir` and `--output` only after
-`--generate`. You cannot use `--check` with `--generate`.
+## Usage
 
-All paths are relative to the current directory, which must be the root of
-the repository.
-
-### Keeping the workflow up to date
+### Generate the workflows again
 
 When you change the `tested-with` field of a package, the packages of the
 project or the configuration, run the tool without options:
@@ -76,6 +89,8 @@ renamed workflow file is an error. To rename a workflow file, run the
 command from its header with the new path as `--output`, and delete the old
 file.
 
+### Check the workflows in CI
+
 To make sure that the committed workflows are up to date, run the tool in CI
 with `--check`:
 
@@ -89,11 +104,45 @@ tool exits with code 1. The comparison includes the header comment, which
 gives the version of the tool. Thus after you upgrade the tool, run it again
 and commit the files.
 
+### Several workflows
+
+A repository can have more than one generated workflow, e.g. a second
+workflow that tests only the lower bounds with
+[`dependencies: oldest`](#dependencies). Give the second workflow its own
+configuration file with its own `name`, and make it with `--generate`,
+`--config` and `--output`:
+
+```
+haskell-gha --generate --config .github/oldest.conf.yml \
+  --output .github/workflows/oldest.yml
+```
+
+The tool without options then generates both workflows again. The main
+workflow can be a required check on GitHub, and the second workflow an
+optional one.
+
+### Command-line options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. |
+| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. |
+| `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
+| `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
+| `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
+| `-v`, `--version` | | Show the version of the tool and exit. |
+
+You can use `--config`, `--project-dir` and `--output` only after
+`--generate`. You cannot use `--check` with `--generate`.
+
+All paths are relative to the current directory, which must be the root of
+the repository.
+
 ## What the workflow does
 
 The workflow has a build job for each GHC version. With extra
-[matrix axes](#matrix-services-and-permissions), it has a build job for each
-combination of the axes. Each build job does these steps:
+[matrix axes](#matrix-and-services), it has a build job for each combination
+of the axes. Each build job does these steps:
 
 1. It checks out the repository, installs the `apt` packages, and installs
    GHC and cabal.
@@ -164,67 +213,12 @@ For the same reason, all packages must write a series in the same form. If
 one package lists `GHC ^>= 9.10` and another lists `GHC == 9.10.3`, the
 tool stops with an error. No conditional block can separate the two.
 
-### GHC prereleases
-
-A dependency often does not build yet with a GHC prerelease. Put the fix in
-a conditional block of `cabal.project`. The block then applies only to that
-GHC version, and it also works for a local build. head.hackage is a package
-repository with patched versions of many packages for GHC prereleases. E.g.
-this block allows newer versions of three libraries that come with GHC 10,
-and it uses head.hackage, with the stanza from the README of head.hackage:
-
-```
-if impl(ghc >= 10)
-  allow-newer:
-    , *:base
-    , *:template-haskell
-    , *:time
-  repository head.hackage.ghc.haskell.org
-    url: https://ghc.gitlab.haskell.org/head.hackage/
-    secure: True
-    key-threshold: 3
-    root-keys:
-      f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89
-      26021a13b401500c8eb2761ca95c61f2d625bfef951b939a8124ed12ecf07329
-      7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d
-  active-repositories: hackage.haskell.org, head.hackage.ghc.haskell.org:override
-```
-
-Allow newer versions only of the libraries that the build plan needs. If
-cabal rejects a dependency because of its bounds on such a library, add the
-library to the list. If only one dependency needs a patch, the block can
-also take it from a fork with a `source-repository-package`.
-
-The `allow-newer` also applies to the [oldest jobs](#dependencies). With
-`prefer-oldest`, cabal then also tries very old releases and often finds no
-build plan. With `dependencies: both`, exclude the oldest job of the
-prerelease:
-
-```yaml
-dependencies: both
-matrix:
-  exclude:
-  - ghc: '10.0'
-    dependencies: oldest
-```
-
-The workflow installs doctest outside the project, so the block does not
-apply to doctest. If doctest does not build with the prerelease, leave that
-version out of `doctest.ghc`.
-
 ## Configuration
 
-The configuration file is `.github/haskell-gha.conf.yml`. All keys of the
-file are optional. A typical file sets only some keys, e.g.:
+### General rules
 
-```yaml
-apt: [libpq-dev]
-dependencies: both
-doctest:
-  enabled: true
-hlint:
-  enabled: true
-```
+The configuration file is `.github/haskell-gha.conf.yml`, or the file that
+you give to `--config`. All keys of the file are optional.
 
 An unknown key is an error. YAML reads a key without a value as `null`,
 which is an error for most keys. For `container` and `services`, `null` is
@@ -232,74 +226,20 @@ valid and means none. The tool reports all errors in the file together. If
 YAML reads a text value as a number, a boolean or a null, quote the value,
 e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the number 3.1.
 
-### All keys
+The tool copies `matrix`, `services`, `permissions` and the steps of the
+hooks to the workflow without changes. You can use GitHub expressions in
+them, e.g. `${{ matrix.postgres }}`.
 
-This example shows all keys:
+The workflow contains only the comments in the copied keys and above them:
 
-```yaml
-name: CI
-cabal-version: '3.16.1.0'
-runs-on: ubuntu-26.04
-container: buildpack-deps:26.04
-timeout-minutes: 60
-branches: [master, main]
-submodules: false
-matrix:
-  postgres: ['15', '18']
-  exclude:
-  - ghc: '9.10'
-    postgres: '15'
-apt: [libpq-dev]
-services:
-  postgres:
-    image: postgres:${{ matrix.postgres }}
-    env:
-      POSTGRES_PASSWORD: postgres
-    options: >-
-      --health-cmd pg_isready
-      --health-interval 5s
-      --health-retries 10
-permissions:
-  contents: read
-hooks:
-  after-setup:
-  - name: Show the Postgres version
-    run: psql --version
-  after-build: []
-ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
-cabal-project-local: |
-  package some-package
-    flags: +extra-benchmarks
-jobs: 4
-tests: true
-benchmarks: true
-dependencies: newest
-doctest:
-  enabled: true
-  ghc: '>=9.6 && <9.14'
-  version: '>=0.24'
-  skip: [some-package]
-  options: [--fast]
-check: true
-sdist: true
-haddock: true
-fourmolu:
-  enabled: true
-  version: '0.20.1.0'
-  pattern: ['src/**/*.hs', '!src/Generated.hs']
-hlint:
-  enabled: true
-  version: '3.10'
-  fail-on: suggestion
-  path: [src, test]
-actions:
-  checkout: v7
-  setup: v2
-  cache: v6
-  run-fourmolu: v13
-  hlint-setup: c04631035af0a6787c85e33b3ea0128b8568b590
-  hlint-run: d009541bdae0b8492992416e665bb6df8a3b5cde
-```
+- The tool drops a comment above another key, e.g. `apt`.
+- Of the comments in `hooks`, it keeps only the comments inside and between
+  the steps of a hook.
+- The comments of `runs-on` go only to the build job.
+- If the first key is a copied key, a comment at the top of the file goes to
+  the workflow with that key. Otherwise the tool drops it.
+
+### Keys
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -310,7 +250,7 @@ actions:
 | `timeout-minutes` | `60` | The time limit of each job, in minutes. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |
 | `submodules` | `false` | Fetch the Git submodules in the build jobs: `true`, `false` or `recursive`. `recursive` also fetches the submodules of each submodule. The fourmolu and HLint jobs do not fetch them. |
-| `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. See [Matrix, services and permissions](#matrix-services-and-permissions). |
+| `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. See [Matrix and services](#matrix-and-services). |
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers, as in GitHub Actions. |
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
@@ -328,76 +268,14 @@ actions:
 | `haddock` | `true` | Build the documentation of the libraries as for a Hackage upload. |
 | `fourmolu` | none | Check the formatting with fourmolu. See [Fourmolu](#fourmolu). |
 | `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
-| `actions.checkout` | `v7` | The version of `actions/checkout`. |
+| `actions.checkout` | `v7` | The version of `actions/checkout`. See [Action versions](#action-versions). |
 | `actions.setup` | `v2` | The version of `haskell-actions/setup`. |
 | `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`. |
 | `actions.run-fourmolu` | `v13` | The version of `haskell-actions/run-fourmolu`. |
 | `actions.hlint-setup` | a commit, see [HLint](#hlint) | The version of `haskell-actions/hlint-setup`. |
 | `actions.hlint-run` | a commit, see [HLint](#hlint) | The version of `haskell-actions/hlint-run`. |
 
-### Action versions
-
-A version in `actions` is a Git ref of the action, e.g. a tag such as
-`v8` or a commit SHA. If a new major version of an action comes out, you
-can use it without a new release of `haskell-gha`. You can also pin an
-action to a commit.
-
-To use another repository with the same inputs, e.g. a fork, write the
-repository in front of the ref, e.g. `cache: runs-on/cache@v4`. For
-`actions.cache`, the tool adds `/restore` and `/save` to the repository.
-
-### Matrix, services and permissions
-
-The tool copies `matrix`, `services`, `permissions` and the steps of the
-hooks to the workflow without changes. You can use GitHub expressions in
-them, e.g. `${{ matrix.postgres }}`. These rules apply to `matrix`:
-
-- The `matrix` mapping must not contain the key `ghc`, because the tool
-  makes that axis. With `dependencies: both`, the same applies to the key
-  `dependencies`.
-- The job name refers to each axis in an expression. Thus the name of an
-  axis must start with a letter or `_` and contain only letters, digits,
-  `_` and `-`.
-- A `ghc` value in `include` or `exclude` must be a quoted string, e.g.
-  `'9.10'`, and it must be an entry of the axis.
-- Each key of an `exclude` entry must be `ghc`, an axis of the `matrix`
-  mapping, or `dependencies` with `dependencies: both`.
-
-If a service has a health check, the runner starts the steps only when the
-service is healthy. Thus the workflow needs no step that waits for the
-service. The `postgres` image has no health check of its own, so the
-example gives one in `options`.
-
-The workflow contains only the comments in the copied keys and above them:
-
-- The tool drops a comment above another key, e.g. `apt`.
-- Of the comments in `hooks`, it keeps only the comments inside and between
-  the steps of a hook.
-- The comments of `runs-on` go only to the build job.
-- If the first key is a copied key, a comment at the top of the file goes to
-  the workflow with that key. Otherwise the tool drops it.
-
-### Hooks
-
-To see where the hooks run in a job, see
-[What the workflow does](#what-the-workflow-does).
-
-A `run` step of a hook starts in the project directory of the checkout. A
-`uses` step starts in the root of the repository, because GitHub applies
-the run defaults only to `run` steps. A `working-directory` of a hook
-step is relative to the root of the repository.
-
-The copy of the source tarballs is in `${{ runner.temp }}/haskell-gha`. The
-`after-build` hooks can use it, but it does not exist yet for the
-`after-setup` hooks.
-
-### `cabal.project.local`
-
-The workflow writes the text of `cabal-project-local` to
-`cabal.project.local` before it makes the build plan. Thus the cache of
-each job contains the dependencies that the text adds. The text comes
-after the `ghc-options` stanzas, so it can add more options. A line of the
-text must not be `EOF`. You can use GitHub expressions in the text.
+## Configuration topics
 
 ### The default cabal version and GHC options
 
@@ -412,8 +290,6 @@ then warns that it cannot use the semaphore, and it compiles the modules one
 at a time. An older GHC does not know this warning, so the options also keep
 the warning about an unknown warning flag a warning. If you set
 `ghc-options`, add both `-Wwarn` options.
-
-## Features
 
 ### Container
 
@@ -442,6 +318,69 @@ These points are different in a container:
 - The cache keys contain the image of the container in place of the runner
   image.
 
+### Matrix and services
+
+An example with an extra matrix axis and a service:
+
+```yaml
+matrix:
+  postgres: ['15', '18']
+  exclude:
+  - ghc: '9.10'
+    postgres: '15'
+apt: [libpq-dev]
+services:
+  postgres:
+    image: postgres:${{ matrix.postgres }}
+    env:
+      POSTGRES_PASSWORD: postgres
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 5s
+      --health-retries 10
+```
+
+These rules apply to `matrix`:
+
+- The `matrix` mapping must not contain the key `ghc`, because the tool
+  makes that axis. With `dependencies: both`, the same applies to the key
+  `dependencies`.
+- The job name refers to each axis in an expression. Thus the name of an
+  axis must start with a letter or `_` and contain only letters, digits,
+  `_` and `-`.
+- A `ghc` value in `include` or `exclude` must be a quoted string, e.g.
+  `'9.10'`, and it must be an entry of the axis.
+- Each key of an `exclude` entry must be `ghc`, an axis of the `matrix`
+  mapping, or `dependencies` with `dependencies: both`.
+
+If a service has a health check, the runner starts the steps only when the
+service is healthy. Thus the workflow needs no step that waits for the
+service. The `postgres` image has no health check of its own, so the
+example gives one in `options`.
+
+### Hooks
+
+The `after-setup` hooks run in step 2 of
+[What the workflow does](#what-the-workflow-does), and the `after-build`
+hooks run in step 6.
+
+A `run` step of a hook starts in the project directory of the checkout. A
+`uses` step starts in the root of the repository, because GitHub applies
+the run defaults only to `run` steps. A `working-directory` of a hook
+step is relative to the root of the repository.
+
+The copy of the source tarballs is in `${{ runner.temp }}/haskell-gha`. The
+`after-build` hooks can use it, but it does not exist yet for the
+`after-setup` hooks.
+
+### `cabal.project.local`
+
+The workflow writes the text of `cabal-project-local` to
+`cabal.project.local` before it makes the build plan. Thus the cache of
+each job contains the dependencies that the text adds. The text comes
+after the `ghc-options` stanzas, so it can add more options. A line of the
+text must not be `EOF`. You can use GitHub expressions in the text.
+
 ### Dependencies
 
 By default, cabal picks the newest versions of the dependencies that the
@@ -464,8 +403,8 @@ job, use `exclude`:
 dependencies: both
 matrix:
   exclude:
-    - ghc: '9.6'
-      dependencies: oldest
+  - ghc: '9.6'
+    dependencies: oldest
 ```
 
 A failure of an oldest job often comes from a dependency. E.g. an old
@@ -473,9 +412,22 @@ version of a dependency has no upper bound on `base` and does not build
 with a new GHC. Then raise the lower bound in the `.cabal` file.
 
 `dependencies: oldest` is useful for a second workflow that tests only the
-lower bounds. Make it with `--generate`, `--config` and `--output`, and give
-it its own `name`. The main workflow can then be a required check on GitHub,
-and the second workflow an optional one.
+lower bounds. See [Several workflows](#several-workflows).
+
+### Doctest
+
+If `doctest.enabled` is `true`, the workflow installs doctest and runs it
+for the library and the sublibraries of each local package. The workflow
+keeps the doctest binary in its own cache, so a job builds each doctest
+version only once for each GHC version.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `doctest.enabled` | `false` | Run doctest. The other `doctest` keys have no effect without it. |
+| `doctest.ghc` | all versions | The GHC versions to run doctest for. The range must include at least one matrix entry. A new GHC release often works with doctest only after some weeks. |
+| `doctest.version` | any version | The versions of the doctest package. |
+| `doctest.skip` | `[]` | The packages to skip. |
+| `doctest.options` | `[]` | Extra arguments for doctest. |
 
 ### Source tarballs
 
@@ -502,21 +454,6 @@ Set `sdist: false` in these cases:
 
 The tool finds the first two cases and stops with an error. It cannot find
 the hook cases.
-
-### Doctest
-
-If `doctest.enabled` is `true`, the workflow installs doctest and runs it
-for the library and the sublibraries of each local package. The workflow
-keeps the doctest binary in its own cache, so a job builds each doctest
-version only once for each GHC version.
-
-| Key | Default | Meaning |
-|---|---|---|
-| `doctest.enabled` | `false` | Run doctest. The other `doctest` keys have no effect without it. |
-| `doctest.ghc` | all versions | The GHC versions to run doctest for. The range must include at least one matrix entry. A new GHC release often works with doctest only after some weeks. |
-| `doctest.version` | any version | The versions of the doctest package. |
-| `doctest.skip` | `[]` | The packages to skip. |
-| `doctest.options` | `[]` | Extra arguments for doctest. |
 
 ### Fourmolu
 
@@ -566,6 +503,117 @@ commits that moved the actions to Node.js 24. These commits run the same
 code as the release `v2.4.10`. When a new release comes out, set
 `actions.hlint-setup` and `actions.hlint-run` to it.
 
+### Action versions
+
+A version in `actions` is a Git ref of the action, e.g. a tag such as
+`v8` or a commit SHA. If a new major version of an action comes out, you
+can use it without a new release of `haskell-gha`. You can also pin an
+action to a commit.
+
+To use another repository with the same inputs, e.g. a fork, write the
+repository in front of the ref, e.g. `cache: runs-on/cache@v4`. For
+`actions.cache`, the tool adds `/restore` and `/save` to the repository.
+
+## GHC prereleases
+
+A dependency often does not build yet with a GHC prerelease. Put the fix in
+a conditional block of `cabal.project`. The block then applies only to that
+GHC version, and it also works for a local build. head.hackage is a package
+repository with patched versions of many packages for GHC prereleases. E.g.
+this block allows newer versions of three libraries that come with GHC 10,
+and it uses head.hackage, with the stanza from the README of head.hackage:
+
+```
+if impl(ghc >= 10)
+  allow-newer:
+    , *:base
+    , *:template-haskell
+    , *:time
+  repository head.hackage.ghc.haskell.org
+    url: https://ghc.gitlab.haskell.org/head.hackage/
+    secure: True
+    key-threshold: 3
+    root-keys:
+      f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89
+      26021a13b401500c8eb2761ca95c61f2d625bfef951b939a8124ed12ecf07329
+      7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d
+  active-repositories: hackage.haskell.org, head.hackage.ghc.haskell.org:override
+```
+
+Allow newer versions only of the libraries that the build plan needs. If
+cabal rejects a dependency because of its bounds on such a library, add the
+library to the list. If only one dependency needs a patch, the block can
+also take it from a fork with a `source-repository-package`.
+
+The `allow-newer` also applies to the [oldest jobs](#dependencies). With
+`prefer-oldest`, cabal then also tries very old releases and often finds no
+build plan. With `dependencies: both`, exclude the oldest job of the
+prerelease:
+
+```yaml
+dependencies: both
+matrix:
+  exclude:
+  - ghc: '10.0'
+    dependencies: oldest
+```
+
+The workflow installs doctest outside the project, so the block does not
+apply to doctest. If doctest does not build with the prerelease, leave that
+version out of `doctest.ghc`.
+
+## Known limits
+
+### `cabal.project`
+
+- The tool does not read the files of `import:` lines in `cabal.project`.
+  cabal reads the imported files in CI, but the tool does not see a
+  package that only an imported file lists. Such a package gets no
+  `ghc-options` and no `tested-with` check. A local imported file must be
+  in the repository, because CI has only the repository.
+- The tool reads all branches of the conditional blocks in `cabal.project`,
+  also a branch that no job selects. cabal reads only the branch that it
+  selects. Thus the rules for package locations and `import:` lines apply
+  to each branch. E.g. a location in `packages:` must exist, and with
+  `sdist: true` a local `import:` is an error.
+- The tool decides `os(...)` and `arch(...)` conditions for Linux on
+  x86_64. It assumes that no project selects its packages by operating
+  system or architecture.
+- If the project directory has no `cabal.project`, the tool reads the
+  packages of the directory as the project. If a parent directory has a
+  `cabal.project`, cabal uses that file instead. With `sdist: false`, the
+  workflow then builds the parent project, but the tool read only the
+  packages of the project directory. Give the directory of the parent
+  `cabal.project` to `--project-dir`.
+
+### Packages and components
+
+- The matrix contains the `tested-with` versions of all local packages,
+  also of a package that no job builds, e.g. one that is in the project only
+  for `os(windows)`. Such a package can add a job or cause a misleading
+  error. Give it the same `tested-with` versions as the other packages.
+- The `ghc-options` stanzas apply to all local packages on all GHC versions.
+  Take a package that is not in the project for a GHC version. If another
+  package depends on it, cabal gets it from Hackage and applies the
+  options, e.g. `-Werror`.
+- A test suite counts, whatever its conditions are. If all test suites of a
+  project have `buildable: False` for a GHC version, the test step fails for
+  that version.
+- doctest skips a module without an error in one case. The library has no
+  `hs-source-dirs` or has `.` in it, and the package directory has no
+  `.hs` or `.lhs` file for an exposed module. The module can come from
+  another file, e.g. a `.hsc` file for `hsc2hs`. The same applies to each
+  sublibrary.
+
+### Self-hosted runners
+
+The cache keys contain the runner image from the environment variable
+`ImageOS`. The runners of GitHub set this variable, but a self-hosted runner
+can lack it. Then the cache keys have no image part. A cache from an earlier
+system of the runner can then link against system libraries that the runner
+no longer has. If you change the system of such a runner, delete the caches
+of the repository.
+
 ## Comparison with haskell-ci
 
 `haskell-gha` improves on `haskell-ci` in these points:
@@ -592,53 +640,3 @@ code as the release `v2.4.10`. When a new release comes out, set
   `cabal.project.local` and without the tests by default.
 - The workflow can check the formatting with fourmolu and the code with HLint,
   each in its own job. `haskell-ci` has no such jobs.
-
-## Known limits
-
-These limits apply to `cabal.project`:
-
-- The tool does not read the files of `import:` lines in `cabal.project`.
-  cabal reads the imported files in CI, but the tool does not see a
-  package that only an imported file lists. Such a package gets no
-  `ghc-options` and no `tested-with` check. A local imported file must be
-  in the repository, because CI has only the repository.
-- The tool reads all branches of the conditional blocks in `cabal.project`,
-  also a branch that no job selects. cabal reads only the branch that it
-  selects. Thus the rules for package locations and `import:` lines apply
-  to each branch. E.g. a location in `packages:` must exist, and with
-  `sdist: true` a local `import:` is an error.
-- The tool decides `os(...)` and `arch(...)` conditions for Linux on
-  x86_64. It assumes that no project selects its packages by operating
-  system or architecture.
-- If the project directory has no `cabal.project`, the tool reads the
-  packages of the directory as the project. If a parent directory has a
-  `cabal.project`, cabal uses that file instead. With `sdist: false`, the
-  workflow then builds the parent project, but the tool read only the
-  packages of the project directory. Give the directory of the parent
-  `cabal.project` to `--project-dir`.
-
-These limits apply to the packages and their components:
-
-- The matrix contains the `tested-with` versions of all local packages,
-  also of a package that no job builds, e.g. one that is in the project only
-  for `os(windows)`. Such a package can add a job or cause a misleading
-  error. Give it the same `tested-with` versions as the other packages.
-- The `ghc-options` stanzas apply to all local packages on all GHC versions.
-  Take a package that is not in the project for a GHC version. If another
-  package depends on it, cabal gets it from Hackage and applies the
-  options, e.g. `-Werror`.
-- A test suite counts, whatever its conditions are. If all test suites of a
-  project have `buildable: False` for a GHC version, the test step fails for
-  that version.
-- doctest skips a module without an error in one case. The library has no
-  `hs-source-dirs` or has `.` in it, and the package directory has no
-  `.hs` or `.lhs` file for an exposed module. The module can come from
-  another file, e.g. a `.hsc` file for `hsc2hs`. The same applies to each
-  sublibrary.
-
-One limit applies to self-hosted runners. The cache keys contain the runner
-image from the environment variable `ImageOS`. The runners of GitHub set this
-variable, but a self-hosted runner can lack it. Then the cache keys have no
-image part. A cache from an earlier system of the runner can then link against
-system libraries that the runner no longer has. If you change the system of
-such a runner, delete the caches of the repository.
