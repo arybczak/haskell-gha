@@ -47,7 +47,10 @@ test_styles =
 test_flow :: Assertion
 test_flow = do
   node <- parse "branches: [master, main]\nports: ['5432:5432']\nnone: []\n"
-  assertEqual "rendered" (T.unlines ["branches:", "- master", "- main", "ports:", "- '5432:5432'", "none: []"]) (render node)
+  assertEqual
+    "rendered"
+    (T.unlines ["branches:", "- master", "- main", "ports:", "- '5432:5432'", "none: []"])
+    (render node)
 
 test_comments :: Assertion
 test_comments =
@@ -67,10 +70,17 @@ test_comments =
 
 test_emptyLines :: Assertion
 test_emptyLines = do
-  let node = mapping ["name" .= plain "CI", "steps" .= sequenceNode [plain "a", plain "b"], "more" .= sequenceNode [plain "c", plain "d"]]
+  let node =
+        mapping
+          [ "name" .= plain "CI"
+          , "steps" .= sequenceNode [plain "a", plain "b"]
+          , "more" .= sequenceNode [plain "c", plain "d"]
+          ]
   assertEqual
     "rendered"
-    (T.unlines ["# header", "", "name: CI", "", "steps:", "- a", "", "- b", "", "more:", "- c", "- d"])
+    ( T.unlines
+        ["# header", "", "name: CI", "", "steps:", "- a", "", "- b", "", "more:", "- c", "- d"]
+    )
     (renderDocument ["header"] separated node)
   where
     separated :: [T.Text] -> Bool
@@ -83,7 +93,11 @@ test_reparse :: Assertion
 test_reparse = do
   let node =
         mapping
-          [ "on" .= mapping ["push" .= mapping ["branches" .= sequenceNode [plain "master"]], "pull_request" .= plain ""]
+          [ "on"
+              .= mapping
+                [ "push" .= mapping ["branches" .= sequenceNode [plain "master"]]
+                , "pull_request" .= plain ""
+                ]
           , "run" .= literal "cabal build all\ncabal test all\n"
           , "ghc" .= sequenceNode [singleQuoted "9.10", singleQuoted "it's"]
           ]
@@ -93,7 +107,10 @@ test_reparse = do
 test_header :: Assertion
 test_header = do
   let node = mapping [(addBefore [Comment "the name"] (plain "name"), plain "CI")]
-  assertEqual "rendered" (T.unlines ["# header", "", "# the name", "name: CI"]) (renderDocument ["header"] (const False) node)
+  assertEqual
+    "rendered"
+    (T.unlines ["# header", "", "# the name", "name: CI"])
+    (renderDocument ["header"] (const False) node)
 
 test_keep :: Assertion
 test_keep = do
@@ -103,14 +120,59 @@ test_keep = do
 
 test_plainQuotes :: Assertion
 test_plainQuotes = do
-  let texts = ["my dir: x", "dir #1", "[x]", "*x", "&x", "- x", " x", "x ", "x:", "'x", "a\tb", "", "~", "null", "true", "False", "1", "1.0", "0x1F", ".inf"]
+  let texts =
+        [ "my dir: x"
+        , "dir #1"
+        , "[x]"
+        , "*x"
+        , "&x"
+        , "- x"
+        , " x"
+        , "x "
+        , "x:"
+        , "'x"
+        , "a\tb"
+        , ""
+        , "~"
+        , "null"
+        , "true"
+        , "False"
+        , "1"
+        , "1.0"
+        , "0x1F"
+        , ".inf"
+        ]
       node = sequenceNode (map plain texts)
   reparsed <- parse $ render node
   assertEqual "texts" (sequenceNode [singleQuoted t | t <- texts]) (normalize reparsed)
   assertEqual
     "plain"
-    [scalarNode Plain t | t <- ["sub/dir", "-x", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"]]
-    (map plain ["sub/dir", "-x", "a:b", "a#b", "yes", "1.0.0", "9.10.3", "${{ matrix.ghc }}", "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"])
+    [ scalarNode Plain t
+    | t <-
+        [ "sub/dir"
+        , "-x"
+        , "a:b"
+        , "a#b"
+        , "yes"
+        , "1.0.0"
+        , "9.10.3"
+        , "${{ matrix.ghc }}"
+        , "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"
+        ]
+    ]
+    ( map
+        plain
+        [ "sub/dir"
+        , "-x"
+        , "a:b"
+        , "a#b"
+        , "yes"
+        , "1.0.0"
+        , "9.10.3"
+        , "${{ matrix.ghc }}"
+        , "contains(fromJSON('[\"9.10\"]'), matrix.ghc)"
+        ]
+    )
 
 ----------------------------------------
 -- Helpers

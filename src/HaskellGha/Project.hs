@@ -111,7 +111,9 @@ readProject root dir = runExceptT $ do
   let cabalFiles = L.nub (concatMap snd found)
   when (null cabalFiles) $
     throwE ["There are no packages in " ++ projectDescription exists dir ++ "."]
-  packages <- ExceptT $ runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (dir </> f) f)
+  packages <-
+    ExceptT $
+      runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (dir </> f) f)
   except . runCheck $ projectFrom exists dir packages (byToken found packages) parts
   where
     projectFile :: FilePath
@@ -137,7 +139,10 @@ readProject root dir = runExceptT $ do
     -- a layout is rare, so the tool accepts this.
     byToken :: [(String, [FilePath])] -> [Package] -> String -> [Package]
     byToken found packages t =
-      [p | f <- concat (lookup t found), Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]]
+      [ p
+      | f <- concat (lookup t found)
+      , Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]
+      ]
 
     allTokens :: [Part] -> [(Bool, String)]
     allTokens = concatMap $ \case
@@ -170,13 +175,19 @@ parseProjectFile file input = case readFields input of
         | otherwise -> parts rest
       Section (Name pos n) args body : rest
         | n == "if" -> conditional pos args body rest
-        | n `elem` ["elif", "else"] -> failure (at pos $ BS8.unpack n ++ " without if") *> parts rest
+        | n `elem` ["elif", "else"] ->
+            failure (at pos $ BS8.unpack n ++ " without if") *> parts rest
         | otherwise -> parts rest
 
     -- The elif and else sections that follow an if section. ApplicativeDo
     -- joins the independent statements with <*>, so the errors of the
     -- condition and of the sections come back together.
-    conditional :: Position -> [SectionArg Position] -> [Field Position] -> [Field Position] -> Check [Part]
+    conditional
+      :: Position
+      -> [SectionArg Position]
+      -> [Field Position]
+      -> [Field Position]
+      -> Check [Part]
     conditional pos args body rest = case rest of
       Section (Name pos' "elif") args' body' : rest' -> do
         c <- condition pos args
@@ -241,11 +252,20 @@ findPackages
   -> String
   -> IO (Either [String] [FilePath])
 findPackages root projectDir required t
-  | "://" `L.isInfixOf` t = pure $ Left ["The package location " ++ show t ++ " is a URL. The tool supports only local packages."]
+  | "://" `L.isInfixOf` t =
+      pure $
+        Left
+          ["The package location " ++ show t ++ " is a URL. The tool supports only local packages."]
   | isAbsolute t = notRelative
   -- A glob component other than .. does not lead up, so the location itself
   -- decides for all its matches.
-  | leadsAbove (projectDir </> t) = pure $ Left ["The package location " ++ show t ++ " is not in the repository. The tool supports only packages in the repository."]
+  | leadsAbove (projectDir </> t) =
+      pure $
+        Left
+          [ "The package location "
+              ++ show t
+              ++ " is not in the repository. The tool supports only packages in the repository."
+          ]
   | otherwise = case simpleParsec @RootedGlob t of
       Just (RootedGlob FilePathRelative glob) -> do
         matches <- matchGlob dir glob
@@ -284,7 +304,13 @@ findPackages root projectDir required t
 
     -- The workflow uses the path on the runner, where it does not exist.
     notRelative :: IO (Either [String] [FilePath])
-    notRelative = pure $ Left ["The package location " ++ show t ++ " is not a relative path. The tool supports only packages in the repository."]
+    notRelative =
+      pure $
+        Left
+          [ "The package location "
+              ++ show t
+              ++ " is not a relative path. The tool supports only packages in the repository."
+          ]
 
     collect :: [Either String FilePath] -> Either [String] [FilePath]
     collect results = case partitionEithers results of
@@ -304,9 +330,14 @@ findPackages root projectDir required t
             _ -> Left $ "The directory " ++ show path ++ " contains more than one .cabal file."
         else pure $ case () of
           _
-            | ".tar.gz" `L.isSuffixOf` path -> Left $ "The package location " ++ show path ++ " is a tarball. The tool supports only local packages."
+            | ".tar.gz" `L.isSuffixOf` path ->
+                Left $
+                  "The package location "
+                    ++ show path
+                    ++ " is a tarball. The tool supports only local packages."
             | takeExtension path == ".cabal" -> Right (normalise path)
-            | otherwise -> Left $ "The package location " ++ show path ++ " is not a directory or a .cabal file."
+            | otherwise ->
+                Left $ "The package location " ++ show path ++ " is not a directory or a .cabal file."
 
 ----------------------------------------
 -- Packages
@@ -362,7 +393,10 @@ readPackage root path relative = do
       pure $
         if null sources
           then []
-          else ["-X" ++ prettyShow l | Just l <- [defaultLanguage bi]] ++ ["-X" ++ prettyShow e | e <- defaultExtensions bi] ++ sources
+          else
+            ["-X" ++ prettyShow l | Just l <- [defaultLanguage bi]]
+              ++ ["-X" ++ prettyShow e | e <- defaultExtensions bi]
+              ++ sources
 
     -- For a module name, GHC takes the compiled module from the GHC environment
     -- file, and doctest finds no examples. A file name works.
@@ -372,7 +406,10 @@ readPackage root path relative = do
     -- The file of a module in the package directory.
     findModuleFile :: ModuleName.ModuleName -> IO (Maybe FilePath)
     findModuleFile m =
-      listToMaybe <$> filterM (doesFileExist . ((root </> takeDirectory path) </>)) [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
+      listToMaybe
+        <$> filterM
+          (doesFileExist . ((root </> takeDirectory path) </>))
+          [ModuleName.toFilePath m <.> ext | ext <- ["hs", "lhs"]]
 
 ----------------------------------------
 -- Matrix
@@ -404,7 +441,13 @@ projectFrom exists dir packages byToken parts = do
     matrixEntry entry = do
       pkgs <- L.nubBy (\a b -> a.directory == b.directory) <$> included entry parts
       if null pkgs
-        then failure $ "There are no packages in " ++ projectDescription exists dir ++ " for GHC " ++ T.unpack (entryText entry) ++ "."
+        then
+          failure $
+            "There are no packages in "
+              ++ projectDescription exists dir
+              ++ " for GHC "
+              ++ T.unpack (entryText entry)
+              ++ "."
         else traverse_ (supports entry) pkgs
       pure (MatrixEntry entry pkgs)
 
@@ -480,11 +523,18 @@ projectFrom exists dir packages byToken parts = do
 
     evaluate :: GhcEntry -> Position -> Condition ConfVar -> Check Bool
     evaluate entry pos = \case
-      Var (Impl GHC r) -> fromEither $ decideRange (location pos ++ "the condition impl(ghc " ++ prettyShow r ++ ")") r entry
+      Var (Impl GHC r) ->
+        fromEither $
+          decideRange (location pos ++ "the condition impl(ghc " ++ prettyShow r ++ ")") r entry
       Var (Impl _ _) -> pure False
       Var (OS os) -> pure (os == Linux)
       Var (Arch arch) -> pure (arch == X86_64)
-      Var (PackageFlag f) -> failure $ location pos ++ "the condition flag(" ++ unFlagName f ++ ") is not supported, because the tool does not know the value of the flag."
+      Var (PackageFlag f) ->
+        failure $
+          location pos
+            ++ "the condition flag("
+            ++ unFlagName f
+            ++ ") is not supported, because the tool does not know the value of the flag."
       Lit b -> pure b
       CNot c -> not <$> evaluate entry pos c
       COr a b -> absorb True (evaluate entry pos a) (evaluate entry pos b)

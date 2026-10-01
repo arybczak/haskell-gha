@@ -79,20 +79,33 @@ test_comments = do
         , "  # The end of the hooks."
         ]
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-  node <- either (assertFailure . unlines) pure (workflow defaultOptions source config project)
+  node <-
+    either (assertFailure . unlines) pure (workflow defaultOptions source config project)
   let rendered = T.lines $ renderWorkflow "TEST" defaultOptions node
       assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
-  assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
+  assertLines
+    "top comment"
+    ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
   assertBool "comment of the file" $ T.pack "# The configuration." `notElem` rendered
   assertBool "comment of a section" $ T.pack "    # The jobs." `notElem` rendered
   assertLines "matrix" ["      matrix:", "        # The matrix.", "", "        ghc:"]
   assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
-  assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]
+  assertLines
+    "end of the matrix"
+    ["        - b", "        # The end of the matrix.", "    steps:"]
   assertLines "step" ["    # The step.", "    - run: echo a"]
-  assertLines "second step" ["    - run: echo a", "", "    # The second step.", "    - run: echo b"]
-  assertEqual "end of the steps" [T.pack "    - run: echo b"] (drop (length rendered - 1) rendered)
+  assertLines
+    "second step"
+    ["    - run: echo a", "", "    # The second step.", "    - run: echo b"]
+  assertEqual
+    "end of the steps"
+    [T.pack "    - run: echo b"]
+    (drop (length rendered - 1) rendered)
   assertBool "hook key" $ T.pack "    # The steps after the build." `notElem` rendered
-  assertEqual "runs-on of the build job only" 1 (length (filter (== T.pack "    # The runner of the build.") rendered))
+  assertEqual
+    "runs-on of the build job only"
+    1
+    (length (filter (== T.pack "    # The runner of the build.") rendered))
 
 test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do
@@ -102,17 +115,29 @@ test_hlintPathOutside = do
     , "conf.yml:3:16: hlint.path[1]: the path /abs is not in the repository. Give a path relative to the project directory."
     ]
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-  (config, source) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
-  assertBool "in the repository" (isRight $ workflow defaultOptions {projectDir = "sub"} source config project)
-  (off, offSource) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack "hlint:\n  path: [../x]\n"
+  (config, source) <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" $
+      BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
+  assertBool
+    "in the repository"
+    (isRight $ workflow defaultOptions {projectDir = "sub"} source config project)
+  (off, offSource) <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" $
+      BS8.pack "hlint:\n  path: [../x]\n"
   assertBool "not enabled" (isRight $ workflow defaultOptions offSource off project)
 
 test_namedDefaultConfig :: Assertion
 test_namedDefaultConfig = do
   let parse = parseOptions
   assertEqual "without --config" (Just DefaultConfigFile) ((.config) <$> parse [])
-  assertEqual "with --config" (Just (ConfigFile defaultConfigPath)) ((.config) <$> parse ["--config", defaultConfigPath])
-  assertEqual "command line" (Just ["haskell-gha", "--generate", "--config", defaultConfigPath]) (commandLine <$> parse ["--config", defaultConfigPath])
+  assertEqual
+    "with --config"
+    (Just (ConfigFile defaultConfigPath))
+    ((.config) <$> parse ["--config", defaultConfigPath])
+  assertEqual
+    "command line"
+    (Just ["haskell-gha", "--generate", "--config", defaultConfigPath])
+    (commandLine <$> parse ["--config", defaultConfigPath])
 
 test_projectDirOutside :: Assertion
 test_projectDirOutside = do
@@ -130,13 +155,20 @@ test_sdistNamePrefix = do
     ps -> assertFailure ("packages: " ++ show ps)
   let pkgs = [p {directory = "a"}, p {name = "example-2d", directory = "b"}]
       changed = project {packages = pkgs, matrix = [MatrixEntry e.ghc pkgs | e <- project.matrix]}
-  node <- either (assertFailure . unlines) pure (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
+  node <-
+    either
+      (assertFailure . unlines)
+      pure
+      (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
   assertEqual
     "tar lines"
     [ "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/a"
     , "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-2d-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/b"
     ]
-    [T.unpack (T.strip l) | l <- T.lines (renderWorkflow "TEST" defaultOptions node), T.pack "tar -xzf" `T.isInfixOf` l]
+    [ T.unpack (T.strip l)
+    | l <- T.lines (renderWorkflow "TEST" defaultOptions node)
+    , T.pack "tar -xzf" `T.isInfixOf` l
+    ]
 
 test_sdistOutside :: Assertion
 test_sdistOutside = do
@@ -166,7 +198,11 @@ test_sdistOutside = do
         ]
     )
     (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
-  assertBool "sdist: false" (isRight $ workflow defaultOptions (emptySource "conf.yml") defaultConfig {sdist = False} changed)
+  assertBool
+    "sdist: false"
+    ( isRight $
+        workflow defaultOptions (emptySource "conf.yml") defaultConfig {sdist = False} changed
+    )
 
 test_importOutside :: Assertion
 test_importOutside = do
@@ -200,19 +236,30 @@ test_importOutside = do
           : outside
     )
     (workflow opts (emptySource "conf.yml") defaultConfig changed)
-  assertEqual "sdist: false" (Left outside) (workflow opts (emptySource "conf.yml") defaultConfig {sdist = False} changed)
+  assertEqual
+    "sdist: false"
+    (Left outside)
+    (workflow opts (emptySource "conf.yml") defaultConfig {sdist = False} changed)
 
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do
   let opts = defaultOptions {projectDir = "my project", output = "it's.yml"}
-      line = T.unpack <$> L.find (T.isInfixOf (T.pack "haskell-gha --")) (T.lines $ renderWorkflow "TEST" opts (mapping []))
-  assertEqual "command line" (Just "#   haskell-gha --generate --project-dir 'my project' --output 'it'\\''s.yml'") line
+      line =
+        T.unpack
+          <$> L.find
+            (T.isInfixOf (T.pack "haskell-gha --"))
+            (T.lines $ renderWorkflow "TEST" opts (mapping []))
+  assertEqual
+    "command line"
+    (Just "#   haskell-gha --generate --project-dir 'my project' --output 'it'\\''s.yml'")
+    line
 
 test_unknownGhcValue :: Assertion
 test_unknownGhcValue =
   assertErrors
     "matrix:\n  x: [a, b]\n  exclude:\n    - ghc: '9.8'\n      x: a\n"
-    ["conf.yml:4:12: matrix.exclude[0].ghc: GHC 9.8 is not in the ghc axis, which contains only 9.6.7, 9.10, 9.12"]
+    [ "conf.yml:4:12: matrix.exclude[0].ghc: GHC 9.8 is not in the ghc axis, which contains only 9.6.7, 9.10, 9.12"
+    ]
 
 test_dependenciesAxis :: Assertion
 test_dependenciesAxis = do
@@ -223,27 +270,35 @@ test_dependenciesAxis = do
     ]
   assertErrors
     "matrix:\n  exclude:\n    - dependencies: oldest\n"
-    ["conf.yml:3:21: matrix.exclude[0].dependencies: the matrix has no dependencies axis. Set dependencies: both to add it."]
-  assertValid "dependencies: both\nmatrix:\n  exclude:\n    - ghc: '9.10'\n      dependencies: oldest\n"
+    [ "conf.yml:3:21: matrix.exclude[0].dependencies: the matrix has no dependencies axis. Set dependencies: both to add it."
+    ]
+  assertValid
+    "dependencies: both\nmatrix:\n  exclude:\n    - ghc: '9.10'\n      dependencies: oldest\n"
   assertValid "matrix:\n  dependencies: [a, b]\n  exclude:\n    - dependencies: a\n"
   where
     assertValid :: String -> Assertion
     assertValid input = do
-      (config, source) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
+      (config, source) <-
+        either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
       project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-      either (assertFailure . unlines) (const (pure ())) (workflow defaultOptions source config project)
+      either
+        (assertFailure . unlines)
+        (const (pure ()))
+        (workflow defaultOptions source config project)
 
 test_partialDoctestRange :: Assertion
 test_partialDoctestRange =
   assertErrors
     "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
-    ["conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+    [ "conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."
+    ]
 
 test_unusedRange :: Assertion
 test_unusedRange =
   assertErrors
     "doctest:\n  enabled: true\n  ghc: '>=9.14'\n"
-    ["conf.yml:3:8: doctest.ghc: the range >=9.14 includes no GHC version of the matrix, which contains only 9.6.7, 9.10, 9.12"]
+    [ "conf.yml:3:8: doctest.ghc: the range >=9.14 includes no GHC version of the matrix, which contains only 9.6.7, 9.10, 9.12"
+    ]
 
 test_independentChecks :: Assertion
 test_independentChecks =
@@ -263,9 +318,17 @@ test_unknownSkip =
 -- golden test @single@. The other lines show the line of the configuration.
 assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
-  (config, source) <- either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
+  (config, source) <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
-  assertEqual "errors" (Left expected) (either (Left . map (takeWhile (/= '\n'))) Right (workflow defaultOptions source config project))
+  assertEqual
+    "errors"
+    (Left expected)
+    ( either
+        (Left . map (takeWhile (/= '\n')))
+        Right
+        (workflow defaultOptions source config project)
+    )
 
 test_modes :: Assertion
 test_modes = do
@@ -280,10 +343,23 @@ test_findWorkflows :: Assertion
 test_findWorkflows =
   withSystemTempDirectory "haskell-gha-tests" $ \root -> do
     let dir = takeDirectory defaultOptions.output
-        opts = defaultOptions {config = ConfigFile "it's.yml", projectDir = "my project", output = dir </> "a.yml"}
+        opts =
+          defaultOptions
+            { config = ConfigFile "it's.yml"
+            , projectDir = "my project"
+            , output = dir </> "a.yml"
+            }
         write :: FilePath -> T.Text -> IO ()
         write name = BS.writeFile (root </> dir </> name) . T.encodeUtf8
-    assertEqual "no directory" (Left ["No workflow in " ++ dir ++ " was generated by haskell-gha. To make one, run haskell-gha --generate."]) =<< findWorkflows root
+    assertEqual
+      "no directory"
+      ( Left
+          [ "No workflow in "
+              ++ dir
+              ++ " was generated by haskell-gha. To make one, run haskell-gha --generate."
+          ]
+      )
+      =<< findWorkflows root
     createDirectoryIfMissing True (root </> dir)
     write "a.yml" $ renderWorkflow "TEST" opts (mapping [])
     write "b.yml" (T.pack "name: other\n")
@@ -291,21 +367,41 @@ test_findWorkflows =
     write "c.yaml" $ renderWorkflow "TEST" opts {output = dir </> "d.yml"} (mapping [])
     assertEqual
       "other output"
-      (Left [dir </> "c.yaml" ++ ": the command in the header writes the workflow to " ++ dir </> "d.yml" ++ ", not to this file"])
+      ( Left
+          [ dir
+              </> "c.yaml"
+              ++ ": the command in the header writes the workflow to "
+              ++ dir
+              </> "d.yml"
+              ++ ", not to this file"
+          ]
+      )
       =<< findWorkflows root
     let withCommand :: String -> IO ()
-        withCommand line = write "c.yaml" . T.unlines . zipWith (\i l -> if i == 1 then T.pack ("#   " ++ line) else l) [0 :: Int ..] . T.lines $ renderWorkflow "TEST" opts (mapping [])
+        withCommand line =
+          write "c.yaml"
+            . T.unlines
+            . zipWith (\i l -> if i == 1 then T.pack ("#   " ++ line) else l) [0 :: Int ..]
+            . T.lines
+            $ renderWorkflow "TEST" opts (mapping [])
         firstLines :: Either [String] a -> Either [String] a
         firstLines = either (Left . map (takeWhile (/= '\n'))) Right
     withCommand "echo haskell-gha"
     assertEqual
       "other program"
-      (Left [dir </> "c.yaml" ++ ": the command in the header is not valid: the command does not start with haskell-gha --generate"])
+      ( Left
+          [ dir
+              </> "c.yaml"
+              ++ ": the command in the header is not valid: the command does not start with haskell-gha --generate"
+          ]
+      )
       =<< findWorkflows root
     withCommand "haskell-gha --generate --output .github/workflows/c.yaml --foo"
     assertEqual
       "unknown option"
-      (Left [dir </> "c.yaml" ++ ": the command in the header is not valid: Invalid option `--foo'"])
+      ( Left
+          [dir </> "c.yaml" ++ ": the command in the header is not valid: Invalid option `--foo'"]
+      )
       . firstLines
       =<< findWorkflows root
 

@@ -35,22 +35,31 @@ projectTests =
     , testCase "tested-with errors" test_testedWithErrors
     , testCase "no packages for a matrix entry" test_emptyEntry
     , testCase "package location errors" test_locationErrors
-    , testCase "doctest sources in the package directory and a subdirectory" test_doctestRootAndSubdirectory
+    , testCase
+        "doctest sources in the package directory and a subdirectory"
+        test_doctestRootAndSubdirectory
     , testCase "a missing project directory" test_missingDirectory
     ]
 
 test_missingDirectory :: Assertion
 test_missingDirectory = do
   result <- readProject "." "tests/does-not-exist"
-  assertEqual "errors" (Left ["The project directory \"tests/does-not-exist\" does not exist."]) result
+  assertEqual
+    "errors"
+    (Left ["The project directory \"tests/does-not-exist\" does not exist."])
+    result
 
 test_single :: Assertion
 test_single = do
-  project <- readOk [("example.cabal", cabal "example" "GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12" True)]
+  project <-
+    readOk [("example.cabal", cabal "example" "GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12" True)]
   assertEqual "packages" ["example"] (map (.name) project.packages)
   assertEqual "directory" ["."] (map (.directory) project.packages)
   assertEqual "test suite" [True] (map (.hasTestSuite) project.packages)
-  assertEqual "matrix" [(v [9, 6, 7], ["example"]), (s 9 10, ["example"]), (s 9 12, ["example"])] (matrixOf project)
+  assertEqual
+    "matrix"
+    [(v [9, 6, 7], ["example"]), (s 9 10, ["example"]), (s 9 12, ["example"])]
+    (matrixOf project)
 
 test_conditional :: Assertion
 test_conditional = do
@@ -73,18 +82,27 @@ test_elifElse :: Assertion
 test_elifElse = do
   project <-
     readOk
-      [ ("cabal.project", "if impl(ghc >= 9.12)\n  packages: c\nelif impl(ghc >= 9.8)\n  packages: b\nelse\n  packages: a\n")
+      [
+        ( "cabal.project"
+        , "if impl(ghc >= 9.12)\n  packages: c\nelif impl(ghc >= 9.8)\n  packages: b\nelse\n  packages: a\n"
+        )
       , ("a/a.cabal", cabal "a" "GHC == 9.6.7" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       , ("c/c.cabal", cabal "c" "GHC ^>= 9.12" False)
       ]
-  assertEqual "matrix" [(v [9, 6, 7], ["a"]), (s 9 10, ["b"]), (s 9 12, ["c"])] (matrixOf project)
+  assertEqual
+    "matrix"
+    [(v [9, 6, 7], ["a"]), (s 9 10, ["b"]), (s 9 12, ["c"])]
+    (matrixOf project)
 
 test_imports :: Assertion
 test_imports = do
   project <-
     readOk
-      [ ("cabal.project", "packages: a\nimport: base.project\n\nif impl(ghc >= 9.12)\n  import: new.project\n")
+      [
+        ( "cabal.project"
+        , "packages: a\nimport: base.project\n\nif impl(ghc >= 9.12)\n  import: new.project\n"
+        )
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       ]
   assertEqual
@@ -106,7 +124,10 @@ test_globs = do
       , ("y/y.cabal", cabal "y" "GHC ^>= 9.10" False)
       ]
   assertEqual "packages" ["a", "b", "o", "x", "y"] (L.sort $ map (.name) project.packages)
-  assertEqual "directories" ["other", "pkgs/a", "pkgs/b", "x", "y"] (L.sort $ map (.directory) project.packages)
+  assertEqual
+    "directories"
+    ["other", "pkgs/a", "pkgs/b", "x", "y"]
+    (L.sort $ map (.directory) project.packages)
 
 test_optional :: Assertion
 test_optional = do
@@ -119,7 +140,8 @@ test_optional = do
 
 test_exactAndSeries :: Assertion
 test_exactAndSeries = do
-  project <- readOk [("a.cabal", cabal "a" "GHC == { 9.6.7 } || ^>= 9.10 || == 9.12.2" False)]
+  project <-
+    readOk [("a.cabal", cabal "a" "GHC == { 9.6.7 } || ^>= 9.10 || == 9.12.2" False)]
   assertEqual "axis" [v [9, 6, 7], s 9 10, v [9, 12, 2]] (map fst $ matrixOf project)
 
 test_exactNextToSeries :: Assertion
@@ -142,9 +164,15 @@ test_missingBlock = do
     readErrors
       [ ("cabal.project", "packages: core servant-client\n")
       , ("core/core.cabal", cabal "core" "GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12" False)
-      , ("servant-client/servant-client.cabal", cabal "servant-client" "GHC ^>= 9.10 || ^>= 9.12" False)
+      ,
+        ( "servant-client/servant-client.cabal"
+        , cabal "servant-client" "GHC ^>= 9.10 || ^>= 9.12" False
+        )
       ]
-  assertEqual "errors" [missingBlock "servant-client" "9.6.7" "^>=9.10 || ^>=9.12" "servant-client"] errors
+  assertEqual
+    "errors"
+    [missingBlock "servant-client" "9.6.7" "^>=9.10 || ^>=9.12" "servant-client"]
+    errors
 
 test_untestedVersion :: Assertion
 test_untestedVersion = do
@@ -169,14 +197,22 @@ test_partialCondition = do
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       ]
   case errors of
-    [e] -> assertBool e ("the condition impl(ghc >=9.10.2) includes only a part of the GHC versions of the matrix entry 9.10" `L.isInfixOf` e)
+    [e] ->
+      assertBool
+        e
+        ( "the condition impl(ghc >=9.10.2) includes only a part of the GHC versions of the matrix entry 9.10"
+            `L.isInfixOf` e
+        )
     _ -> assertFailure (unlines errors)
 
 test_firstRelease :: Assertion
 test_firstRelease = do
   project <-
     readOk
-      [ ("cabal.project", "packages: a\nif impl(ghc >= 9.10.1)\n  packages: b\nif impl(ghc < 9.10.1)\n  packages: c\n")
+      [
+        ( "cabal.project"
+        , "packages: a\nif impl(ghc >= 9.10.1)\n  packages: b\nif impl(ghc < 9.10.1)\n  packages: c\n"
+        )
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
@@ -199,7 +235,10 @@ test_projectFileErrors :: Assertion
 test_projectFileErrors = do
   errors <-
     readErrors
-      [ ("cabal.project", "if foo(bar)\n  packages: a\nelse\n  packages: b\nelse\n  packages: c\n")
+      [
+        ( "cabal.project"
+        , "if foo(bar)\n  packages: a\nelse\n  packages: b\nelse\n  packages: c\n"
+        )
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       ]
   case errors of
@@ -212,7 +251,10 @@ test_decidedCondition :: Assertion
 test_decidedCondition = do
   project <-
     readOk
-      [ ("cabal.project", "packages: a\nif os(windows) && impl(ghc >= 9.10.2)\n  packages: b\nif flag(dev) || os(linux)\n  packages: c\n")
+      [
+        ( "cabal.project"
+        , "packages: a\nif os(windows) && impl(ghc >= 9.10.2)\n  packages: b\nif flag(dev) || os(linux)\n  packages: c\n"
+        )
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
@@ -223,7 +265,10 @@ test_osArch :: Assertion
 test_osArch = do
   project <-
     readOk
-      [ ("cabal.project", "packages: a\nif os(linux) && arch(x86_64)\n  packages: b\nif os(windows) || impl(ghcjs)\n  packages: c\n")
+      [
+        ( "cabal.project"
+        , "packages: a\nif os(linux) && arch(x86_64)\n  packages: b\nif os(windows) || impl(ghcjs)\n  packages: c\n"
+        )
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
@@ -235,17 +280,20 @@ test_testedWithErrors = do
   openRange <- readErrors [("a.cabal", cabal "a" "GHC >= 9.10" False)]
   assertEqual
     "open range"
-    ["Package a lists the GHC range >=9.10 in tested-with. The matrix needs a finite list of versions. Write an exact version, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."]
+    [ "Package a lists the GHC range >=9.10 in tested-with. The matrix needs a finite list of versions. Write an exact version, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."
+    ]
     openRange
   minorRange <- readErrors [("a.cabal", cabal "a" "GHC ^>= 9.10.2" False)]
   assertEqual
     "minor range"
-    ["Package a lists the GHC range >=9.10.2 && <9.11 in tested-with. A range must be a whole major series with two version parts, e.g. ^>= 9.10 or == 9.10.*. Write the series, or an exact version, e.g. == 9.10.3."]
+    [ "Package a lists the GHC range >=9.10.2 && <9.11 in tested-with. A range must be a whole major series with two version parts, e.g. ^>= 9.10 or == 9.10.*. Write the series, or an exact version, e.g. == 9.10.3."
+    ]
     minorRange
   shortVersion <- readErrors [("a.cabal", cabal "a" "GHC == 9.10" False)]
   assertEqual
     "short version"
-    ["Package a lists GHC == 9.10 in tested-with. No GHC release has this version. Write an exact version with three parts, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."]
+    [ "Package a lists GHC == 9.10 in tested-with. No GHC release has this version. Write an exact version with three parts, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."
+    ]
     shortVersion
   noGhc <- readErrors [("a.cabal", cabal "a" "GHCJS == 8.10.7" False)]
   assertEqual "no GHC" ["Package a has no GHC version in tested-with."] noGhc
@@ -276,7 +324,10 @@ test_locationErrors :: Assertion
 test_locationErrors = do
   errors <-
     readErrors
-      [ ("cabal.project", "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two /opt/pkg ~/pkgs/*/ ../../outside ../../*/*.cabal {broken\n")
+      [
+        ( "cabal.project"
+        , "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two /opt/pkg ~/pkgs/*/ ../../outside ../../*/*.cabal {broken\n"
+        )
       , ("two/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("two/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       ]
@@ -316,7 +367,10 @@ test_doctestRootAndSubdirectory = do
       , ("src/Inner.hs", "")
       , ("test/Main.hs", "")
       ]
-  assertEqual "doctest arguments" [[["Root.hs", "src"]]] (map (.doctestArgs) project.packages)
+  assertEqual
+    "doctest arguments"
+    [[["Root.hs", "src"]]]
+    (map (.doctestArgs) project.packages)
 
 ----------------------------------------
 -- Helpers
@@ -356,7 +410,9 @@ cabal name testedWith testSuite =
     , "library"
     , "  exposed-modules: M"
     ]
-      ++ if testSuite then ["test-suite test", "  type: exitcode-stdio-1.0", "  main-is: Main.hs"] else []
+      ++ if testSuite
+        then ["test-suite test", "  type: exitcode-stdio-1.0", "  main-is: Main.hs"]
+        else []
 
 -- | Write the files of a project to a temporary directory and read it.
 readProjectFiles :: [(FilePath, String)] -> IO (Either [String] Project)

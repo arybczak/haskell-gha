@@ -65,20 +65,54 @@ optionsParser version =
     )
   where
     generate :: Parser Command
-    generate = flag' () (long "generate" <> help "Make one workflow with the options below") *> (Generate <$> options)
+    generate =
+      flag' () (long "generate" <> help "Make one workflow with the options below")
+        *> (Generate <$> options)
 
     check :: Parser Command
-    check = flag Regenerate Check (long "check" <> help "Do not write the workflow files. Exit with code 1 if one is not up to date.")
+    check =
+      flag
+        Regenerate
+        Check
+        ( long "check"
+            <> help "Do not write the workflow files. Exit with code 1 if one is not up to date."
+        )
 
     versionOption :: Parser (a -> a)
-    versionOption = infoOption ("haskell-gha " ++ version) (long "version" <> short 'v' <> help "Show the version")
+    versionOption =
+      infoOption
+        ("haskell-gha " ++ version)
+        (long "version" <> short 'v' <> help "Show the version")
 
 -- | The parser of the options of one workflow.
 options :: Parser Options
 options = do
-  config <- option (ConfigFile <$> str) (long "config" <> metavar "FILE" <> value DefaultConfigFile <> showDefaultWith (const defaultConfigPath) <> help "The configuration file")
-  projectDir <- option projectDirReader (long "project-dir" <> metavar "DIR" <> value defaultOptions.projectDir <> showDefault <> help "The directory that contains cabal.project or the package")
-  output <- strOption (long "output" <> metavar "FILE" <> value defaultOptions.output <> showDefault <> help "The workflow file")
+  config <-
+    option
+      (ConfigFile <$> str)
+      ( long "config"
+          <> metavar "FILE"
+          <> value DefaultConfigFile
+          <> showDefaultWith (const defaultConfigPath)
+          <> help "The configuration file"
+      )
+  projectDir <-
+    option
+      projectDirReader
+      ( long "project-dir"
+          <> metavar "DIR"
+          <> value defaultOptions.projectDir
+          <> showDefault
+          <> help "The directory that contains cabal.project or the package"
+      )
+  output <-
+    strOption
+      ( long "output"
+          <> metavar "FILE"
+          <> value defaultOptions.output
+          <> showDefault
+          <> help "The workflow file"
+      )
   pure Options {..}
   where
     -- The workflow uses the directory on the runner, so it must be in the
@@ -87,7 +121,11 @@ options = do
     projectDirReader = eitherReader $ \case
       "" -> Left "The project directory is empty. For the root of the repository, give \".\"."
       dir
-        | isAbsolute dir || leadsAbove dir -> Left $ "The project directory " ++ show dir ++ " is not in the repository. Give a path relative to the root of the repository."
+        | isAbsolute dir || leadsAbove dir ->
+            Left $
+              "The project directory "
+                ++ show dir
+                ++ " is not in the repository. Give a path relative to the root of the repository."
         | otherwise -> Right dir
 
 -- | The command line that gives the options. It contains @--config@ if the user

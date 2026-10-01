@@ -33,7 +33,10 @@ golden fixture = do
   let dir = goldenDir </> fixture
   args <- readArgs (dir </> "args")
   hasConfig <- doesFileExist (dir </> "haskell-gha.conf.yml")
-  let args' = if hasConfig && "--config" `notElem` args then args ++ ["--config", "haskell-gha.conf.yml"] else args
+  let args' =
+        if hasConfig && "--config" `notElem` args
+          then args ++ ["--config", "haskell-gha.conf.yml"]
+          else args
   opts <- case execParserPure defaultPrefs (optionsParser "TEST") ("--generate" : args') of
     Success (Generate opts) -> pure opts
     _ -> assertFailure $ "invalid arguments: " ++ unwords args'

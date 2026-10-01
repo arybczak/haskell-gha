@@ -42,7 +42,10 @@ instance Ord GhcEntry where
 entryRange :: GhcEntry -> VersionRange
 entryRange = \case
   GhcExact v -> thisVersion v
-  GhcSeries x y -> intersectVersionRanges (orLaterVersion (mkVersion [x, y, 1])) (earlierVersion (mkVersion [x, y + 1]))
+  GhcSeries x y ->
+    intersectVersionRanges
+      (orLaterVersion (mkVersion [x, y, 1]))
+      (earlierVersion (mkVersion [x, y + 1]))
 
 -- | The value of the entry in the matrix.
 entryText :: GhcEntry -> T.Text

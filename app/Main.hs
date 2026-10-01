@@ -43,7 +43,13 @@ main = do
           current <- if exists then Just <$> BS.readFile opts.output else pure Nothing
           let upToDate = current == Just rendered
           if check
-            then pure ["The workflow " ++ opts.output ++ " is not up to date. To update it, run haskell-gha without --check." | not upToDate]
+            then
+              pure
+                [ "The workflow "
+                    ++ opts.output
+                    ++ " is not up to date. To update it, run haskell-gha without --check."
+                | not upToDate
+                ]
             else do
               -- A write of the same content changes the mtime. Then tools
               -- that trust the Git index, e.g. gitk, list the file as changed.

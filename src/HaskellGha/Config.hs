@@ -184,7 +184,8 @@ instance FromYaml ActionRef where
       | [owner, name] <- T.splitOn "/" repo
       , all word [owner, name, r] ->
           pure ActionRef {repository = Just repo, ref = r}
-    _ -> fail "expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
+    _ ->
+      fail "expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
     where
       word :: T.Text -> Bool
       word w = not (T.null w) && not (T.any isSpace w)
@@ -200,7 +201,8 @@ instance FromYaml CabalVersion where
     "latest" -> pure CabalLatest
     t -> case simpleParsec (T.unpack t) of
       Just v
-        | take 2 (versionNumbers v) < [3, 12] -> fail "the tool supports only cabal 3.12 and later"
+        | take 2 (versionNumbers v) < [3, 12] ->
+            fail "the tool supports only cabal 3.12 and later"
         | otherwise -> pure $ CabalVersion v
       Nothing -> fail "expected latest or a version"
 
@@ -232,7 +234,10 @@ data Dependencies
   deriving (FromYaml) via GenericYaml Dependencies
 
 instance GenericYamlOptions Dependencies where
-  yamlOptions = defaultYamlOptions {constructorTagModifier = map toLower . drop (length @[] "Dependencies")}
+  yamlOptions =
+    defaultYamlOptions
+      { constructorTagModifier = map toLower . drop (length @[] "Dependencies")
+      }
 
 -- | The Git submodules that the build jobs fetch.
 data Submodules
@@ -517,11 +522,17 @@ instance FromYaml Matrix where
       m = copyNode n
 
       axes :: [(Node, Node)] -> [Located T.Text]
-      axes es = [Located k key.offset | (key@Node {content = ScalarContent _ k}, _) <- es, k `notElem` ["ghc", "include", "exclude"]]
+      axes es =
+        [ Located k key.offset
+        | (key@Node {content = ScalarContent _ k}, _) <- es
+        , k `notElem` ["ghc", "include", "exclude"]
+        ]
 
       combinations :: T.Text -> [(Node, Node)] -> [[(T.Text, Located T.Text)]]
       combinations list es =
-        [ [(f, Located t v.offset) | (Node {content = ScalarContent _ f}, v@Node {content = ScalarContent _ t}) <- fields]
+        [ [ (f, Located t v.offset)
+          | (Node {content = ScalarContent _ f}, v@Node {content = ScalarContent _ t}) <- fields
+          ]
         | (Node {content = ScalarContent _ k}, Node {content = SequenceContent _ items}) <- es
         , k == list
         , Node {content = MappingContent _ fields} <- items
@@ -530,7 +541,8 @@ instance FromYaml Matrix where
       entry :: [T.Text] -> (Node, Node) -> Parser ()
       entry as = \case
         (key@Node {content = ScalarContent _ k}, v)
-          | k == "ghc" -> failAt key "the tool makes the ghc axis, so the matrix must not contain it"
+          | k == "ghc" ->
+              failAt key "the tool makes the ghc axis, so the matrix must not contain it"
           | k `elem` ["include", "exclude"] -> case v.content of
               SequenceContent _ items -> traverse_ (combination as (k == "exclude")) items
               _ -> typeMismatch "a list of mappings" v
@@ -545,7 +557,9 @@ instance FromYaml Matrix where
       -- The job name refers to each axis as matrix.<name>.
       identifier :: T.Text -> Bool
       identifier t = case T.uncons t of
-        Just (c, rest) -> (isAsciiAlpha c || c == '_') && T.all (\x -> isAsciiAlpha x || isDigit x || x `elem` ['_', '-']) rest
+        Just (c, rest) ->
+          (isAsciiAlpha c || c == '_')
+            && T.all (\x -> isAsciiAlpha x || isDigit x || x `elem` ['_', '-']) rest
         Nothing -> False
         where
           isAsciiAlpha :: Char -> Bool
@@ -557,7 +571,15 @@ instance FromYaml Matrix where
           ghcValue fields
             -- Whether dependencies is a valid key depends on the dependencies
             -- setting, so the checks of the workflow decide it.
-            *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = ScalarContent _ k}, _) <- fields, k `notElem` ["ghc", "dependencies"]])
+            *> when
+              isExclude
+              ( traverse_
+                  (unknownAxis as)
+                  [ (key, k)
+                  | (key@Node {content = ScalarContent _ k}, _) <- fields
+                  , k `notElem` ["ghc", "dependencies"]
+                  ]
+              )
         _ -> typeMismatch "a mapping" item
 
       ghcValue :: [(Node, Node)] -> Parser ()
