@@ -15,7 +15,7 @@ import Yamlet
 
 import HaskellGha.Options
 import HaskellGha.Workflow
-import HaskellGha.Yaml
+import Utils
 
 -- | A test for each directory in @tests/golden@. The test runs the tool in the
 -- directory, with the arguments from the file @args@. If the directory contains

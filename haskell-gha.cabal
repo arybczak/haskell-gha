@@ -128,5 +128,6 @@ test-suite test
     other-modules:  ConfigTests
                     GoldenTests
                     ProjectTests
+                    Utils
                     WorkflowTests
                     YamlTests

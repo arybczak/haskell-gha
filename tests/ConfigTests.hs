@@ -12,6 +12,7 @@ import Yamlet.Syntax hiding (Version)
 
 import HaskellGha.Config
 import HaskellGha.Yaml
+import Utils
 
 configTests :: TestTree
 configTests =

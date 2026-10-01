@@ -7,6 +7,7 @@ import Yamlet
 import Yamlet.Syntax
 
 import HaskellGha.Yaml
+import Utils
 
 yamlTests :: TestTree
 yamlTests =
