@@ -1,0 +1,6 @@
+dependencies: both
+head-hackage: '>=10.0'
+matrix:
+  exclude:
+  - ghc: '10.0'
+    dependencies: oldest

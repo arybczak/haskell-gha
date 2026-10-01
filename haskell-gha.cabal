@@ -25,7 +25,7 @@ extra-source-files:
   tests/golden/**/*.yml
   tests/golden/**/args
 
-tested-with: GHC ^>= { 9.6, 9.8, 9.10, 9.12, 9.14 }
+tested-with: GHC ^>= { 9.6, 9.8, 9.10, 9.12, 9.14, 10.0 }
 
 bug-reports:   https://github.com/arybczak/haskell-gha/issues
 source-repository head

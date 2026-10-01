@@ -26,6 +26,8 @@ workflowTests =
     [ testCase "a ghc value of the matrix that is not in the axis" test_unknownGhcValue
     , testCase "the dependencies axis" test_dependenciesAxis
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
+    , testCase "a head-hackage range that includes a part of a series" test_partialHeadHackageRange
+    , testCase "head-hackage with the oldest dependencies" test_oldestHeadHackage
     , testCase "an unknown package in doctest.skip" test_unknownSkip
     , testCase "the errors of independent checks are collected" test_independentChecks
     , testCase "the command line in the header" test_headerCommandLine
@@ -205,6 +207,18 @@ test_partialDoctestRange =
   assertErrors
     "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
     ["conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+
+test_partialHeadHackageRange :: Assertion
+test_partialHeadHackageRange =
+  assertErrors
+    "head-hackage: '>=9.12.2'\n"
+    ["conf.yml:1:15: head-hackage: the range >=9.12.2 includes only a part of the GHC versions of the matrix entry 9.12, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."]
+
+test_oldestHeadHackage :: Assertion
+test_oldestHeadHackage =
+  assertErrors
+    "dependencies: oldest\nhead-hackage: '>=9.12'\n"
+    ["conf.yml:2:15: head-hackage: the range >=9.12 includes the matrix entries 9.12, but head.hackage allows newer versions of the libraries that come with GHC, so a job with dependencies: oldest cannot test the lower bounds. Change the range, or set dependencies to newest or both."]
 
 test_independentChecks :: Assertion
 test_independentChecks =

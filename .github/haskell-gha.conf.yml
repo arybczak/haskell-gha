@@ -11,6 +11,11 @@ hooks:
       bin=$(cd "$RUNNER_TEMP"/haskell-gha && cabal list-bin haskell-gha)
       "$bin" --check
 dependencies: both
+head-hackage: '^>=10.0'
+matrix:
+  exclude:
+  - ghc: '10.0'
+    dependencies: oldest
 fourmolu:
   enabled: true
   version: 0.20.1.0

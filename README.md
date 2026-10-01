@@ -39,8 +39,8 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 - The workflow can check the formatting with fourmolu and the code with HLint,
   each in its own job. `haskell-ci` has no such jobs.
 
-`haskell-ci` has features that `haskell-gha` does not have, e.g. macOS jobs, GHC
-prereleases, head.hackage, GHCJS and constraint sets with arbitrary constraints.
+`haskell-ci` has features that `haskell-gha` does not have, e.g. macOS jobs,
+GHCJS and constraint sets with arbitrary constraints.
 If you need one of these features, use `haskell-ci`.
 
 ## Installation
@@ -126,7 +126,9 @@ error. Each part of the field must be one of these two forms:
   this version. A shorter version, e.g. `GHC == 9.10`, is an error, because
   no GHC release has it.
 - A major series, e.g. `GHC ^>= 9.10` or `GHC == 9.10.*`. The job uses the
-  newest release of the series that `haskell-actions/setup` knows.
+  newest release of the series that `haskell-actions/setup` knows. Before
+  the first release of a series, the job uses its newest prerelease. To
+  build the dependencies of a prerelease, see [head.hackage](#headhackage).
 
 A package can mix the two forms, e.g.
 `tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12`. An open range, e.g.
@@ -172,10 +174,10 @@ Ubuntu 25.10 and later do not install it by default.
 
 All keys of the configuration file are optional. An unknown key is an error.
 YAML reads a key without a value as `null`, which is an error for most keys. For
-`container` and `services`, `null` is valid and means none. The tool reports all
-errors in the file together. If YAML reads a text value as a number, a boolean
-or a null, quote the value, e.g. `version: '3.10'`. Without quotes, YAML reads
-`3.10` as the number 3.1. This example shows all keys:
+`container`, `services` and `head-hackage`, `null` is valid and means none. The
+tool reports all errors in the file together. If YAML reads a text value as a
+number, a boolean or a null, quote the value, e.g. `version: '3.10'`. Without
+quotes, YAML reads `3.10` as the number 3.1. This example shows all keys:
 
 ```yaml
 name: CI
@@ -216,6 +218,7 @@ jobs: 4
 tests: true
 benchmarks: true
 dependencies: newest
+head-hackage: '>=10.0'
 doctest:
   enabled: true
   ghc: '>=9.6 && <9.14'
@@ -264,6 +267,7 @@ actions:
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `dependencies` | `newest` | The versions of the dependencies: `newest`, `oldest` or `both`. See [Dependencies](#dependencies). |
+| `head-hackage` | none | The GHC versions that use the patched packages of head.hackage. See [head.hackage](#headhackage). |
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
 | `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
 | `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
@@ -389,6 +393,45 @@ with a new GHC. Then raise the lower bound in the `.cabal` file.
 lower bounds. Make it with `--generate`, `--config` and `--output`, and give
 it its own `name`. The main workflow can then be a required check on GitHub,
 and the second workflow an optional one.
+
+## head.hackage
+
+head.hackage is a package repository with patched versions of Hackage
+packages for GHC prereleases. A dependency that does not build yet with a
+prerelease often has a patch there.
+
+With `head-hackage`, the jobs of the GHC versions in the range use
+head.hackage, e.g. `head-hackage: '>=10.0'`. Before the build plan, these
+jobs add the repository of head.hackage to `cabal.project.local` and update
+the package index. The repository overrides Hackage, so cabal uses only the
+patched versions of a package that head.hackage contains. The jobs also allow
+newer versions of all libraries that come with GHC, because the patched
+packages keep their old bounds on them.
+
+The range must include all GHC versions of a matrix entry or none of them,
+as for `doctest.ghc`.
+
+Because of `allow-newer`, a job with head.hackage cannot test the lower
+bounds. With `prefer-oldest`, cabal also tries very old releases and often
+finds no build plan. With `dependencies: both`, exclude the oldest jobs of
+the GHC versions in the range:
+
+```yaml
+dependencies: both
+head-hackage: '>=10.0'
+matrix:
+  exclude:
+  - ghc: '10.0'
+    dependencies: oldest
+```
+
+With `dependencies: oldest`, a range that includes a GHC version of the
+matrix is an error. A prerelease can work without head.hackage, so an
+oldest job can still test it.
+
+doctest does not use head.hackage, because the workflow installs doctest
+outside the project. If doctest does not build with a GHC version in the
+range, leave that version out of `doctest.ghc`.
 
 ## Source tarballs
 
