@@ -687,9 +687,10 @@ tool keeps its comments. Otherwise the tool drops them:
   axis, and the empty line stays below them, so they do not read as a comment
   of `ghc`. The comments below the empty line belong to the first entry of the
   configuration and stay above that entry.
-- The workflow has no `hooks` key and no hook lists. The steps of the hooks
-  go into the steps of the job unchanged, with the comments inside and
-  between them. The tool drops all other comments in `hooks`.
+- The workflow has no `hooks` key and no hook lists. The steps of the hooks go
+  into the steps of the job unchanged, with the comments inside them and the
+  comment lines directly above each step, as for a copied key. The tool drops
+  all other comments in `hooks`.
 - A comment at the top of the file above an empty line belongs to the root
   mapping, so it describes the file, and the tool drops it. A comment directly
   above the first key belongs to that key. If the workflow copies that key, the

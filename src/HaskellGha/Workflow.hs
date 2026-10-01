@@ -462,11 +462,17 @@ workflow opts source config project = runCheck $ checks $> root
       sequenceNode $
         concat
           [ setupSteps
-          , map (.value) config.hooks.afterSetup
+          , map hookStep config.hooks.afterSetup
           , buildSteps
-          , map (.value) config.hooks.afterBuild
+          , map hookStep config.hooks.afterBuild
           , testSteps
           ]
+      where
+        hookStep :: MappingNode -> Node
+        hookStep s = Node n.offset n.endOffset n.props n.comments {before = directlyAbove n.comments.before} n.content
+          where
+            n :: Node
+            n = s.value
 
     setupSteps :: [Node]
     setupSteps =

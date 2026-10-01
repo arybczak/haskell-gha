@@ -630,4 +630,4 @@ you change the system of such a runner, delete the repository caches.
 The workflow contains only the comments in the copied keys and directly above
 them. The tool drops a comment above another key, e.g. `apt`, and a comment
 above an empty line, e.g. at the top of the file. Of the comments in `hooks`, it
-keeps only the comments inside and between the steps of a hook.
+keeps only the comments in the steps of a hook and directly above them.

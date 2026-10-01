@@ -80,9 +80,7 @@ renderDocument header separated root =
               _ -> v
           )
 
-        -- An entry that already has an empty line above it, e.g. a hook step
-        -- after an empty line in the configuration, gets no second one.
         spaced :: Int -> Node -> Node
         spaced i x
-          | i > 0 && separated path && EmptyLine `notElem` x.comments.before = addBefore [EmptyLine] x
+          | i > 0 && separated path = addBefore [EmptyLine] x
           | otherwise = x

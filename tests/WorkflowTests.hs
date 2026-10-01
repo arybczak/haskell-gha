@@ -71,6 +71,10 @@ test_comments = do
         , "  after-build:"
         , "    # The step."
         , "    - run: echo a"
+        , "    # A section."
+        , ""
+        , "    # The second step."
+        , "    - run: echo b"
         , "    # The last lines."
         , "  # The end of the hooks."
         ]
@@ -85,7 +89,8 @@ test_comments = do
   assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
   assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]
   assertLines "step" ["    # The step.", "    - run: echo a"]
-  assertEqual "end of the steps" [T.pack "    - run: echo a"] (drop (length rendered - 1) rendered)
+  assertLines "second step" ["    - run: echo a", "", "    # The second step.", "    - run: echo b"]
+  assertEqual "end of the steps" [T.pack "    - run: echo b"] (drop (length rendered - 1) rendered)
   assertBool "hook key" $ T.pack "    # The steps after the build." `notElem` rendered
   assertEqual "runs-on of the build job only" 1 (length (filter (== T.pack "    # The runner of the build.") rendered))
 
