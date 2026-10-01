@@ -279,7 +279,7 @@ defaults, e.g.:
 
 ```yaml
 branches: [master]
-apt: [libpq-dev]
+apt: [libsodium-dev]
 dependencies: both
 fourmolu:
   enabled: true
@@ -305,7 +305,7 @@ matrix:
   exclude:
   - ghc: '9.10'
     postgres: '15'
-apt: [libpq-dev]
+apt: [libsodium-dev]
 services:
   postgres:
     image: postgres:${{ matrix.postgres }}
