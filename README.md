@@ -380,7 +380,7 @@ hooks.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. The default is not `latest`, because cabal 3.18.1.0 has a bug in the GHC job semaphore ([cabal issue 12306](https://github.com/haskell/cabal/issues/12306)). |
+| `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add to `cabal.project.local`, e.g. package flags or constraints. See [Extra cabal.project.local text](#extra-cabalprojectlocal-text). |
 | `jobs` | `4` | The number of parallel build jobs. |
