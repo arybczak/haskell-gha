@@ -10,6 +10,20 @@ The workflow uses `haskell-actions/setup` to install GHC and cabal, it caches
 the cabal store, and it runs each GHC version in its own job. Only Linux is
 supported.
 
+## Contents
+
+- [Quick start](#quick-start)
+- [What the workflow does](#what-the-workflow-does)
+- [Comparison with `haskell-ci`](#comparison-with-haskell-ci)
+- [Usage](#usage)
+- [GHC versions](#ghc-versions)
+- [Configuration](#configuration)
+- [Container](#container)
+- [Dependencies](#dependencies)
+- [Source tarballs](#source-tarballs)
+- [Extra checks](#extra-checks)
+- [Known limits](#known-limits)
+
 ## Quick start
 
 Build the tool from the source:
