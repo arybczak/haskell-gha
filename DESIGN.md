@@ -681,9 +681,12 @@ tool keeps its comments. Otherwise the tool drops them:
 - The comments of `runs-on` go only to the build job. A fourmolu or HLint
   job without its own `runs-on` gets the value of the key, but not its
   comments. A job with its own `runs-on` gets the comments of that key.
-- The workflow adds the `ghc` axis as the first entry of `matrix`. The
-  comments above the first entry of the configuration stay above that
-  entry.
+- The workflow adds the `ghc` axis as the first entry of `matrix`. The parser
+  gives the comments below `matrix:` and above an empty line to the matrix, so
+  they describe the whole matrix. They stay below `matrix:`, above the `ghc`
+  axis, and the empty line stays below them, so they do not read as a comment
+  of `ghc`. The comments below the empty line belong to the first entry of the
+  configuration and stay above that entry.
 - The workflow has no `hooks` key and no hook lists. The steps of the hooks
   go into the steps of the job unchanged, with the comments inside and
   between them. The tool drops all other comments in `hooks`.

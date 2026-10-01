@@ -442,23 +442,23 @@ workflow opts source config project = runCheck $ checks $> root
     bothDependencies :: Bool
     bothDependencies = config.dependencies == DependenciesBoth
 
-    -- The comments after the matrix are in its entry, so the entry writes
-    -- them after the new matrix.
+    -- The comments below matrix: and above an empty line describe the whole
+    -- matrix, so they stay above the ghc axis. The comments after the matrix
+    -- are in its entry, so the entry writes them after the new matrix.
     matrix :: Node
     matrix =
-      mappingConcat
-        [ ["ghc" .= sequenceNode (map (singleQuoted . entryText) entries)]
-        , ["dependencies" .= sequenceNode [plain "newest", plain "oldest"] | bothDependencies]
-        , extraAxes
-        ]
+      addBefore config.matrix.value.leading $
+        mappingConcat
+          [ ["ghc" .= sequenceNode (map (singleQuoted . entryText) entries)]
+          , ["dependencies" .= sequenceNode [plain "newest", plain "oldest"] | bothDependencies]
+          , extraAxes
+          ]
 
-    -- The lines of the matrix itself, i.e. the lines above an empty line
-    -- before its first entry, go above that entry, not above the ghc axis.
-    -- The empty lines there are dropped, because the ghc axis now comes
-    -- before them.
+    -- The ghc axis now comes before the first entry of the user, so the empty
+    -- lines above that entry are dropped.
     extraAxes :: [(Node, Node)]
     extraAxes = case config.matrix.value.entries of
-      (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.value.leading k), v) : rest
+      (k, v) : rest -> (dropEmptyLines k, v) : rest
       [] -> []
       where
         dropEmptyLines :: Node -> Node

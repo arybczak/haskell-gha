@@ -49,8 +49,9 @@ test_comments = do
         [ "# The permissions of the workflow."
         , "permissions: read-all # For the checkout."
         , "matrix:"
-        , "  # The first axis."
+        , "  # The matrix."
         , ""
+        , "  # The first axis."
         , "  os: [a, b]"
         , "  # The end of the matrix."
         , "tests: false"
@@ -73,6 +74,7 @@ test_comments = do
   let rendered = T.lines $ renderWorkflow "TEST" defaultOptions node
       assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
   assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
+  assertLines "matrix" ["      matrix:", "        # The matrix.", "", "        ghc:"]
   assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
   assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]
   assertLines "step" ["    # The step.", "    - run: echo a"]
