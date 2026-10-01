@@ -20,6 +20,9 @@ cd haskell-gha
 cabal install
 ```
 
+Each package of the project needs GHC versions in its `tested-with` field, e.g.
+`tested-with: GHC ^>= 9.10 || ^>= 9.12`. See [GHC versions](#ghc-versions).
+
 In the root of your repository, make the first workflow:
 
 ```
@@ -144,9 +147,10 @@ again.
 
 ### Versions in `tested-with`
 
-The `tested-with` field of each package gives the GHC versions. The tool
-supports GHC 8.10 and later, and an older version in `tested-with` is an error.
-Each part of the field must be one of these two forms:
+The `tested-with` field of each package gives the GHC versions. A package
+without a GHC version in `tested-with` is an error. The tool supports GHC 8.10
+and later, and an older version in `tested-with` is an error. Each part of the
+field must be one of these two forms:
 
 - An exact version with three parts, e.g. `GHC == 9.10.3`. The job uses this
   version. A shorter version, e.g. `GHC == 9.10`, is an error, because no GHC
@@ -394,7 +398,19 @@ keys gives one in `options`.
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
 
 A hook is a list of GitHub Actions steps. An `after-setup` hook can install a
-library that the dependencies need, e.g. one that `apt` does not have.
+library that the dependencies need, e.g. one that `apt` does not have. An
+`after-build` hook can prepare the tests. For example, with the `postgres`
+service from the example with all keys, this hook creates a database for the
+tests:
+
+```yaml
+hooks:
+  after-build:
+  - name: Create the test database
+    run: psql -h localhost -U postgres -c 'CREATE DATABASE test'
+    env:
+      PGPASSWORD: postgres
+```
 
 A `run` step of a hook starts in the project directory of the checkout. A `uses`
 step starts in the root of the repository, because GitHub applies the run
