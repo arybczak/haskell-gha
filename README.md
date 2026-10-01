@@ -12,9 +12,9 @@ version in its own job. Only Linux is supported.
 
 ## Compared to `haskell-ci`
 
-`haskell-gha` replaces [`haskell-ci`](https://github.com/haskell-CI/haskell-ci)
-for projects that use only GitHub Actions on Linux. It improves on `haskell-ci`
-in these points:
+`haskell-gha` is an alternative to
+[`haskell-ci`](https://github.com/haskell-CI/haskell-ci) for projects that use
+only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 
 - The jobs install GHC and cabal with `haskell-actions/setup`, not with a manual
   installation of GHCup. They run on the runner image, or optionally in a job
