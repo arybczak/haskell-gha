@@ -279,8 +279,6 @@ The configuration file is YAML. These rules apply to it:
 - All keys are optional. An unknown key is an error.
 - YAML reads a key without a value as `null`, which is an error for most keys.
   For `container` and `services`, `null` is valid and means none.
-- If YAML reads a text value as a number, a boolean or a null, quote the value,
-  e.g. `version: '3.10'`. Without quotes, YAML reads `3.10` as the number 3.1.
 - The tool reports all errors in the file together.
 
 A file needs only the keys that differ from the defaults, e.g.:
