@@ -274,13 +274,8 @@ out of `doctest.ghc`.
 
 ## Configuration
 
-The configuration file is YAML. These rules apply to it:
-
-- All keys are optional. An unknown key is an error.
-- YAML reads a key without a value as `null`, which is an error for most keys.
-  For `container` and `services`, `null` is valid and means none.
-
-A file needs only the keys that differ from the defaults, e.g.:
+The configuration file is YAML. It needs only the keys that differ from the
+defaults, e.g.:
 
 ```yaml
 branches: [master]
