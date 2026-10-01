@@ -66,12 +66,17 @@ jobs:
         benchmarks: True
 
         package checkout
-          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+          ghc-options: -Werror
         EOF
 
     - name: Enable the GHC job semaphore
       run: |
-        echo 'semaphore: True' >> cabal.project.local
+        cat >> cabal.project.local <<'EOF'
+        semaphore: True
+
+        package checkout
+          ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+        EOF
 
     - name: Make the build plan
       id: plan

@@ -380,9 +380,9 @@ hooks.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. See [Defaults that avoid a bug](#defaults-that-avoid-a-bug). |
-| `ghc-options` | `-Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure` | GHC options for the local packages only, on one line. An empty string disables them. See [Defaults that avoid a bug](#defaults-that-avoid-a-bug). |
-| `cabal-project-local` | none | Text to add at the end of `cabal.project.local`, e.g. package flags or constraints. See [Extra cabal.project.local text](#extra-cabalprojectlocal-text). |
+| `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. The default is not `latest`, because cabal 3.18.1.0 has a bug in the GHC job semaphore ([cabal issue 12306](https://github.com/haskell/cabal/issues/12306)). |
+| `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
+| `cabal-project-local` | none | Text to add to `cabal.project.local`, e.g. package flags or constraints. See [Extra cabal.project.local text](#extra-cabalprojectlocal-text). |
 | `jobs` | `4` | The number of parallel build jobs. |
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
@@ -396,20 +396,6 @@ before it makes the build plan, so the cache of each job contains the
 dependencies that the text adds. The text comes after the `ghc-options` stanzas,
 so it can add more options. A line of the text must not be `EOF`. You can use
 GitHub expressions in the text.
-
-#### Defaults that avoid a bug
-
-The default `cabal-version` is not `latest`. As of October 2026, `latest`
-selects cabal 3.18.1.0, and that version has a bug in the GHC job semaphore.
-[Cabal issue 12306](https://github.com/haskell/cabal/issues/12306) describes the
-bug.
-
-The default `ghc-options` stop one warning from failing the build under
-`-Werror`. GHC and cabal can use different versions of the job semaphore
-protocol. GHC then warns that it cannot use the semaphore, and it compiles the
-modules one at a time. An older GHC does not know this warning, so the options
-also stop the warning about an unknown warning flag from failing the build. If
-you set `ghc-options`, add both `-Wwarn` options.
 
 ### Checks
 

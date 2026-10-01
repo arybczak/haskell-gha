@@ -78,7 +78,7 @@ jobs:
         benchmarks: True
 
         package example
-          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+          ghc-options: -Werror
         EOF
 
     - name: Enable parallel module builds for the local packages
@@ -94,7 +94,12 @@ jobs:
       if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
-        echo 'semaphore: True' >> cabal.project.local
+        cat >> cabal.project.local <<'EOF'
+        semaphore: True
+
+        package example
+          ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+        EOF
 
     - name: Make the build plan
       id: plan

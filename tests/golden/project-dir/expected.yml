@@ -108,13 +108,18 @@ jobs:
         benchmarks: True
 
         package app
-          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+          ghc-options: -Werror
         EOF
 
     - name: Enable the GHC job semaphore
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
-        echo 'semaphore: True' >> cabal.project.local
+        cat >> cabal.project.local <<'EOF'
+        semaphore: True
+
+        package app
+          ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+        EOF
 
     - name: Make the build plan
       id: plan
