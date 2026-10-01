@@ -130,8 +130,9 @@ repository.
 
 Each workflow file starts with a header comment that gives the command that made
 the file and the tool version. Without options, the tool finds each file in
-`.github/workflows` with this header and runs the command from the header again.
-If no file has the header, the tool stops with an error.
+`.github/workflows` with this header and generates the workflow again with the
+options from the header. If no file has the header, the tool stops with an
+error.
 
 The `--output` of the command in the header must be the file itself, so a
 renamed workflow file is an error. To rename a workflow file, run the command
