@@ -210,13 +210,7 @@ newtype Container = Container {image :: T.Text}
   deriving stock (Eq, Show)
 
 instance FromYaml Container where
-  parseYaml = withText $ \t ->
-    if t `elem` images
-      then pure $ Container t
-      else fail $ "expected one of: " ++ T.unpack (T.intercalate ", " images)
-    where
-      images :: [T.Text]
-      images = map ("buildpack-deps:" <>) containerVersions
+  parseYaml = oneOf [(i, Container i) | v <- containerVersions, let i = "buildpack-deps:" <> v]
 
 -- | The Ubuntu versions of the buildpack-deps images of the LTS releases, from
 -- the file library/buildpack-deps of docker-library/official-images on

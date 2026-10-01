@@ -183,9 +183,9 @@ test_errors = do
   assertError "timeout-minutes" "timeout-minutes: expected a positive integer" "timeout-minutes: 0\n"
   assertError "tests" "tests: expected a boolean, but got a string" "tests: 'true'\n"
   assertError "branches" "branches: expected a non-empty list" "branches: []\n"
-  assertError "container" containerError "container: ubuntu:26.04\n"
-  assertError "container codename" containerError "container: buildpack-deps:resolute\n"
-  assertError "container interim release" containerError "container: buildpack-deps:26.10\n"
+  assertError "container" (containerError "ubuntu:26.04") "container: ubuntu:26.04\n"
+  assertError "container codename" (containerError "buildpack-deps:resolute") "container: buildpack-deps:resolute\n"
+  assertError "container interim release" "container: unknown value \"buildpack-deps:26.10\", did you mean \"buildpack-deps:26.04\"?" "container: buildpack-deps:26.10\n"
   assertError "dependencies" "dependencies: unknown value \"old\", expected one of: newest, oldest, both" "dependencies: old\n"
   assertError "submodules" "submodules: expected true, false or recursive" "submodules: 'yes'\n"
   assertError "runs-on" "runs-on: expected a runner label, a list of labels or a mapping" "runs-on: 1\n"
@@ -234,8 +234,8 @@ test_errors = do
     dropLocation :: String -> String
     dropLocation = drop 1 . dropWhile (/= ' ')
 
-    containerError :: String
-    containerError = "container: expected one of: buildpack-deps:22.04, buildpack-deps:24.04, buildpack-deps:26.04"
+    containerError :: String -> String
+    containerError image = "container: unknown value " ++ show image ++ ", expected one of: buildpack-deps:22.04, buildpack-deps:24.04, buildpack-deps:26.04"
 
     actionError :: String
     actionError = "actions.setup: expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
