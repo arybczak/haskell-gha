@@ -218,7 +218,7 @@ workflow opts source config project = runCheck $ checks $> root
     checkDependencies :: Check ()
     checkDependencies
       | bothDependencies = do
-          traverse_ ownAxis [key.offset | (key@Node {content = Scalar _ "dependencies"}, _) <- matrixEntries config]
+          traverse_ ownAxis [key.offset | (key@Node {content = ScalarContent _ "dependencies"}, _) <- matrixEntries config]
           traverse_ value (matrixValues ["include", "exclude"] "dependencies" config)
       | "dependencies" `elem` matrixAxes config = pure ()
       | otherwise = traverse_ noAxis (matrixValues ["exclude"] "dependencies" config)

@@ -8,8 +8,8 @@ module HaskellGha.Yaml
   , Line (..)
   , noComments
   , Offset
-  , Y.Commented (..)
-  , Y.Located (..)
+  , Commented (..)
+  , Located (..)
   , Document
   , document
 
@@ -19,11 +19,11 @@ module HaskellGha.Yaml
   , singleQuoted
   , literal
   , scalarNode
-  , Y.mapping
+  , mapping
   , sequenceNode
   , addBefore
-  , Y.ToYaml (..)
-  , (Y..=)
+  , ToYaml (..)
+  , (.=)
 
     -- * Queries
   , normalize
@@ -33,7 +33,7 @@ module HaskellGha.Yaml
   ) where
 
 import Data.Text qualified as T
-import Yamlet qualified as Y
+import Yamlet
 import Yamlet.Schema
 import Yamlet.Syntax
 
@@ -72,8 +72,8 @@ addBefore ls n = Node n.offset n.endOffset n.props (Comments (ls ++ c.before) c.
 -- to a built one.
 normalize :: Node -> Node
 normalize n = Node noOffset noOffset n.props noComments $ case n.content of
-  Sequence _ xs -> Sequence Block (map normalize xs)
-  Mapping _ kvs -> Mapping Block [(normalize k, normalize v) | (k, v) <- kvs]
+  SequenceContent _ xs -> SequenceContent Block (map normalize xs)
+  MappingContent _ kvs -> MappingContent Block [(normalize k, normalize v) | (k, v) <- kvs]
   c -> c
 
 ----------------------------------------
@@ -97,8 +97,8 @@ renderDocument header separated root =
   where
     separate :: [T.Text] -> Node -> Node
     separate path n = case n.content of
-      Mapping style entries -> withContent (Mapping style (zipWith entry [0 ..] entries))
-      Sequence style items | separated path -> withContent (Sequence style (zipWith spaced [0 ..] items))
+      MappingContent style entries -> withContent (MappingContent style (zipWith entry [0 ..] entries))
+      SequenceContent style items | separated path -> withContent (SequenceContent style (zipWith spaced [0 ..] items))
       _ -> n
       where
         withContent :: Content -> Node
@@ -108,7 +108,7 @@ renderDocument header separated root =
         entry i (k, v) =
           ( spaced i k
           , case k.content of
-              Scalar _ name -> separate (path ++ [name]) v
+              ScalarContent _ name -> separate (path ++ [name]) v
               _ -> v
           )
 

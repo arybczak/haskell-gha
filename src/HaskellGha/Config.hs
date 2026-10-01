@@ -58,7 +58,7 @@ import Distribution.Parsec
 import Distribution.Version
 import System.Directory hiding (Permissions)
 import System.FilePath
-import Yamlet hiding (Mapping, Sequence)
+import Yamlet
 
 import HaskellGha.Yaml
 
@@ -388,7 +388,7 @@ newtype MappingNode = MappingNode {value :: Node}
 
 instance FromYaml MappingNode where
   parseYaml n = case n.content of
-    Mapping {} -> MappingNode <$> parseYaml n
+    MappingContent {} -> MappingNode <$> parseYaml n
     _ -> typeMismatch "a mapping" n
 
 -- | The permissions of the workflow: a mapping, @read-all@ or @write-all@.
@@ -468,18 +468,18 @@ newtype Matrix = Matrix {value :: Node}
 
 instance FromYaml Matrix where
   parseYaml n = case n.content of
-    Mapping _ entries -> traverse_ (entry (axes entries)) entries *> (Matrix <$> parseYaml n)
+    MappingContent _ entries -> traverse_ (entry (axes entries)) entries *> (Matrix <$> parseYaml n)
     _ -> typeMismatch "a mapping" n
     where
       axes :: [(Node, Node)] -> [T.Text]
-      axes entries = [k | (Node {content = Scalar _ k}, _) <- entries, k `notElem` ["ghc", "include", "exclude"]]
+      axes entries = [k | (Node {content = ScalarContent _ k}, _) <- entries, k `notElem` ["ghc", "include", "exclude"]]
 
       entry :: [T.Text] -> (Node, Node) -> Parser ()
       entry as = \case
-        (key@Node {content = Scalar _ k}, v)
+        (key@Node {content = ScalarContent _ k}, v)
           | k == "ghc" -> failAt key "the tool makes the ghc axis, so the matrix must not contain it"
           | k `elem` ["include", "exclude"] -> case v.content of
-              Sequence _ items -> traverse_ (combination as (k == "exclude")) items
+              SequenceContent _ items -> traverse_ (combination as (k == "exclude")) items
               _ -> typeMismatch "a list of mappings" v
           | not (identifier k) ->
               failAt key $
@@ -500,16 +500,16 @@ instance FromYaml Matrix where
 
       combination :: [T.Text] -> Bool -> Node -> Parser ()
       combination as isExclude item = case item.content of
-        Mapping _ fields ->
+        MappingContent _ fields ->
           ghcValue fields
             -- The dependencies axis depends on another key, so the checks of
             -- the workflow decide it.
-            *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = Scalar _ k}, _) <- fields, k `notElem` ["ghc", "dependencies"]])
+            *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = ScalarContent _ k}, _) <- fields, k `notElem` ["ghc", "dependencies"]])
         _ -> typeMismatch "a mapping" item
 
       ghcValue :: [(Node, Node)] -> Parser ()
-      ghcValue fields = case [v | (Node {content = Scalar _ "ghc"}, v) <- fields] of
-        Node {content = Scalar s _} : _ | s `elem` [SingleQuoted, DoubleQuoted] -> pure ()
+      ghcValue fields = case [v | (Node {content = ScalarContent _ "ghc"}, v) <- fields] of
+        Node {content = ScalarContent s _} : _ | s `elem` [SingleQuoted, DoubleQuoted] -> pure ()
         v : _ -> failAt v "a ghc value must be a quoted string, e.g. '9.10'"
         [] -> pure ()
 
@@ -525,14 +525,14 @@ instance FromYaml Matrix where
 -- | The entries of the @matrix@ mapping.
 matrixEntries :: Config -> [(Node, Node)]
 matrixEntries config = case config.matrix.value.value.content of
-  Mapping _ entries -> entries
+  MappingContent _ entries -> entries
   _ -> []
 
 -- | The names of the extra axes.
 matrixAxes :: Config -> [T.Text]
 matrixAxes config =
   [ k
-  | (Node {content = Scalar _ k}, _) <- matrixEntries config
+  | (Node {content = ScalarContent _ k}, _) <- matrixEntries config
   , k `notElem` ["include", "exclude"]
   ]
 
@@ -546,10 +546,10 @@ matrixValues
   -> [Located T.Text]
 matrixValues lists key config =
   [ v
-  | (Node {content = Scalar _ k}, Node {content = Sequence _ entries}) <- matrixEntries config
+  | (Node {content = ScalarContent _ k}, Node {content = SequenceContent _ entries}) <- matrixEntries config
   , k `elem` lists
-  , Node {content = Mapping _ fields} <- entries
-  , v <- take 1 [Located t n.offset | (Node {content = Scalar _ f}, n@Node {content = Scalar _ t}) <- fields, f == key]
+  , Node {content = MappingContent _ fields} <- entries
+  , v <- take 1 [Located t n.offset | (Node {content = ScalarContent _ f}, n@Node {content = ScalarContent _ t}) <- fields, f == key]
   ]
 
 ----------------------------------------
