@@ -103,11 +103,11 @@ week, and each update would start a new cache. In a job container, both
 variables are empty, and the cache key contains the image of the container
 instead.
 
-The default `cabal-version` is `3.16.1.0`. For `latest`, the action now
-selects cabal `3.18.1.0`, and that version has a bug in the GHC job
-semaphore: [cabal issue 12306][issue-12306]. If a cabal release fixes the
-issue, change the default to `latest`. Then a new cabal release needs no new
-release of haskell-gha.
+The default `cabal-version` is `3.16.1.0`. In October 2026, the action selects
+cabal `3.18.1.0` for `latest`, and that version has a bug in the GHC job
+semaphore: [cabal issue 12306][issue-12306]. If a cabal release fixes the issue,
+change the default to `latest`. Then a new cabal release needs no new release of
+haskell-gha.
 
 [issue-12306]: https://github.com/haskell/cabal/issues/12306
 
@@ -393,9 +393,6 @@ library that the build plan needs, and a file that a hook makes can be in a
 tarball. The `after-build` hooks come after the build, so a hook can run an
 executable of the project. Other hook points, e.g. after the tests, have no
 known use. They can come later without a breaking change.
-
-A service needs no step that waits for it. If a service has a health check,
-the runner waits for a healthy service before it starts the steps.
 
 `cabal test all` fails for a project without test suites. Thus the test step
 runs only for the GHC versions with a local package that has a test suite.
