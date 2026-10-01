@@ -347,8 +347,13 @@ group of versions with the same packages.
 
 The configuration step writes all its configuration to
 `cabal.project.local`, so a developer can run the same `cabal` commands
-locally. The default `ghc-options` is `-Werror`, and it applies only to the
-local packages, so the warnings of a dependency do not fail the build. cabal
+locally. The default `ghc-options` contain `-Werror`, and they apply only to
+the local packages, so the warnings of a dependency do not fail the build.
+The two `-Wwarn` options of the default come from a test with GHC
+10.0.0.20260917 and cabal 3.16.1.0. GHC uses version 2 of the semaphore
+protocol and cabal version 1, so GHC warns and compiles sequentially. GHC
+9.6 to 9.14 do not know that warning, and with `-Werror` the unknown flag is
+an error. cabal
 merges two `package` stanzas for the same package, so the `-j<N>` stanza can
 come after it.
 

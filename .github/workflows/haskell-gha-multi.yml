@@ -105,13 +105,13 @@ jobs:
         write-ghc-environment-files: always
 
         package core
-          ghc-options: -Werror
+          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
 
         package extra
-          ghc-options: -Werror
+          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
 
         package modern
-          ghc-options: -Werror
+          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
         EOF
 
     - name: Enable parallel module builds for the local packages

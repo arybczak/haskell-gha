@@ -94,7 +94,7 @@ jobs:
         benchmarks: True
 
         package container
-          ghc-options: -Werror
+          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
         EOF
 
     - name: Enable parallel module builds for the local packages

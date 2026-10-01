@@ -66,7 +66,7 @@ jobs:
         benchmarks: True
 
         package checkout
-          ghc-options: -Werror
+          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
         EOF
 
     - name: Enable the GHC job semaphore

@@ -108,7 +108,7 @@ jobs:
         benchmarks: True
 
         package haskell-gha
-          ghc-options: -Werror
+          ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
         EOF
 
     - name: Prefer the oldest dependencies
