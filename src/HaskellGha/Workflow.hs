@@ -283,10 +283,13 @@ workflow opts source config project = runCheck $ checks $> root
     mappingConcat :: [[(Node, Node)]] -> Node
     mappingConcat = mapping . concat
 
+    copied :: Commented a -> Commented a
+    copied c = Commented c.value (withoutEmptyLines c.comments)
+
     -- The workflow has its own layout, so the empty lines above a copied
     -- entry are left out.
-    copied :: Commented a -> Commented a
-    copied c = Commented c.value c.comments {before = filter (/= EmptyLine) c.comments.before}
+    withoutEmptyLines :: Comments -> Comments
+    withoutEmptyLines cs = cs {before = filter (/= EmptyLine) cs.before}
 
     triggers :: Node
     triggers =
@@ -448,7 +451,7 @@ workflow opts source config project = runCheck $ checks $> root
       [] -> []
       where
         dropEmptyLines :: Node -> Node
-        dropEmptyLines n = Node n.offset n.endOffset n.props n.comments {before = filter (/= EmptyLine) n.comments.before} n.content
+        dropEmptyLines n = Node n.offset n.endOffset n.props (withoutEmptyLines n.comments) n.content
 
     -- A hook can install a library that the build plan needs, and the
     -- tarballs can contain a file that a hook makes.
