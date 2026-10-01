@@ -629,6 +629,4 @@ you change the system of such a runner, delete the repository caches.
 
 The workflow contains only the comments in the copied keys and above them. The
 tool drops a comment above another key, e.g. `apt`. Of the comments in `hooks`,
-it keeps only the comments inside and between the steps of a hook. If the first
-key is a copied key, a comment at the top of the file goes to the workflow with
-that key. Otherwise the tool drops it.
+it keeps only the comments inside and between the steps of a hook.
