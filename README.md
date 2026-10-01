@@ -58,7 +58,7 @@ To change the defaults, write a configuration file. See
 
 ## What the workflow does
 
-The workflow has one build job for each GHC version. A build job does these
+The workflow has one build job for each GHC version. A build job has these
 steps:
 
 1. Install GHC and cabal with `haskell-actions/setup`.
