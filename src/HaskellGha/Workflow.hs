@@ -147,7 +147,6 @@ workflow opts source config project = runCheck $ checks $> root
     checks = do
       traverse_ checkGhcValue (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude))
       checkDependencies
-      traverse_ checkHeadHackage config.headHackage
       when config.doctest.enabled $ do
         checkRange config.doctest.ghc
         traverse_ checkSkip config.doctest.skip
@@ -207,19 +206,6 @@ workflow opts source config project = runCheck $ checks $> root
               ++ p.directory
               ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
       | otherwise = pure ()
-
-    -- With dependencies: both, the user can exclude the oldest jobs of the
-    -- head.hackage entries. With dependencies: oldest, each job is one.
-    checkHeadHackage :: Located VersionRange -> Check ()
-    checkHeadHackage r = do
-      checkRange r
-      when (config.dependencies == DependenciesOldest && not (null headHackageEntries))
-        $ failureAt r.offset
-        $ "the range "
-          ++ prettyShow r.value
-          ++ " includes the matrix entries "
-          ++ L.intercalate ", " (map (T.unpack . entryText) headHackageEntries)
-          ++ ", but head.hackage allows newer versions of the libraries that come with GHC, so a job with dependencies: oldest cannot test the lower bounds. Change the range, or set dependencies to newest or both."
 
     -- A range that includes no matrix entry turns its feature off without
     -- any sign in the workflow, e.g. ==10.0 for the series 10.0.
@@ -515,9 +501,6 @@ workflow opts source config project = runCheck $ checks $> root
           ]
         , [ sourceStep "Enable the GHC job semaphore" (Just semaphoreEntries) "echo 'semaphore: True' >> cabal.project.local\n"
           | not (null semaphoreEntries)
-          ]
-        , [ sourceStep "Use head.hackage" (Just headHackageEntries) headHackageScript
-          | not (null headHackageEntries)
           ]
         , [planStep]
         , [cacheRestore]
@@ -821,33 +804,6 @@ workflow opts source config project = runCheck $ checks $> root
       where
         names :: [Package] -> [String]
         names = map (.name)
-
-    headHackageEntries :: [GhcEntry]
-    headHackageEntries = [e | Just r <- [config.headHackage], e <- entries, decide r.value e == Included]
-
-    -- The repository and its keys come from the README of head.hackage. The
-    -- patched packages keep their bounds on the libraries that come with GHC,
-    -- so the step allows newer versions of all of them, as the configuration
-    -- file of head.hackage does. The setup action updated the package index
-    -- before the repository was known, so the step updates it again.
-    headHackageScript :: T.Text
-    headHackageScript =
-      heredoc
-        [ "repository head.hackage.ghc.haskell.org"
-        , "  url: https://ghc.gitlab.haskell.org/head.hackage/"
-        , "  secure: True"
-        , "  key-threshold: 3"
-        , "  root-keys:"
-        , "    f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89"
-        , "    26021a13b401500c8eb2761ca95c61f2d625bfef951b939a8124ed12ecf07329"
-        , "    7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d"
-        , ""
-        , "active-repositories: hackage.haskell.org, head.hackage.ghc.haskell.org:override"
-        ]
-        <> T.unlines
-          [ "echo \"allow-newer: $(ghc-pkg list --global --simple-output --names-only | sed 's/[^ ]*/*:&/g; s/ /, /g')\" >> cabal.project.local"
-          , "cabal update"
-          ]
 
     semaphoreEntries :: [GhcEntry]
     semaphoreEntries = filter hasSemaphore entries

@@ -82,8 +82,6 @@ data Config = Config
   , tests :: Bool
   , benchmarks :: Bool
   , dependencies :: Dependencies
-  , headHackage :: Maybe (Located VersionRange)
-  -- ^ The GHC versions that use the patched packages of head.hackage.
   , doctest :: Doctest
   , check :: Bool
   , sdist :: Bool
@@ -307,7 +305,6 @@ defaultConfig =
     , tests = True
     , benchmarks = True
     , dependencies = DependenciesNewest
-    , headHackage = Nothing
     , doctest = defaultDoctest
     , check = True
     , sdist = True

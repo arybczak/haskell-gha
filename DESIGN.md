@@ -501,53 +501,40 @@ is for a second workflow that tests only the lower bounds. A failure of an
 oldest job often comes from a dependency with wrong bounds, so a user can
 make that workflow an optional check.
 
-### head.hackage
+### GHC prereleases
 
-The key `head-hackage` is a version range and not a mapping with `enabled`.
-The range is the only setting, and it has no useful default. On a GHC
-release, head.hackage would add `allow-newer` for `base` and the other
-libraries that come with GHC. The tool cannot find the prereleases by
-itself. E.g. the series `^>= 10.0` gives a prerelease before the first
-release of GHC 10.0, and a release after it.
+The tool has no option for the dependencies of a GHC prerelease. The project
+puts its fixes in a block `if impl(ghc >= X.Y)` of `cabal.project`, e.g. a
+`source-repository-package` with a patched dependency, head.hackage or
+`allow-newer`. The fixes then also work for a local build. In a test with
+cabal 3.18.1.0, cabal accepted a `repository` stanza and a
+`source-repository-package` in such a block. If the condition was false,
+cabal ignored both. In a CI test with head.hackage in such a block, the
+`cabal update` of `haskell-actions/setup` in the root of the repository also
+updated head.hackage. For a project in a subdirectory, that update does not
+read its `cabal.project`. The README does not mention this case, because it
+is rare. cabal then warns that the package list is missing, and it tells the
+user to run `cabal update`. An `after-setup` hook can do that.
 
-The step `Use head.hackage` adds the repository stanza from the README of
-head.hackage, with `active-repositories` and `:override`. The tool contains
-the root keys of the stanza. The stanza did not change for years, so the
-keys need no update in practice.
+An earlier version of the tool had a key `head-hackage` with a step that
+added head.hackage. Two tests with GHC 10.0.0.20260917 showed the problems
+of a generic setup:
 
-The page of the repository at `https://ghc.gitlab.haskell.org/head.hackage/`
-offers a whole `cabal.project` instead. It also pins each patched package to
-its patched version with a constraint. A test with GHC 10.0.0.20260917 showed
-the problem of this file: the constraint `Cabal-syntax ==3.8.1.0` excluded
-the `Cabal-syntax-3.18.1.0` of GHC, and the build plan of haskell-gha failed.
-With `:override`, cabal still uses an installed library.
+- The `cabal.project` that the page of head.hackage offers pins each patched
+  package, e.g. `Cabal-syntax ==3.8.1.0`. That excluded the
+  `Cabal-syntax-3.18.1.0` of GHC, and the build plan of haskell-gha failed.
+- The step allowed newer versions of all libraries that come with GHC, as
+  haskell-ci does. haskell-gha needed only `base`, `template-haskell` and
+  `time`. Of head.hackage, it needed only a patch of `hashable`.
 
-The patched packages keep their bounds on the libraries that come with GHC.
-Thus the step allows newer versions of all of them, as the file of
-head.hackage and haskell-ci do. It takes the names from
-`ghc-pkg list --global` of the job, so the list fits each GHC version.
+`allow-newer` makes an oldest job useless, because it ignores the bounds that
+the job tests. With `prefer-oldest`, cabal also tried very old releases, e.g.
+`unix-2.0`, and found no build plan. The README tells the user to exclude
+these jobs in `matrix`. The tool cannot do it, because it does not read
+`allow-newer`, and it copies `matrix` without changes.
 
-The `allow-newer` makes an oldest job useless, because it ignores the bounds
-that the job tests. A test with GHC 10.0.0.20260917 also showed a failure.
-With `prefer-oldest`, cabal tried very old releases, e.g. `unix-2.0`, and
-found no build plan. With `dependencies: both`, the README tells the user to
-exclude these jobs in `matrix`. The tool does not add the entries itself,
-because it copies `matrix` without changes. With `dependencies: oldest`,
-every job is an oldest job, so the tool reports an error for a range that
-includes a matrix entry.
-
-cabal does not accept a `repository` stanza in a conditional block of the
-project. Thus a step with the GHC range of the jobs adds the stanza, as the
-semaphore step does. `haskell-actions/setup` updates the package index
-before the project is configured, so the index does not contain head.hackage.
-Thus the step runs `cabal update` after it adds the stanza.
-
-The plan hash in the cache key covers the versions from head.hackage, so the
-cache needs no change. The `ghc-options` apply only to the local packages,
-so the patched packages do not get `-Werror`. doctest does not use
-head.hackage, because the workflow installs it with `--ignore-project`. The
-tool does not report an overlap of `head-hackage` and `doctest.ghc`, because
-doctest can build without head.hackage.
+The workflow installs doctest with `--ignore-project`, so the block does not
+apply to doctest.
 
 ### Doctest
 

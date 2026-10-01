@@ -1,6 +1,0 @@
-cabal-version: 3.0
-name: example
-version: 0
-tested-with: GHC ^>= { 9.12, 9.14, 10.0 }
-library
-  exposed-modules: M
