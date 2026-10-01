@@ -32,9 +32,7 @@ module HaskellGha.Config
   , HLintPath (..)
 
     -- * Matrix
-  , matrixEntries
-  , matrixAxes
-  , matrixValues
+  , combinationValues
 
     -- * Reading
   , ConfigFile (..)
@@ -292,7 +290,7 @@ defaultConfig =
     , timeoutMinutes = Positive 60
     , branches = bare (bare "master" NE.:| [bare "main"])
     , submodules = NoSubmodules
-    , matrix = bare (Matrix (mapping []))
+    , matrix = bare (Matrix [] [] [] [] [])
     , apt = []
     , services = Nothing
     , permissions = bare (Permissions (mapping ["contents" .= plain "read"]))
@@ -464,16 +462,46 @@ instance FromYaml HLintPath where
 -- Matrix
 
 -- | The extra axes of the matrix, with @include@ and @exclude@.
-newtype Matrix = Matrix {value :: Node}
-  deriving newtype (Eq, Show)
+data Matrix = Matrix
+  { leading :: [Line]
+  -- ^ The lines of the matrix itself, i.e. the lines above an empty line
+  -- before its first entry.
+  , entries :: [(Node, Node)]
+  , axes :: [Located T.Text]
+  -- ^ The names of the extra axes.
+  , include :: [[(T.Text, Located T.Text)]]
+  -- ^ The keys of each entry with their string values.
+  , exclude :: [[(T.Text, Located T.Text)]]
+  -- ^ The keys of each entry with their string values.
+  }
+  deriving stock (Eq, Show)
+
+-- | The values of a key in the entries of @include@ or @exclude@, e.g. of
+-- @ghc@.
+combinationValues :: T.Text -> [[(T.Text, Located T.Text)]] -> [Located T.Text]
+combinationValues key cs = [v | c <- cs, Just v <- [lookup key c]]
 
 instance FromYaml Matrix where
-  parseYaml n = case n.content of
-    MappingContent _ entries -> traverse_ (entry (axes entries)) entries *> (Matrix <$> parseYaml n)
+  parseYaml n = case m.content of
+    MappingContent _ es ->
+      traverse_ (entry (map (.value) (axes es))) es
+        *> pure (Matrix m.comments.before es (axes es) (combinations "include" es) (combinations "exclude" es))
     _ -> typeMismatch "a mapping" n
     where
-      axes :: [(Node, Node)] -> [T.Text]
-      axes entries = [k | (Node {content = ScalarContent _ k}, _) <- entries, k `notElem` ["ghc", "include", "exclude"]]
+      -- The copy does not keep the input alive.
+      m :: Node
+      m = copyNode n
+
+      axes :: [(Node, Node)] -> [Located T.Text]
+      axes es = [Located k key.offset | (key@Node {content = ScalarContent _ k}, _) <- es, k `notElem` ["ghc", "include", "exclude"]]
+
+      combinations :: T.Text -> [(Node, Node)] -> [[(T.Text, Located T.Text)]]
+      combinations list es =
+        [ [(f, Located t v.offset) | (Node {content = ScalarContent _ f}, v@Node {content = ScalarContent _ t}) <- fields]
+        | (Node {content = ScalarContent _ k}, Node {content = SequenceContent _ items}) <- es
+        , k == list
+        , Node {content = MappingContent _ fields} <- items
+        ]
 
       entry :: [T.Text] -> (Node, Node) -> Parser ()
       entry as = \case
@@ -522,36 +550,6 @@ instance FromYaml Matrix where
               T.unpack axis
                 ++ " is not an axis of the matrix. The axes are: "
                 ++ T.unpack (T.intercalate ", " ("ghc" : as))
-
--- | The entries of the @matrix@ mapping.
-matrixEntries :: Config -> [(Node, Node)]
-matrixEntries config = case config.matrix.value.value.content of
-  MappingContent _ entries -> entries
-  _ -> []
-
--- | The names of the extra axes.
-matrixAxes :: Config -> [T.Text]
-matrixAxes config =
-  [ k
-  | (Node {content = ScalarContent _ k}, _) <- matrixEntries config
-  , k `notElem` ["include", "exclude"]
-  ]
-
--- | The values of a key in the entries of @include@ or @exclude@, e.g. of
--- @ghc@.
-matrixValues
-  :: [T.Text]
-  -- ^ The lists, @include@ or @exclude@ or both.
-  -> T.Text
-  -> Config
-  -> [Located T.Text]
-matrixValues lists key config =
-  [ v
-  | (Node {content = ScalarContent _ k}, Node {content = SequenceContent _ entries}) <- matrixEntries config
-  , k `elem` lists
-  , Node {content = MappingContent _ fields} <- entries
-  , v <- take 1 [Located t n.offset | (Node {content = ScalarContent _ f}, n@Node {content = ScalarContent _ t}) <- fields, f == key]
-  ]
 
 ----------------------------------------
 -- Reading

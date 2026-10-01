@@ -109,8 +109,8 @@ test_example = do
   assertEqual "timeout-minutes" 30 config.timeoutMinutes.value
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))
   assertEqual "submodules" TopSubmodules config.submodules
-  assertEqual "matrix axes" ["postgres"] (matrixAxes config)
-  assertEqual "matrix ghc values" ["9.10"] (map (.value) (matrixValues ["include", "exclude"] "ghc" config))
+  assertEqual "matrix axes" ["postgres"] (map (.value) config.matrix.value.axes)
+  assertEqual "matrix ghc values" ["9.10"] (map (.value) (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude)))
   assertEqual "apt" ["libpq-dev"] config.apt
   assertBool "services" (isJust config.services)
   assertEqual "permissions" (plain "read-all") (normalize config.permissions.value.value)

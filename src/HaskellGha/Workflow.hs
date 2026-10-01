@@ -145,7 +145,7 @@ workflow opts source config project = runCheck $ checks $> root
 
     checks :: Check ()
     checks = do
-      traverse_ checkGhcValue (matrixValues ["include", "exclude"] "ghc" config)
+      traverse_ checkGhcValue (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude))
       checkDependencies
       when config.doctest.enabled $ do
         traverse_ (checkDoctestRange config.doctest.ghc) entries
@@ -220,10 +220,10 @@ workflow opts source config project = runCheck $ checks $> root
     checkDependencies :: Check ()
     checkDependencies
       | bothDependencies = do
-          traverse_ ownAxis [key.offset | (key@Node {content = ScalarContent _ "dependencies"}, _) <- matrixEntries config]
-          traverse_ value (matrixValues ["include", "exclude"] "dependencies" config)
-      | "dependencies" `elem` matrixAxes config = pure ()
-      | otherwise = traverse_ noAxis (matrixValues ["exclude"] "dependencies" config)
+          traverse_ ownAxis [a.offset | a <- config.matrix.value.axes, a.value == "dependencies"]
+          traverse_ value (combinationValues "dependencies" (config.matrix.value.include ++ config.matrix.value.exclude))
+      | "dependencies" `elem` map (.value) config.matrix.value.axes = pure ()
+      | otherwise = traverse_ noAxis (combinationValues "dependencies" config.matrix.value.exclude)
       where
         ownAxis :: Offset -> Check ()
         ownAxis off = failureAt off "the tool makes the dependencies axis for dependencies: both, so the matrix must not contain it"
@@ -425,7 +425,7 @@ workflow opts source config project = runCheck $ checks $> root
           concat
             [ ["GHC ${{ matrix.ghc }}"]
             , ["${{ matrix.dependencies }}" | bothDependencies]
-            , [a <> " ${{ matrix." <> a <> " }}" | a <- matrixAxes config]
+            , [a <> " ${{ matrix." <> a <> " }}" | a <- map (.value) config.matrix.value.axes]
             ]
 
     bothDependencies :: Bool
@@ -446,8 +446,8 @@ workflow opts source config project = runCheck $ checks $> root
     -- The empty lines there are dropped, because the ghc axis now comes
     -- before them.
     extraAxes :: [(Node, Node)]
-    extraAxes = case matrixEntries config of
-      (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.value.value.comments.before k), v) : rest
+    extraAxes = case config.matrix.value.entries of
+      (k, v) : rest -> (dropEmptyLines (addBefore config.matrix.value.leading k), v) : rest
       [] -> []
       where
         dropEmptyLines :: Node -> Node
