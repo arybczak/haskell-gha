@@ -149,7 +149,7 @@ workflow opts source config project = runCheck $ checks $> root
       checkDependencies
       traverse_ checkHeadHackage config.headHackage
       when config.doctest.enabled $ do
-        traverse_ (checkRange config.doctest.ghc) entries
+        checkRange config.doctest.ghc
         traverse_ checkSkip config.doctest.skip
       traverse_ checkImport project.imports
       when config.sdist $
@@ -212,7 +212,7 @@ workflow opts source config project = runCheck $ checks $> root
     -- head.hackage entries. With dependencies: oldest, each job is one.
     checkHeadHackage :: Located VersionRange -> Check ()
     checkHeadHackage r = do
-      traverse_ (checkRange r) entries
+      checkRange r
       when (config.dependencies == DependenciesOldest && not (null headHackageEntries))
         $ failureAt r.offset
         $ "the range "
@@ -221,8 +221,19 @@ workflow opts source config project = runCheck $ checks $> root
           ++ L.intercalate ", " (map (T.unpack . entryText) headHackageEntries)
           ++ ", but head.hackage allows newer versions of the libraries that come with GHC, so a job with dependencies: oldest cannot test the lower bounds. Change the range, or set dependencies to newest or both."
 
-    checkRange :: Located VersionRange -> GhcEntry -> Check ()
-    checkRange r = either (failureAt r.offset) (const (pure ())) . decideRange ("the range " ++ prettyShow r.value) r.value
+    -- A range that includes no matrix entry turns its feature off without
+    -- any sign in the workflow, e.g. ==10.0 for the series 10.0.
+    checkRange :: Located VersionRange -> Check ()
+    checkRange r = do
+      traverse_ (either (failureAt r.offset) (const (pure ())) . decideRange name r.value) entries
+      when (all (\e -> decide r.value e == Excluded) entries)
+        $ failureAt r.offset
+        $ name
+          ++ " includes no GHC version of the matrix, which contains only "
+          ++ L.intercalate ", " (map (T.unpack . entryText) entries)
+      where
+        name :: String
+        name = "the range " ++ prettyShow r.value
 
     checkSkip :: Located T.Text -> Check ()
     checkSkip p

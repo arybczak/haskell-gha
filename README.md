@@ -409,7 +409,9 @@ newer versions of all libraries that come with GHC, because the patched
 packages keep their old bounds on them.
 
 The range must include all GHC versions of a matrix entry or none of them,
-as for `doctest.ghc`.
+as for `doctest.ghc`. It must also include at least one matrix entry. E.g.
+`==10.0` includes no version of the entry `10.0`, because the first release
+of that series is 10.0.1. Write `^>=10.0` or `>=10.0`.
 
 Because of `allow-newer`, a job with head.hackage cannot test the lower
 bounds. With `prefer-oldest`, cabal also tries very old releases and often
@@ -469,7 +471,7 @@ version only once for each GHC version.
 | Key | Default | Meaning |
 |---|---|---|
 | `doctest.enabled` | `false` | Run doctest. The other `doctest` keys have no effect without it. |
-| `doctest.ghc` | all versions | The GHC versions to run doctest for. A new GHC release often works with doctest only after some weeks. |
+| `doctest.ghc` | all versions | The GHC versions to run doctest for. The range must include at least one matrix entry. A new GHC release often works with doctest only after some weeks. |
 | `doctest.version` | any version | The versions of the doctest package. |
 | `doctest.skip` | `[]` | The packages to skip. |
 | `doctest.options` | `[]` | Extra arguments for doctest. |
