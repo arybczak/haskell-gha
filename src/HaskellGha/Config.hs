@@ -49,6 +49,7 @@ import Data.Bifunctor
 import Data.ByteString qualified as BS
 import Data.Char
 import Data.Foldable
+import Data.Functor
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe
 import Data.Text qualified as T
@@ -485,7 +486,7 @@ instance FromYaml Matrix where
   parseYaml n = case m.content of
     MappingContent _ es ->
       traverse_ (entry (map (.value) (axes es))) es
-        *> pure (Matrix m.comments.before es (axes es) (combinations "include" es) (combinations "exclude" es))
+        $> Matrix m.comments.before es (axes es) (combinations "include" es) (combinations "exclude" es)
     _ -> typeMismatch "a mapping" n
     where
       -- The copy does not keep the input alive.
