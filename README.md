@@ -205,7 +205,7 @@ hooks:
   - name: Show the Postgres version
     run: psql --version
   after-build: []
-ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+ghc-options: -Werror
 cabal-project-local: |
   package some-package
     flags: +extra-benchmarks
@@ -255,7 +255,7 @@ actions:
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
 | `hooks.after-setup` | `[]` | Steps after the installation of GHC and cabal, and before the source tarballs and the build plan. A hook can install a library that the dependencies need, e.g. one that `apt` does not have. |
 | `hooks.after-build` | `[]` | Steps after the build and before the tests. |
-| `ghc-options` | `-Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure` | GHC options for the local packages only, on one line. An empty string disables them. |
+| `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add at the end of `cabal.project.local`, e.g. package flags or constraints. |
 | `jobs` | `4` | The number of parallel build jobs. |
 | `tests` | `true` | Build and run the test suites. |
@@ -317,13 +317,6 @@ The default `cabal-version` is not `latest`. Now `latest` selects cabal
 3.18.1.0, and that version has a bug in the GHC job semaphore.
 [Cabal issue 12306](https://github.com/haskell/cabal/issues/12306) describes
 the bug.
-
-The default `ghc-options` keep one warning a warning under `-Werror`. GHC and
-cabal can use different versions of the protocol of the job semaphore. GHC
-then warns that it cannot use the semaphore, and it compiles the modules one
-at a time. An older GHC does not know this warning, so the options also keep
-the warning about an unknown warning flag a warning. If you set
-`ghc-options`, add both `-Wwarn` options.
 
 ## Container
 

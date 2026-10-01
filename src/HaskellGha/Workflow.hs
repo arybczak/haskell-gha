@@ -499,8 +499,8 @@ workflow opts source config project = runCheck $ checks $> root
         , [ sourceStep "Enable parallel module builds for the local packages" (Just group) (parallelScript pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, not (hasSemaphore e.ghc)]
           ]
-        , [ sourceStep "Enable the GHC job semaphore" (Just semaphoreEntries) "echo 'semaphore: True' >> cabal.project.local\n"
-          | not (null semaphoreEntries)
+        , [ sourceStep "Enable the GHC job semaphore" (Just group) (semaphoreScript pkgs)
+          | (group, pkgs) <- packageGroups [e | e <- project.matrix, hasSemaphore e.ghc]
           ]
         , [planStep]
         , [cacheRestore]
@@ -805,8 +805,15 @@ workflow opts source config project = runCheck $ checks $> root
         names :: [Package] -> [String]
         names = map (.name)
 
-    semaphoreEntries :: [GhcEntry]
-    semaphoreEntries = filter hasSemaphore entries
+    -- GHC and cabal can use different versions of the semaphore protocol. GHC
+    -- then warns and compiles the modules one at a time. GHC 9.12 and older do
+    -- not know this warning. The stanzas must come after the ghc-options of the
+    -- configuration, because a later -Werror makes both warnings errors again.
+    semaphoreScript :: [Package] -> T.Text
+    semaphoreScript pkgs =
+      heredoc . L.intercalate [""] $
+        ["semaphore: True"]
+          : [stanza p "ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure" | p <- pkgs]
 
     -- The semaphore needs GHC 9.8. A matrix entry is an exact version or a
     -- major series, so the range decides each entry completely.

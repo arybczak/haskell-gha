@@ -296,10 +296,7 @@ defaultConfig =
     , services = Nothing
     , permissions = bare (Permissions (mapping ["contents" .= plain "read"]))
     , hooks = Hooks [] []
-    , -- GHC and cabal can use different versions of the protocol of the job
-      -- semaphore. GHC then warns and compiles the modules one at a time. An
-      -- older GHC does not know this warning.
-      ghcOptions = GhcOptions "-Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure"
+    , ghcOptions = GhcOptions "-Werror"
     , cabalProjectLocal = ProjectText ""
     , jobs = Positive 4
     , tests = True
