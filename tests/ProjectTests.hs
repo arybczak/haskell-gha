@@ -89,8 +89,8 @@ test_imports = do
       ]
   assertEqual
     "imports"
-    [ Import "PROJECT/cabal.project:2:1: " "base.project"
-    , Import "PROJECT/cabal.project:5:3: " "new.project"
+    [ Import {location = "PROJECT/cabal.project:2:1: ", target = "base.project"}
+    , Import {location = "PROJECT/cabal.project:5:3: ", target = "new.project"}
     ]
     project.imports
 

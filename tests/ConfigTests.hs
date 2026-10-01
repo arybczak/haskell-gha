@@ -138,12 +138,12 @@ test_example = do
   assertEqual
     "actions"
     ( Actions
-        { checkout = ActionRef Nothing "v8"
-        , setup = ActionRef Nothing "0123abc"
-        , cache = ActionRef (Just "runs-on/cache") "v4"
-        , runFourmolu = ActionRef Nothing "v12"
+        { checkout = ActionRef {repository = Nothing, ref = "v8"}
+        , setup = ActionRef {repository = Nothing, ref = "0123abc"}
+        , cache = ActionRef {repository = Just "runs-on/cache", ref = "v4"}
+        , runFourmolu = ActionRef {repository = Nothing, ref = "v12"}
         , hlintSetup = defaultConfig.actions.hlintSetup
-        , hlintRun = ActionRef Nothing "v2"
+        , hlintRun = ActionRef {repository = Nothing, ref = "v2"}
         }
     )
     config.actions

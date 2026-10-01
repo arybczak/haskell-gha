@@ -179,11 +179,11 @@ data ActionRef = ActionRef
 -- @runs-on/cache\@v4@.
 instance FromYaml ActionRef where
   parseYaml = withText $ \t -> case T.splitOn "@" t of
-    [r] | word r -> pure $ ActionRef Nothing r
+    [r] | word r -> pure ActionRef {repository = Nothing, ref = r}
     [repo, r]
       | [owner, name] <- T.splitOn "/" repo
       , all word [owner, name, r] ->
-          pure $ ActionRef (Just repo) r
+          pure ActionRef {repository = Just repo, ref = r}
     _ -> fail "expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
     where
       word :: T.Text -> Bool
@@ -291,11 +291,19 @@ defaultConfig =
     , timeoutMinutes = Positive 60
     , branches = bare (bare "master" NE.:| [bare "main"])
     , submodules = NoSubmodules
-    , matrix = bare (Matrix [] [] [] [] [])
+    , matrix =
+        bare
+          Matrix
+            { leading = []
+            , entries = []
+            , axes = []
+            , include = []
+            , exclude = []
+            }
     , apt = []
     , services = Nothing
     , permissions = bare (Permissions (mapping ["contents" .= plain "read"]))
-    , hooks = Hooks [] []
+    , hooks = Hooks {afterSetup = [], afterBuild = []}
     , ghcOptions = GhcOptions "-Werror"
     , cabalProjectLocal = ProjectText ""
     , jobs = Positive 4
@@ -310,14 +318,22 @@ defaultConfig =
     , hlint = defaultHLint
     , actions =
         Actions
-          { checkout = ActionRef Nothing "v7"
-          , setup = ActionRef Nothing "v2"
-          , cache = ActionRef Nothing "v6"
-          , runFourmolu = ActionRef Nothing "v13"
+          { checkout = ActionRef {repository = Nothing, ref = "v7"}
+          , setup = ActionRef {repository = Nothing, ref = "v2"}
+          , cache = ActionRef {repository = Nothing, ref = "v6"}
+          , runFourmolu = ActionRef {repository = Nothing, ref = "v13"}
           , -- The commits "Upgrade to node24". Each release still needs
             -- Node.js 20.
-            hlintSetup = ActionRef Nothing "c04631035af0a6787c85e33b3ea0128b8568b590"
-          , hlintRun = ActionRef Nothing "d009541bdae0b8492992416e665bb6df8a3b5cde"
+            hlintSetup =
+              ActionRef
+                { repository = Nothing
+                , ref = "c04631035af0a6787c85e33b3ea0128b8568b590"
+                }
+          , hlintRun =
+              ActionRef
+                { repository = Nothing
+                , ref = "d009541bdae0b8492992416e665bb6df8a3b5cde"
+                }
           }
     }
 
@@ -486,7 +502,13 @@ instance FromYaml Matrix where
   parseYaml n = case m.content of
     MappingContent _ es ->
       traverse_ (entry (map (.value) (axes es))) es
-        $> Matrix m.comments.before es (axes es) (combinations "include" es) (combinations "exclude" es)
+        $> Matrix
+          { leading = m.comments.before
+          , entries = es
+          , axes = axes es
+          , include = combinations "include" es
+          , exclude = combinations "exclude" es
+          }
     _ -> typeMismatch "a mapping" n
     where
       -- A copy of every text, so the configuration does not keep the input
@@ -578,7 +600,12 @@ data ConfigSource = ConfigSource
 
 -- | The source of a configuration without a file, e.g. of 'defaultConfig'.
 emptySource :: FilePath -> ConfigSource
-emptySource file = ConfigSource file "" (document nullValue)
+emptySource file =
+  ConfigSource
+    { file = file
+    , input = ""
+    , document = document nullValue
+    }
 
 -- | The errors at the offsets of values of the configuration, e.g. of
 -- 'Located' values.
@@ -613,4 +640,7 @@ parseConfig
 parseConfig file bytes = first (map (prettyError file)) $ do
   input <- first pure (decodeInput bytes)
   (config, doc) <- first NE.toList (decodeWithDocument input)
-  pure (fromMaybe defaultConfig config, ConfigSource file input doc)
+  pure
+    ( fromMaybe defaultConfig config
+    , ConfigSource {file = file, input = input, document = doc}
+    )

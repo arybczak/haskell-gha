@@ -469,7 +469,14 @@ workflow opts source config project = runCheck $ checks $> root
           ]
       where
         hookStep :: MappingNode -> Node
-        hookStep s = Node n.offset n.endOffset n.props n.comments {before = directlyAbove n.comments.before} n.content
+        hookStep s =
+          Node
+            { offset = n.offset
+            , endOffset = n.endOffset
+            , props = n.props
+            , comments = n.comments {before = directlyAbove n.comments.before}
+            , content = n.content
+            }
           where
             n :: Node
             n = s.value

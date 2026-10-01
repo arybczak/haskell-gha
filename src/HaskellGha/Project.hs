@@ -164,7 +164,9 @@ parseProjectFile file input = case readFields input of
       Field (Name pos n) ls : rest
         | n == "packages" -> (:) (Packages True (fieldTokens ls)) <$> parts rest
         | n == "optional-packages" -> (:) (Packages False (fieldTokens ls)) <$> parts rest
-        | n == "import" -> (:) (ImportLine (Import (at pos "") (unwords (fieldTokens ls)))) <$> parts rest
+        | n == "import" ->
+            let i = Import {location = at pos "", target = unwords (fieldTokens ls)}
+            in (:) (ImportLine i) <$> parts rest
         | otherwise -> parts rest
       Section (Name pos n) args body : rest
         | n == "if" -> conditional pos args body rest
@@ -390,7 +392,7 @@ projectFrom exists dir packages byToken parts = do
   let axis = L.sort (L.nub (concat entries))
   matrix <- dedupe (traverse matrixEntry axis)
   traverse_ (untested matrix) (zip packages entries)
-  pure (Project packages matrix (imports parts))
+  pure Project {packages = packages, matrix = matrix, imports = imports parts}
   where
     imports :: [Part] -> [Import]
     imports = concatMap $ \case

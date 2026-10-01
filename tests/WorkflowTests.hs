@@ -147,7 +147,16 @@ test_sdistOutside = do
   let changed =
         project
           { packages = [p {directory = "../lib"}, p {name = "inner", directory = "a/../b"}]
-          , imports = [Import "cabal.project:1:1: " "local.project", Import "cabal.project:2:1: " "https://example.com/remote.project"]
+          , imports =
+              [ Import
+                  { location = "cabal.project:1:1: "
+                  , target = "local.project"
+                  }
+              , Import
+                  { location = "cabal.project:2:1: "
+                  , target = "https://example.com/remote.project"
+                  }
+              ]
           }
   assertEqual
     "errors"
@@ -165,9 +174,18 @@ test_importOutside = do
   let changed =
         project
           { imports =
-              [ Import "cabal.project:1:1: " "../inside.project"
-              , Import "cabal.project:2:1: " "../../outside.project"
-              , Import "cabal.project:3:1: " "/etc/absolute.project"
+              [ Import
+                  { location = "cabal.project:1:1: "
+                  , target = "../inside.project"
+                  }
+              , Import
+                  { location = "cabal.project:2:1: "
+                  , target = "../../outside.project"
+                  }
+              , Import
+                  { location = "cabal.project:3:1: "
+                  , target = "/etc/absolute.project"
+                  }
               ]
           }
       opts = defaultOptions {projectDir = "sub"}

@@ -38,10 +38,14 @@ literal = scalarNode Literal
 
 -- | Put lines above a node, in front of the lines that it already has.
 addBefore :: [Line] -> Node -> Node
-addBefore ls n = Node n.offset n.endOffset n.props (Comments (ls ++ c.before) c.inline c.after) n.content
-  where
-    c :: Comments
-    c = n.comments
+addBefore ls n =
+  Node
+    { offset = n.offset
+    , endOffset = n.endOffset
+    , props = n.props
+    , comments = n.comments {before = ls ++ n.comments.before}
+    , content = n.content
+    }
 
 ----------------------------------------
 -- Rendering
@@ -61,7 +65,14 @@ renderDocument header separated root =
     RenderOptions {forceBlock = True}
     -- The header goes on the root node, because on the document it would
     -- need a --- marker below it.
-    [Document Nothing False False noComments (addBefore (map Comment header) (separate [] root))]
+    [ Document
+        { version = Nothing
+        , explicitStart = False
+        , explicitEnd = False
+        , docComments = noComments
+        , root = addBefore (map Comment header) (separate [] root)
+        }
+    ]
   where
     separate :: [T.Text] -> Node -> Node
     separate path n = case n.content of
@@ -70,7 +81,14 @@ renderDocument header separated root =
       _ -> n
       where
         withContent :: Content -> Node
-        withContent = Node n.offset n.endOffset n.props n.comments
+        withContent c =
+          Node
+            { offset = n.offset
+            , endOffset = n.endOffset
+            , props = n.props
+            , comments = n.comments
+            , content = c
+            }
 
         entry :: Int -> (Node, Node) -> (Node, Node)
         entry i (k, v) =
