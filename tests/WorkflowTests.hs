@@ -59,6 +59,9 @@ test_comments = do
         , "tests: false"
         , "check: false"
         , "haddock: false"
+        , ""
+        , "# The jobs."
+        , ""
         , "# The runner of the build."
         , "runs-on: ubuntu-24.04"
         , "fourmolu:"
@@ -77,6 +80,7 @@ test_comments = do
       assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
   assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
   assertBool "comment of the file" $ T.pack "# The configuration." `notElem` rendered
+  assertBool "comment of a section" $ T.pack "    # The jobs." `notElem` rendered
   assertLines "matrix" ["      matrix:", "        # The matrix.", "", "        ghc:"]
   assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
   assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]

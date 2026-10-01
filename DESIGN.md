@@ -696,9 +696,11 @@ tool keeps its comments. Otherwise the tool drops them:
   comment goes above the key, below the empty line after the header comment.
 
 The tool drops a comment above a key that the workflow does not copy, e.g.
-`apt`. Such a comment describes the configuration, and the workflow has no
-place for it. The empty lines around a copied value are also dropped,
-because the workflow has its own layout.
+`apt`. Such a comment describes the configuration, and the workflow has no place
+for it. Of the lines above a copied key, only the comment lines directly above
+it, up to the nearest empty line, go to the workflow. A comment above an empty
+line describes the layout of the configuration, e.g. a section of it, and the
+workflow has its own layout.
 
 ## Dependencies
 

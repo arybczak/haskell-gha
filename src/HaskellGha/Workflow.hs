@@ -295,12 +295,12 @@ workflow opts source config project = runCheck $ checks $> root
     mappingConcat = mapping . concat
 
     copied :: Commented a -> Commented a
-    copied c = Commented c.value (withoutEmptyLines c.comments)
+    copied c = Commented c.value c.comments {before = directlyAbove c.comments.before}
 
-    -- The workflow has its own layout, so the empty lines above a copied
-    -- entry are left out.
-    withoutEmptyLines :: Comments -> Comments
-    withoutEmptyLines cs = cs {before = filter (/= EmptyLine) cs.before}
+    -- A comment above an empty line describes the layout of the configuration,
+    -- e.g. a section of it, and the workflow has its own layout.
+    directlyAbove :: [Line] -> [Line]
+    directlyAbove = reverse . takeWhile (/= EmptyLine) . reverse
 
     triggers :: Node
     triggers =
@@ -447,22 +447,12 @@ workflow opts source config project = runCheck $ checks $> root
     -- are in its entry, so the entry writes them after the new matrix.
     matrix :: Node
     matrix =
-      addBefore config.matrix.value.leading $
+      addBefore (dropWhile (== EmptyLine) config.matrix.value.leading) $
         mappingConcat
           [ ["ghc" .= sequenceNode (map (singleQuoted . entryText) entries)]
           , ["dependencies" .= sequenceNode [plain "newest", plain "oldest"] | bothDependencies]
-          , extraAxes
+          , config.matrix.value.entries
           ]
-
-    -- The ghc axis now comes before the first entry of the user, so the empty
-    -- lines above that entry are dropped.
-    extraAxes :: [(Node, Node)]
-    extraAxes = case config.matrix.value.entries of
-      (k, v) : rest -> (dropEmptyLines k, v) : rest
-      [] -> []
-      where
-        dropEmptyLines :: Node -> Node
-        dropEmptyLines n = Node n.offset n.endOffset n.props (withoutEmptyLines n.comments) n.content
 
     -- The after-setup hooks come before the tarballs and the build plan, so a
     -- hook can install a library that the build plan needs, and the tarballs

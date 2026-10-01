@@ -627,6 +627,7 @@ you change the system of such a runner, delete the repository caches.
 
 ### Comments
 
-The workflow contains only the comments in the copied keys and above them. The
-tool drops a comment above another key, e.g. `apt`. Of the comments in `hooks`,
-it keeps only the comments inside and between the steps of a hook.
+The workflow contains only the comments in the copied keys and directly above
+them. The tool drops a comment above another key, e.g. `apt`, and a comment
+above an empty line, e.g. at the top of the file. Of the comments in `hooks`, it
+keeps only the comments inside and between the steps of a hook.
