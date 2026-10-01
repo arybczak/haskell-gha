@@ -465,8 +465,8 @@ instance FromYaml HLintPath where
 -- | The extra axes of the matrix, with @include@ and @exclude@.
 data Matrix = Matrix
   { leading :: [Line]
-  -- ^ The lines of the matrix itself, i.e. the lines above an empty line
-  -- before its first entry.
+  -- ^ The comments below @matrix:@ and above an empty line before its first
+  -- entry. The parser gives the comments below the empty line to that entry.
   , entries :: [(Node, Node)]
   , axes :: [Located T.Text]
   -- ^ The names of the extra axes.
@@ -489,7 +489,8 @@ instance FromYaml Matrix where
         $> Matrix m.comments.before es (axes es) (combinations "include" es) (combinations "exclude" es)
     _ -> typeMismatch "a mapping" n
     where
-      -- The copy does not keep the input alive.
+      -- A copy of every text, so the configuration does not keep the input
+      -- file in memory.
       m :: Node
       m = copyNode n
 
@@ -532,8 +533,8 @@ instance FromYaml Matrix where
       combination as isExclude item = case item.content of
         MappingContent _ fields ->
           ghcValue fields
-            -- The dependencies axis depends on another key, so the checks of
-            -- the workflow decide it.
+            -- Whether dependencies is a valid key depends on the dependencies
+            -- setting, so the checks of the workflow decide it.
             *> when isExclude (traverse_ (unknownAxis as) [(key, k) | (key@Node {content = ScalarContent _ k}, _) <- fields, k `notElem` ["ghc", "dependencies"]])
         _ -> typeMismatch "a mapping" item
 

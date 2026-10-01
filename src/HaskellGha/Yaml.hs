@@ -59,7 +59,8 @@ renderDocument
 renderDocument header separated root =
   renderSyntax
     RenderOptions {forceBlock = True}
-    -- On the document, the header would get a --- marker below it.
+    -- The header goes on the root node, because on the document it would
+    -- need a --- marker below it.
     [Document Nothing False False noComments (addBefore (map Comment header) (separate [] root))]
   where
     separate :: [T.Text] -> Node -> Node

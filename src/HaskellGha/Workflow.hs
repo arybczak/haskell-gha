@@ -261,13 +261,13 @@ workflow opts source config project = runCheck $ checks $> root
     root =
       mapping
         [ "name" .= copied config.name
-        , -- GitHub reads a plain on as a string. The encoder quotes it,
-          -- because YAML 1.1 reads it as a boolean.
+        , -- GitHub reads a plain on as a string, so the key needs no quotes,
+          -- although YAML 1.1 reads it as a boolean.
           (plain "on", triggers)
         , "permissions" .= copied config.permissions
-        , -- A push to a branch of the push trigger also cancels the older
-          -- run. The newer run tests the newer code and saves the cache that
-          -- the older run did not save.
+        , -- A new run cancels the older run of the same ref, also on a branch
+          -- of the push trigger. The newer run tests the newer code and saves
+          -- the cache that the older run did not save.
           "concurrency"
             .= mapping
               [ "group" .= plain "${{ github.workflow }}-${{ github.ref }}"
@@ -464,8 +464,9 @@ workflow opts source config project = runCheck $ checks $> root
         dropEmptyLines :: Node -> Node
         dropEmptyLines n = Node n.offset n.endOffset n.props (withoutEmptyLines n.comments) n.content
 
-    -- A hook can install a library that the build plan needs, and the
-    -- tarballs can contain a file that a hook makes.
+    -- The after-setup hooks come before the tarballs and the build plan, so a
+    -- hook can install a library that the build plan needs, and the tarballs
+    -- can contain a file that a hook makes.
     steps :: Node
     steps =
       sequenceNode $
