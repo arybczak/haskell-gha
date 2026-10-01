@@ -47,9 +47,9 @@ steps:
 1. Install GHC and cabal with `haskell-actions/setup`.
 2. Unpack the source tarballs of the local packages into a separate directory.
    See [Source tarballs](#source-tarballs).
-3. Write the settings of the build to `cabal.project.local`, e.g. the number of
+3. Write the build settings to `cabal.project.local`, e.g. the number of
    parallel jobs and the GHC options of the local packages.
-4. Make the build plan, and restore the cache of the cabal store for that plan.
+4. Make the build plan, and restore the cached cabal store for that plan.
 5. Build the dependencies, and save the cache if the plan is new.
 6. Build the project.
 7. Run the tests.
@@ -74,7 +74,7 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
   the GHC versions of its built-in list. `haskell-gha` gives the version to
   `haskell-actions/setup`, and a series, e.g. `^>= 9.12`, gets the newest
   release of that series.
-- The workflow uses the `cabal.project` of the project with its conditional
+- The workflow uses the project's own `cabal.project` with its conditional
   blocks, and the tool checks the blocks against `tested-with`. `haskell-ci`
   writes its own `cabal.project` for each job.
 - Service containers, hook steps and extra matrix axes are GitHub Actions YAML.
@@ -112,9 +112,9 @@ repository.
 ### Keeping the workflow up to date
 
 Each workflow file starts with a header comment that gives the command that made
-the file and the version of the tool. Without options, the tool finds each file
-in `.github/workflows` with this header and runs the command from the header
-again. If no file has the header, the tool stops with an error.
+the file and the tool version. Without options, the tool finds each file in
+`.github/workflows` with this header and runs the command from the header again.
+If no file has the header, the tool stops with an error.
 
 The `--output` of the command in the header must be the file itself, so a
 renamed workflow file is an error. To rename a workflow file, run the command
@@ -129,8 +129,8 @@ haskell-gha --check
 
 With `--check`, the tool generates each workflow again and compares the result
 with the committed file. It writes no file. If a file differs, the tool exits
-with code 1. The comparison includes the header comment, which gives the version
-of the tool. Thus after you upgrade the tool, run it again and commit the files.
+with code 1. The comparison includes the header comment with the tool version,
+so after you upgrade the tool, run it again and commit the files.
 
 ### More than one workflow
 
@@ -160,8 +160,8 @@ A package can mix the two forms, e.g.
 `tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12`. An open range, e.g.
 `GHC >= 9.10`, is an error, because the list of jobs must be finite.
 
-The matrix of the workflow contains the versions of all local packages. All
-packages must write a series in the same form. If one package lists
+The workflow matrix contains the versions of all local packages. All packages
+must write a series in the same form. If one package lists
 `GHC ^>= 9.10` and another lists `GHC == 9.10.3`, the tool stops with an error,
 because no conditional block can separate the two.
 
@@ -191,15 +191,15 @@ The tool reads these blocks as cabal does, and it checks them against
   job tests the package with that version. This rule does not apply to a package
   that no job builds, e.g. one that is in the project only for `os(windows)`.
 
-The tool must know the result of each condition for each matrix entry. Thus
-these conditions are errors:
+The tool must know the result of each condition for each matrix entry, so these
+conditions are errors:
 
 - A condition that includes only some versions of a matrix entry. If the matrix
   has the entry `9.10`, the condition `impl(ghc >= 9.10.2)` is an error, because
   the result depends on the minor version of the job. The first release of a
   series is `X.Y.1`, so `impl(ghc >= 9.10.1)` includes all of `9.10` and is not
   an error.
-- A `flag(...)` condition, because the tool does not know the value of the flag.
+- A `flag(...)` condition, because the tool does not know the flag value.
 
 These errors do not apply to a part of a condition that cannot change the
 result, e.g. `flag(dev)` in `os(linux) || flag(dev)`.
@@ -211,9 +211,9 @@ conditional block of `cabal.project`. The block then applies only to that GHC
 version, and it also works for a local build.
 
 head.hackage is a package repository with patched versions of many packages for
-GHC prereleases. E.g. this block allows newer versions of three libraries that
-come with GHC 10, and it uses head.hackage, with the stanza from the README of
-head.hackage:
+GHC prereleases. For example, this block allows newer versions of three
+libraries that come with GHC 10, and it uses head.hackage, with the stanza from
+the README of head.hackage:
 
 ```
 if impl(ghc >= 10)
@@ -366,23 +366,23 @@ actions:
 
 #### Matrix, services and permissions
 
-The tool copies `matrix`, `services`, `permissions` and the steps of the hooks
-to the workflow without changes, together with their comments. You can use
-GitHub expressions in them, e.g. `${{ matrix.postgres }}`.
+The tool copies `matrix`, `services`, `permissions` and the hook steps to the
+workflow without changes, together with their comments. You can use GitHub
+expressions in them, e.g. `${{ matrix.postgres }}`.
 
 These rules apply to `matrix`:
 
 - The mapping must not contain the key `ghc`, because the tool makes that axis.
   With `dependencies: both`, the same applies to the key `dependencies`.
-- The job name refers to each axis in an expression. Thus the name of an axis
-  must start with a letter or `_` and contain only letters, digits, `_` and `-`.
+- The job name refers to each axis in an expression, so an axis name must start
+  with a letter or `_` and contain only letters, digits, `_` and `-`.
 - A `ghc` value in `include` or `exclude` must be a quoted string, e.g.
   `'9.10'`, and it must be an entry of the axis.
 - Each key of an `exclude` entry must be `ghc`, an axis of the `matrix` mapping,
   or `dependencies` with `dependencies: both`.
 
 If a service has a health check, the runner starts the steps only when the
-service is healthy. Thus the workflow needs no step that waits for the service.
+service is healthy. The workflow then needs no step that waits for the service.
 The `postgres` image has no health check of its own, so the example with all
 keys gives one in `options`.
 
@@ -421,24 +421,24 @@ hooks.
 #### Extra `cabal.project.local` text
 
 The workflow writes the text of `cabal-project-local` to `cabal.project.local`
-before it makes the build plan. Thus the cache of each job contains the
+before it makes the build plan, so the cache of each job contains the
 dependencies that the text adds. The text comes after the `ghc-options` stanzas,
 so it can add more options. A line of the text must not be `EOF`. You can use
 GitHub expressions in the text.
 
 #### Defaults that avoid a bug
 
-The default `cabal-version` is not `latest`. Now `latest` selects cabal
-3.18.1.0, and that version has a bug in the GHC job semaphore.
+The default `cabal-version` is not `latest`. As of October 2026, `latest`
+selects cabal 3.18.1.0, and that version has a bug in the GHC job semaphore.
 [Cabal issue 12306](https://github.com/haskell/cabal/issues/12306) describes the
 bug.
 
-The default `ghc-options` keep one warning a warning under `-Werror`. GHC and
-cabal can use different versions of the protocol of the job semaphore. GHC then
-warns that it cannot use the semaphore, and it compiles the modules one at a
-time. An older GHC does not know this warning, so the options also keep the
-warning about an unknown warning flag a warning. If you set `ghc-options`, add
-both `-Wwarn` options.
+The default `ghc-options` stop one warning from failing the build under
+`-Werror`. GHC and cabal can use different versions of the job semaphore
+protocol. GHC then warns that it cannot use the semaphore, and it compiles the
+modules one at a time. An older GHC does not know this warning, so the options
+also stop the warning about an unknown warning flag from failing the build. If
+you set `ghc-options`, add both `-Wwarn` options.
 
 ### Checks
 
@@ -481,27 +481,25 @@ workflow needs their tools, e.g. `git`, `curl` and `xz-utils`. The images also
 contain the libraries that GHC needs, e.g. `libgmp-dev`.
 
 `haskell-actions/setup` installs GHC and cabal in each job, because the
-container does not have the tools of the runner image. Thus a job takes some
+container does not have the tools of the runner image, so a job takes some
 minutes longer.
 
 These points are different in a container:
 
-- A job runs as root, and the image has no `sudo`. Thus the workflow runs
-  `apt-get` without `sudo`, and a hook step must also not use it.
+- A job runs as root, and the image has no `sudo`. The workflow runs `apt-get`
+  without `sudo`, and a hook step must not use it either.
 - A service is reachable by its name, e.g. `postgres`, not by `localhost`. The
   service then needs no `ports` mapping.
 - `git` does not work in the checkout, because the checkout belongs to another
   user. If a hook runs `git`, first run
   `git config --global --add safe.directory '*'` in the hook.
-- The cache keys contain the image of the container in place of the runner
-  image.
+- The cache keys contain the container image in place of the runner image.
 
 ## Dependencies
 
-By default, cabal picks the newest versions of the dependencies that the bounds
-of the packages allow. Thus CI does not test the lower bounds. If a lower bound
-is too low, the build fails for a user who has an older version of that
-dependency.
+By default, cabal picks the newest dependency versions that the package bounds
+allow, so CI does not test the lower bounds. If a lower bound is too low, the
+build fails for a user who has an older version of that dependency.
 
 With `dependencies: oldest`, each job writes `prefer-oldest: True` to
 `cabal.project.local`. cabal then picks the oldest versions that the bounds
@@ -521,9 +519,9 @@ matrix:
       dependencies: oldest
 ```
 
-A failure of an oldest job often comes from a dependency. E.g. an old version of
-a dependency has no upper bound on `base` and does not build with a new GHC.
-Then raise the lower bound in the `.cabal` file.
+A failure of an oldest job often comes from a dependency. For example, an old
+version of a dependency has no upper bound on `base` and does not build with a
+new GHC. Then raise the lower bound in the `.cabal` file.
 
 You can also test the lower bounds in a second workflow with
 `dependencies: oldest`. See [More than one workflow](#more-than-one-workflow).
@@ -538,11 +536,11 @@ list, e.g. a CPP header or a test fixture, the package fails for that user. A
 build of the checkout does not find this error, because the checkout has the
 file.
 
-Thus the workflow makes the tarballs with `cabal sdist all` and unpacks them
-into a separate directory. It copies `cabal.project`, `cabal.project.freeze` and
-`cabal.project.local` next to them. The build, the tests, doctest, `cabal check`
-and haddock then run in that directory. The hooks still run in the checkout, in
-the project directory.
+To find this error, the workflow makes the tarballs with `cabal sdist all` and
+unpacks them into a separate directory. It copies `cabal.project`,
+`cabal.project.freeze` and `cabal.project.local` next to them. The build, the
+tests, doctest, `cabal check` and haddock then run in that directory. The hooks
+still run in the checkout, in the project directory.
 
 Set `sdist: false` in these cases:
 
@@ -580,7 +578,7 @@ for each GHC version.
 
 If `fourmolu.enabled` is `true`, the workflow gets a job that checks the
 formatting of the Haskell files with `haskell-actions/run-fourmolu`. fourmolu
-reads the `fourmolu.yaml` of the project.
+reads the project's `fourmolu.yaml`.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -589,8 +587,8 @@ reads the `fourmolu.yaml` of the project.
 | `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
 | `fourmolu.runs-on` | the value of `runs-on` | The runner of the fourmolu job, e.g. a smaller self-hosted runner than the build jobs need. |
 
-Set `fourmolu.version` to the version that the developers of the project use. A
-new fourmolu version can format the same code differently. fourmolu 0.20.0.0 and
+Set `fourmolu.version` to the version that the project developers use. A new
+fourmolu version can format the same code differently. fourmolu 0.20.0.0 and
 later need `run-fourmolu` v13 or later.
 
 ### HLint
@@ -616,7 +614,7 @@ runs there. With `--project-dir`, put `.hlint.yaml` in the root of the
 repository, not in the project directory.
 
 The released versions of both actions still need Node.js 20, and GitHub removes
-Node.js 20 in autumn 2026. Thus the default versions are the commits that moved
+Node.js 20 in autumn 2026, so the default versions are the commits that moved
 the actions to Node.js 24. These commits run the same code as the release
 `v2.4.10`. When a new release comes out, set `actions.hlint-setup` and
 `actions.hlint-run` to it.
@@ -634,13 +632,12 @@ the actions to Node.js 24. These commits run the same code as the release
   of the directory as the project. If a parent directory has a `cabal.project`,
   cabal uses that file instead. With `sdist: false`, the workflow then builds
   the parent project, but the tool read only the packages of the project
-  directory. Give the directory of the parent `cabal.project` to
-  `--project-dir`.
+  directory. Pass the parent directory to `--project-dir`.
 - The tool reads all branches of the conditional blocks in `cabal.project`, also
-  a branch that no job selects. cabal reads only the branch that it selects.
-  Thus the rules for package locations and `import:` lines apply to each branch.
-  E.g. a location in `packages:` must exist, and with `sdist: true` a local
-  `import:` is an error.
+  a branch that no job selects. cabal reads only the branch that it selects, but
+  the tool applies the rules for package locations and `import:` lines to each
+  branch. For example, a location in `packages:` must exist, and with
+  `sdist: true` a local `import:` is an error.
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on x86_64. It
   assumes that no project selects its packages by operating system or
   architecture.
@@ -651,14 +648,14 @@ the actions to Node.js 24. These commits run the same code as the release
   a package that no job builds, e.g. one that is in the project only for
   `os(windows)`. Such a package can add a job or cause a misleading error. Give
   it the same `tested-with` versions as the other packages.
-- A test suite counts, whatever its conditions are. If all test suites of a
-  project have `buildable: False` for a GHC version, the test step fails for
-  that version.
-- The `ghc-options` stanzas apply to all local packages on all GHC versions.
-  Take a package that is not in the project for a GHC version. If another
-  package depends on it, cabal gets it from Hackage and applies the options,
-  e.g. `-Werror`.
-- doctest skips a module without an error in one case. The library has no
+- A job runs the tests if one of its packages has a test suite, whatever the
+  conditions of the test suite are. If all test suites have `buildable: False`
+  for a GHC version, the test step fails for that version.
+- The `ghc-options` stanzas apply to all local packages on all GHC versions. If
+  a package is left out of the project for a GHC version and another package
+  depends on it, cabal gets it from Hackage and still applies the options, e.g.
+  `-Werror`.
+- doctest skips a module without an error if the library has no
   `hs-source-dirs` or has `.` in it, and the package directory has no `.hs` or
   `.lhs` file for an exposed module. The module can come from another file, e.g.
   a `.hsc` file for `hsc2hs`. The same applies to each sublibrary.
@@ -669,7 +666,7 @@ The cache keys contain the runner image from the environment variable `ImageOS`.
 The runners of GitHub set this variable, but a self-hosted runner can lack it.
 Then the cache keys have no image part. A cache from an earlier system of the
 runner can then link against system libraries that the runner no longer has. If
-you change the system of such a runner, delete the caches of the repository.
+you change the system of such a runner, delete the repository caches.
 
 ### Comments
 
