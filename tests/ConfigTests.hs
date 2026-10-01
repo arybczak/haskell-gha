@@ -111,8 +111,8 @@ test_example = do
   assertEqual "apt" ["libpq-dev"] config.apt
   assertBool "services" (isJust config.services)
   assertEqual "permissions" (plain "read-all") (normalize config.permissions.value.value)
-  assertEqual "after-setup" 1 (length config.hooks.value.afterSetup.value)
-  assertEqual "after-build" 0 (length config.hooks.value.afterBuild.value)
+  assertEqual "after-setup" 1 (length config.hooks.afterSetup)
+  assertEqual "after-build" 0 (length config.hooks.afterBuild)
   assertEqual "ghc-options" "-Werror -Wno-unused" config.ghcOptions.value
   assertEqual "cabal-project-local" "package a\n  flags: +b\n" config.cabalProjectLocal.value
   assertEqual "jobs" 2 config.jobs.value
@@ -278,7 +278,7 @@ test_allErrors = do
 test_alias :: Assertion
 test_alias = do
   config <- parseOk "hooks:\n  after-setup:\n    - &step {run: a}\n  after-build:\n    - *step\n"
-  assertEqual "after-build" (contents config.hooks.value.afterSetup.value) (contents config.hooks.value.afterBuild.value)
+  assertEqual "after-build" (contents config.hooks.afterSetup) (contents config.hooks.afterBuild)
   where
     -- The copy of an alias has no anchor.
     contents :: [MappingNode] -> [Content]

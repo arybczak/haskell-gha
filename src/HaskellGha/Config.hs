@@ -31,10 +31,6 @@ module HaskellGha.Config
   , Pattern (..)
   , HLintPath (..)
 
-    -- * Hooks
-  , Hook (..)
-  , placedHooks
-
     -- * Matrix
   , matrixEntries
   , matrixAxes
@@ -79,7 +75,7 @@ data Config = Config
   , apt :: [T.Text]
   , services :: Maybe (Commented MappingNode)
   , permissions :: Commented Permissions
-  , hooks :: Commented Hooks
+  , hooks :: Hooks
   , ghcOptions :: GhcOptions
   , cabalProjectLocal :: ProjectText
   , jobs :: Positive
@@ -261,15 +257,15 @@ instance FromYaml Submodules where
 
 -- | The steps that the tool puts in the workflow.
 data Hooks = Hooks
-  { afterSetup :: Commented [MappingNode]
-  , afterBuild :: Commented [MappingNode]
+  { afterSetup :: [MappingNode]
+  , afterBuild :: [MappingNode]
   }
   deriving stock (Eq, Show, Generic)
   deriving (FromYaml) via GenericYaml Hooks
 
 instance GenericYamlOptions Hooks where
   yamlOptions = options
-  yamlDefault = Just defaultConfig.hooks.value
+  yamlDefault = Just defaultConfig.hooks
 
 -- | The configuration of doctest.
 data Doctest = Doctest
@@ -305,7 +301,7 @@ defaultConfig =
     , apt = []
     , services = Nothing
     , permissions = bare (Permissions (mapping ["contents" .= plain "read"]))
-    , hooks = bare (Hooks (bare []) (bare []))
+    , hooks = Hooks [] []
     , ghcOptions = GhcOptions "-Werror"
     , cabalProjectLocal = ProjectText ""
     , jobs = Positive 4
@@ -468,53 +464,6 @@ instance FromYaml HLintPath where
     if T.any isControl p
       then fail "a path must not contain a control character, e.g. a tab or a line break"
       else pure $ HLintPath p
-
-----------------------------------------
--- Hooks
-
--- | The steps of a hook with the comments around them.
-data Hook = Hook
-  { steps :: [Node]
-  , trailing :: [Line]
-  -- ^ The comment lines after the last step.
-  }
-  deriving stock (Eq, Show)
-
--- | The hooks @after-setup@ and @after-build@. The comments of a hook go
--- before its first step. The comments above the hooks go before the first
--- step of the hooks, and the comments after the last hook list go after
--- their last step. The comments of an empty hook go to the other hook.
-placedHooks :: Commented Hooks -> (Hook, Hook)
-placedHooks c
-  | null setup.steps = (setup, end (leadHook (outer ++ setupLines ++ buildLines) build))
-  | null build.steps = (end (leadHook (outer ++ setupLines) setup), build)
-  | otherwise = (leadHook (outer ++ setupLines) setup, end (leadHook buildLines build))
-  where
-    setupLines, buildLines :: [Line]
-    setup, build :: Hook
-    (setupLines, setup) = hook c.value.afterSetup
-    (buildLines, build) = hook c.value.afterBuild
-
-    outer :: [Line]
-    outer = commentLines c.comments
-
-    hook :: Commented [MappingNode] -> ([Line], Hook)
-    hook h = (commentLines h.comments, Hook (map (.value) h.value) (withoutEmptyLines h.comments.after))
-
-    end :: Hook -> Hook
-    end h = Hook h.steps (h.trailing ++ withoutEmptyLines c.comments.after)
-
-    leadHook :: [Line] -> Hook -> Hook
-    leadHook ls h = case h.steps of
-      x : xs -> Hook (addBefore ls x : xs) h.trailing
-      [] -> h
-
-    -- The workflow has its own layout, so the empty lines are left out.
-    commentLines :: Comments -> [Line]
-    commentLines cs = withoutEmptyLines cs.before ++ [Comment t | Just t <- [cs.inline]]
-
-    withoutEmptyLines :: [Line] -> [Line]
-    withoutEmptyLines = filter (/= EmptyLine)
 
 ----------------------------------------
 -- Matrix

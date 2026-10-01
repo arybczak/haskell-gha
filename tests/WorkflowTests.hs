@@ -35,7 +35,7 @@ workflowTests =
     , testCase "a project directory outside the repository" test_projectDirOutside
     , testCase "a named default configuration file" test_namedDefaultConfig
     , testCase "an hlint path outside the repository" test_hlintPathOutside
-    , testCase "comments at the start of the file and after the last step" test_comments
+    , testCase "the comments that the workflow keeps and drops" test_comments
     , testCase "the modes of the command line" test_modes
     , testCase "the generated workflows" test_findWorkflows
     ]
@@ -55,8 +55,14 @@ test_comments = do
         , "tests: false"
         , "check: false"
         , "haddock: false"
+        , "# The runner of the build."
+        , "runs-on: ubuntu-24.04"
+        , "fourmolu:"
+        , "  enabled: true"
         , "hooks:"
+        , "  # The steps after the build."
         , "  after-build:"
+        , "    # The step."
         , "    - run: echo a"
         , "    # The last lines."
         , "  # The end of the hooks."
@@ -68,12 +74,10 @@ test_comments = do
   assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
   assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
   assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]
-  -- The renderer indents a list with lines after it, so that the lines belong
-  -- to the list and not to its last step.
-  assertEqual
-    "end of the steps"
-    (map T.pack ["      - run: echo a", "      # The last lines.", "      # The end of the hooks."])
-    (drop (length rendered - 3) rendered)
+  assertLines "step" ["    # The step.", "    - run: echo a"]
+  assertEqual "end of the steps" [T.pack "    - run: echo a"] (drop (length rendered - 1) rendered)
+  assertBool "hook key" $ T.pack "    # The steps after the build." `notElem` rendered
+  assertEqual "runs-on of the build job only" 1 (length (filter (== T.pack "    # The runner of the build.") rendered))
 
 test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do

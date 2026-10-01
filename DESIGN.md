@@ -621,22 +621,22 @@ its end. It would take the empty line before the next item into its value.
 Thus the renderer writes such a value as a double-quoted scalar.
 
 The syntax tree keeps each comment at a node, so the comments inside a
-copied value go to the workflow with the value. The comments around a
-copied value need these rules:
+copied value go to the workflow with the value. A comment around a value
+belongs to its key. If a key becomes exactly one key of the workflow, the
+tool keeps its comments. Otherwise the tool drops them:
 
 - The comments above a copied key, e.g. `services`, go above the key that
   the workflow makes. A comment at the end of the line of the key stays at
-  the end of that line. Each job gets the comments of `runs-on`. A fourmolu
-  or HLint job with its own `runs-on` gets the comments of that key.
+  the end of that line.
+- The comments of `runs-on` go only to the build job. A fourmolu or HLint
+  job without its own `runs-on` gets the value of the key, but not its
+  comments. A job with its own `runs-on` gets the comments of that key.
 - The workflow adds the `ghc` axis as the first entry of `matrix`. The
   comments above the first entry of the configuration stay above that
   entry.
-- The comments above `hooks` and above a hook list go above the first step
-  of the hook.
-- The comments after the last step of a hook go above the next step of the
-  job, with an empty line between them and that step. If no step follows,
-  they go after the last step. The comments after the last hook list of
-  `hooks` go with them.
+- The workflow has no `hooks` key and no hook lists. The steps of the hooks
+  go into the steps of the job unchanged, with the comments inside and
+  between them. The tool drops all other comments in `hooks`.
 - A comment at the top of the file belongs to the first key. If the
   workflow copies that key, the comment goes above the key, below the empty
   line after the header comment.

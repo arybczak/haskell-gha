@@ -22,7 +22,6 @@ module HaskellGha.Yaml
   , Y.mapping
   , sequenceNode
   , addBefore
-  , addAfter
   , Y.ToYaml (..)
   , (Y..=)
 
@@ -61,13 +60,6 @@ literal = scalarNode Literal
 -- | Put lines above a node, in front of the lines that it already has.
 addBefore :: [Line] -> Node -> Node
 addBefore ls n = Node n.offset n.endOffset n.props (Comments (ls ++ c.before) c.inline c.after) n.content
-  where
-    c :: Comments
-    c = n.comments
-
--- | Put lines after the last entry of a collection.
-addAfter :: [Line] -> Node -> Node
-addAfter ls n = Node n.offset n.endOffset n.props (Comments c.before c.inline (c.after ++ ls)) n.content
   where
     c :: Comments
     c = n.comments

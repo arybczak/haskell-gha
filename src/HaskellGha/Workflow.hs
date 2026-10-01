@@ -128,11 +128,6 @@ findWorkflows root = do
       c : rest | c /= ' ' -> first (c :) <$> shellWord rest
       rest -> Just ("", rest)
 
--- | A step of the build job, or the comment lines after a hook.
-data StepItem
-  = Step Node
-  | Lines [Line]
-
 -- | Quote a word for bash, if it needs quotes.
 shellQuote :: T.Text -> T.Text
 shellQuote t
@@ -311,7 +306,7 @@ workflow opts source config project = runCheck $ checks $> root
       mappingConcat
         [
           [ "name" .= jobName
-          , runsOn config.runsOn
+          , runsOn (Just config.runsOn)
           ]
         , ["container" .= plain c.image | Just c <- [config.container]]
         , [timeout]
@@ -326,8 +321,12 @@ workflow opts source config project = runCheck $ checks $> root
         , ["steps" .= steps]
         ]
 
-    runsOn :: Commented RunsOn -> (Node, Node)
-    runsOn r = "runs-on" .= copied r
+    -- A job without its own runs-on gets the value of the top-level key, but
+    -- the comments of that key stay with the build job.
+    runsOn :: Maybe (Commented RunsOn) -> (Node, Node)
+    runsOn = \case
+      Just r -> "runs-on" .= copied r
+      Nothing -> "runs-on" .= config.runsOn.value
 
     timeout :: (Node, Node)
     timeout = "timeout-minutes" .= config.timeoutMinutes.value
@@ -337,7 +336,7 @@ workflow opts source config project = runCheck $ checks $> root
     fourmoluJob f =
       mapping
         [ "name" .= plain "Fourmolu"
-        , runsOn (fromMaybe config.runsOn f.runsOn)
+        , runsOn f.runsOn
         , timeout
         , "steps"
             .= sequenceNode
@@ -359,7 +358,7 @@ workflow opts source config project = runCheck $ checks $> root
     hlintJob h =
       mapping
         [ "name" .= plain "HLint"
-        , runsOn (fromMaybe config.runsOn h.runsOn)
+        , runsOn h.runsOn
         , timeout
         , "steps"
             .= sequenceNode
@@ -453,36 +452,14 @@ workflow opts source config project = runCheck $ checks $> root
     -- tarballs can contain a file that a hook makes.
     steps :: Node
     steps =
-      placeLines $
+      sequenceNode $
         concat
-          [ map Step setupSteps
-          , hookItems setupHook
-          , map Step buildSteps
-          , hookItems buildHook
-          , map Step testSteps
+          [ setupSteps
+          , map (.value) config.hooks.afterSetup
+          , buildSteps
+          , map (.value) config.hooks.afterBuild
+          , testSteps
           ]
-
-    setupHook, buildHook :: Hook
-    (setupHook, buildHook) = placedHooks config.hooks
-
-    hookItems :: Hook -> [StepItem]
-    hookItems h = map Step h.steps ++ [Lines h.trailing | not (null h.trailing)]
-
-    -- The comment lines after a hook go before the next step, and an empty
-    -- line separates them from that step. If no step follows, they go after
-    -- the last step.
-    placeLines :: [StepItem] -> Node
-    placeLines items = addAfter end (sequenceNode nodes)
-      where
-        nodes :: [Node]
-        end :: [Line]
-        (nodes, end) = foldr place ([], []) items
-
-        place :: StepItem -> ([Node], [Line]) -> ([Node], [Line])
-        place item (ns, ls) = case (item, ns) of
-          (Step n, _) -> (n : ns, ls)
-          (Lines hookLines, n : rest) -> (addBefore (hookLines ++ [EmptyLine]) n : rest, ls)
-          (Lines hookLines, []) -> ([], hookLines ++ ls)
 
     setupSteps :: [Node]
     setupSteps =

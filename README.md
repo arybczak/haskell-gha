@@ -286,9 +286,9 @@ To use another repository with the same inputs, e.g. a fork, write the
 repository in front of the ref, e.g. `cache: runs-on/cache@v4`. For
 `actions.cache`, the tool adds `/restore` and `/save` to the repository.
 
-The tool copies `matrix`, `services`, `permissions` and the hooks to the
-workflow without changes, together with their comments. You can use
-GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
+The tool copies `matrix`, `services`, `permissions` and the steps of the
+hooks to the workflow without changes, together with their comments. You can
+use GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
 mapping must not contain the key `ghc`, because the tool makes that axis.
 With `dependencies: both`, the same applies to the key `dependencies`.
 The job name refers to each axis in an expression. Thus the name of an axis
@@ -516,6 +516,8 @@ code as the release `v2.4.10`. When a new release comes out, set
   the runner no longer has. If you change the system of such a runner, delete
   the caches of the repository.
 - The workflow contains only the comments in the copied keys and above
-  them. The tool drops a comment above another key, e.g. `apt`. If the
+  them. The tool drops a comment above another key, e.g. `apt`. Of the
+  comments in `hooks`, it keeps only the comments inside and between the
+  steps of a hook. The comments of `runs-on` go only to the build job. If the
   first key is a copied key, a comment at the top of the file goes to the
   workflow with that key. Otherwise the tool drops it.
