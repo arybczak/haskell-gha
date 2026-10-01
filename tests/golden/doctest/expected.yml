@@ -204,4 +204,4 @@ jobs:
     - name: Build the documentation
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
-        cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage
+        cabal haddock all --disable-documentation --haddock-for-hackage

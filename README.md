@@ -271,7 +271,7 @@ actions:
 | `doctest` | none | Run doctest. See [Doctest](#doctest). |
 | `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
 | `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](#source-tarballs). |
-| `haddock` | `true` | Build the documentation as for a Hackage upload. |
+| `haddock` | `true` | Build the documentation of the libraries as for a Hackage upload. |
 | `fourmolu` | none | Check the formatting with fourmolu. See [Fourmolu](#fourmolu). |
 | `hlint` | none | Check the code with HLint. See [HLint](#hlint). |
 | `actions.checkout` | `v7` | The version of `actions/checkout`. |

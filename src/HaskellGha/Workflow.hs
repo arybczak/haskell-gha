@@ -545,7 +545,10 @@ workflow opts source config project = runCheck $ checks $> root
           | config.check
           , (group, pkgs) <- packageGroups project.matrix
           ]
-        , [ sourceStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-all --haddock-for-hackage\n"
+        , -- With --haddock-all, each component of a package writes the same
+          -- documentation tarball, and parallel components then fail on its
+          -- file lock.
+          [ sourceStep "Build the documentation" Nothing "cabal haddock all --disable-documentation --haddock-for-hackage\n"
           | config.haddock
           ]
         ]

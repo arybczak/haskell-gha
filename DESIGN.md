@@ -395,7 +395,11 @@ The last steps check the packages for a Hackage release, so a build error or
 a test error shows first. `cabal haddock` gets `--disable-documentation`,
 because otherwise cabal builds the dependencies again with documentation,
 outside the cache. `--haddock-for-hackage` makes the same documentation as a
-Hackage upload.
+Hackage upload. The step builds only the documentation of the libraries,
+because Hackage shows only that. With `--haddock-all`, each component of a
+package writes the same documentation tarball. A workflow of effectful
+failed now and then with `resource busy (file is locked)` on that tarball,
+because cabal builds the components in parallel.
 
 The output of `cabal check` does not name the package, so the check step
 prints the name before each check. A failed check does not stop the step.
