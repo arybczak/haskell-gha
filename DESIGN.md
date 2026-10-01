@@ -690,9 +690,10 @@ tool keeps its comments. Otherwise the tool drops them:
 - The workflow has no `hooks` key and no hook lists. The steps of the hooks
   go into the steps of the job unchanged, with the comments inside and
   between them. The tool drops all other comments in `hooks`.
-- A comment at the top of the file belongs to the first key. If the
-  workflow copies that key, the comment goes above the key, below the empty
-  line after the header comment.
+- A comment at the top of the file above an empty line belongs to the root
+  mapping, so it describes the file, and the tool drops it. A comment directly
+  above the first key belongs to that key. If the workflow copies that key, the
+  comment goes above the key, below the empty line after the header comment.
 
 The tool drops a comment above a key that the workflow does not copy, e.g.
 `apt`. Such a comment describes the configuration, and the workflow has no

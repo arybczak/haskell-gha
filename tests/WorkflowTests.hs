@@ -46,7 +46,9 @@ test_comments = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" . BS8.pack $
       unlines
-        [ "# The permissions of the workflow."
+        [ "# The configuration."
+        , ""
+        , "# The permissions of the workflow."
         , "permissions: read-all # For the checkout."
         , "matrix:"
         , "  # The matrix."
@@ -74,6 +76,7 @@ test_comments = do
   let rendered = T.lines $ renderWorkflow "TEST" defaultOptions node
       assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
   assertLines "top comment" ["# The permissions of the workflow.", "permissions: read-all # For the checkout."]
+  assertBool "comment of the file" $ T.pack "# The configuration." `notElem` rendered
   assertLines "matrix" ["      matrix:", "        # The matrix.", "", "        ghc:"]
   assertLines "first axis" ["        - '9.12'", "        # The first axis.", "        os:"]
   assertLines "end of the matrix" ["        - b", "        # The end of the matrix.", "    steps:"]
