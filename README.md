@@ -6,11 +6,11 @@
 workflow builds and tests the project on each GHC version from the
 `tested-with` field of its packages.
 
-The workflow is short and easy to read. It uses `haskell-actions/setup` to
-install GHC and cabal, it caches the cabal store, and it runs each GHC
-version in its own job. Only Linux is supported.
+The workflow uses `haskell-actions/setup` to install GHC and cabal, it caches
+the cabal store, and it runs each GHC version in its own job. Only Linux is
+supported.
 
-## Compared to `haskell-ci`
+## Comparison with `haskell-ci`
 
 `haskell-gha` is an alternative to
 [`haskell-ci`](https://github.com/haskell-CI/haskell-ci) for projects that use
@@ -35,7 +35,7 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 - With `dependencies: both`, separate jobs test the oldest versions that the
   bounds allow, with the same steps as the other jobs. In `haskell-ci`, a
   constraint set with `prefer-oldest` runs at the end of the same job, without
-  `cabal.project.local`, and without the tests by default.
+  `cabal.project.local` and without the tests by default.
 - The workflow can check the formatting with fourmolu and the code with HLint,
   each in its own job. `haskell-ci` has no such jobs.
 
@@ -72,18 +72,13 @@ The tool accepts these options:
 | `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
 
-You can give `--config`, `--project-dir` and `--output` only after
-`--generate`. You cannot give `--check` with `--generate`.
+You can use `--config`, `--project-dir` and `--output` only after
+`--generate`. You cannot use `--check` with `--generate`.
 
 All paths are relative to the current directory, which must be the root of
 the repository.
 
-The first lines of the workflow file are a comment. It gives the version of
-the tool, the command that made the file and a link to this repository. If
-the tool finds a problem, it prints all problems of the step that failed
-and exits with code 1.
-
-### Keep the workflow up to date
+### Keeping the workflow up to date
 
 When you change the `tested-with` field of a package, the packages of the
 project or the configuration, run the tool without options:
@@ -92,11 +87,15 @@ project or the configuration, run the tool without options:
 haskell-gha
 ```
 
-The tool finds each file in `.github/workflows` that starts with its header,
-and runs the command from the header again. If no file has the header, the
-tool stops with an error. The `--output` of the command must be the file
-itself. If you rename a workflow file, run its command with the new
-`--output`.
+Each workflow file starts with a header comment that gives the command that
+made the file and the version of the tool. The tool finds each file in
+`.github/workflows` with this header and runs the command from the header
+again. If no file has the header, the tool stops with an error.
+
+The `--output` of the command in the header must be the file itself, so a
+renamed workflow file is an error. To rename a workflow file, run the
+command from its header with the new path as `--output`, and delete the old
+file.
 
 To make sure that the committed workflows are up to date, run the tool in CI
 with `--check`:
@@ -105,12 +104,11 @@ with `--check`:
 haskell-gha --check
 ```
 
-The tool compares each workflow with its file and does not change the files.
-The comparison also includes the header comment, e.g. the version of the
-tool.
-
-A new version of the tool writes its version into the files. After you
-upgrade the tool, run it again and commit the files.
+With `--check`, the tool generates each workflow again and compares the
+result with the committed file. It writes no file. If a file differs, the
+tool exits with code 1. The comparison includes the header comment, which
+gives the version of the tool. Thus after you upgrade the tool, run it again
+and commit the files.
 
 ## GHC versions
 
@@ -291,7 +289,7 @@ use GitHub expressions in them, e.g. `${{ matrix.postgres }}`. The `matrix`
 mapping must not contain the key `ghc`, because the tool makes that axis.
 With `dependencies: both`, the same applies to the key `dependencies`.
 The job name refers to each axis in an expression. Thus the name of an axis
-must start with a letter or `_`, and contain only letters, digits, `_` and
+must start with a letter or `_` and contain only letters, digits, `_` and
 `-`. A `ghc` value in `include` or `exclude` must be a quoted string, e.g.
 `'9.10'`, and it must be an entry of the axis. Each key of an `exclude`
 entry must be `ghc`, an axis of the `matrix` mapping, or `dependencies`
