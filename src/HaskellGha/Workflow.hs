@@ -27,6 +27,8 @@ import Distribution.Pretty
 import Distribution.Version
 import System.Directory
 import System.FilePath
+import Yamlet
+import Yamlet.Syntax hiding (Version)
 
 import HaskellGha.Check
 import HaskellGha.Config

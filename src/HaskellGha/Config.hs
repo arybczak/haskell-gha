@@ -59,6 +59,7 @@ import Distribution.Version
 import System.Directory hiding (Permissions)
 import System.FilePath
 import Yamlet
+import Yamlet.Syntax hiding (Version)
 
 import HaskellGha.Yaml
 

@@ -7,6 +7,8 @@ import Data.Text.Encoding qualified as T
 import Distribution.Version
 import Test.Tasty
 import Test.Tasty.HUnit
+import Yamlet
+import Yamlet.Syntax hiding (Version)
 
 import HaskellGha.Config
 import HaskellGha.Yaml

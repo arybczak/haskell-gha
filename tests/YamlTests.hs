@@ -4,6 +4,7 @@ import Data.Text qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 import Yamlet
+import Yamlet.Syntax
 
 import HaskellGha.Yaml
 

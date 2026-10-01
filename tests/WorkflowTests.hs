@@ -12,12 +12,12 @@ import System.FilePath
 import System.IO.Temp
 import Test.Tasty
 import Test.Tasty.HUnit
+import Yamlet
 
 import HaskellGha.Config
 import HaskellGha.Options
 import HaskellGha.Project
 import HaskellGha.Workflow
-import HaskellGha.Yaml
 
 workflowTests :: TestTree
 workflowTests =
