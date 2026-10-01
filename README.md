@@ -289,77 +289,6 @@ hlint:
   version: '3.10'
 ```
 
-<details>
-<summary>An example with all keys</summary>
-
-```yaml
-name: CI
-cabal-version: '3.16.1.0'
-runs-on: ubuntu-26.04
-container: buildpack-deps:26.04
-timeout-minutes: 60
-branches: [master, main]
-submodules: false
-matrix:
-  postgres: ['15', '18']
-  exclude:
-  - ghc: '9.10'
-    postgres: '15'
-apt: [libsodium-dev]
-services:
-  postgres:
-    image: postgres:${{ matrix.postgres }}
-    env:
-      POSTGRES_PASSWORD: postgres
-    ports: ['5432:5432']
-    options: >-
-      --health-cmd pg_isready
-      --health-interval 5s
-      --health-retries 10
-permissions:
-  contents: read
-hooks:
-  after-setup:
-  - name: Show the Postgres version
-    run: psql --version
-  after-build: []
-ghc-options: -Werror -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
-cabal-project-local: |
-  package some-package
-    flags: +extra-benchmarks
-jobs: 4
-tests: true
-benchmarks: true
-dependencies: newest
-doctest:
-  enabled: true
-  ghc: '>=9.6 && <9.14'
-  version: '>=0.24'
-  skip: [some-package]
-  options: [--fast]
-check: true
-sdist: true
-haddock: true
-fourmolu:
-  enabled: true
-  version: '0.20.1.0'
-  pattern: ['src/**/*.hs', '!src/Generated.hs']
-hlint:
-  enabled: true
-  version: '3.10'
-  fail-on: suggestion
-  path: [src, test]
-actions:
-  checkout: v7
-  setup: v2
-  cache: v6
-  run-fourmolu: v13
-  hlint-setup: c04631035af0a6787c85e33b3ea0128b8568b590
-  hlint-run: d009541bdae0b8492992416e665bb6df8a3b5cde
-```
-
-</details>
-
 ### Workflow and runner
 
 | Key | Default | Meaning |
@@ -379,7 +308,26 @@ actions:
 
 The tool copies `matrix`, `services`, `permissions` and the hook steps to the
 workflow without changes, together with their comments. You can use GitHub
-expressions in them, e.g. `${{ matrix.postgres }}`.
+expressions in them. For example, this configuration tests each GHC version with
+two Postgres versions, except GHC 9.10 with Postgres 15:
+
+```yaml
+matrix:
+  postgres: ['15', '18']
+  exclude:
+  - ghc: '9.10'
+    postgres: '15'
+services:
+  postgres:
+    image: postgres:${{ matrix.postgres }}
+    env:
+      POSTGRES_PASSWORD: postgres
+    ports: ['5432:5432']
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 5s
+      --health-retries 10
+```
 
 These rules apply to `matrix`:
 
@@ -394,8 +342,8 @@ These rules apply to `matrix`:
 
 If a service has a health check, the runner starts the steps only when the
 service is healthy. The workflow then needs no step that waits for the service.
-The `postgres` image has no health check of its own, so the example with all
-keys gives one in `options`.
+The `postgres` image has no health check of its own, so the example gives one in
+`options`.
 
 ### Hooks
 
@@ -407,8 +355,8 @@ keys gives one in `options`.
 A hook is a list of GitHub Actions steps. An `after-setup` hook can install a
 library that the dependencies need, e.g. one that `apt` does not have. An
 `after-build` hook can prepare the tests. For example, with the `postgres`
-service from the example with all keys, this hook creates a database for the
-tests:
+service from the [matrix example](#matrix-services-and-permissions), this hook
+creates a database for the tests:
 
 ```yaml
 hooks:
