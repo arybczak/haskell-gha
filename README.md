@@ -39,10 +39,6 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 - The workflow can check the formatting with fourmolu and the code with HLint,
   each in its own job. `haskell-ci` has no such jobs.
 
-`haskell-ci` has features that `haskell-gha` does not have, e.g. macOS jobs,
-GHCJS and constraint sets with arbitrary constraints.
-If you need one of these features, use `haskell-ci`.
-
 ## Installation
 
 Build the tool from the source:
