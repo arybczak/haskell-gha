@@ -324,7 +324,7 @@ workflow opts source config project =
     fourmoluJob f =
       mapping
         [ "name" .= plain "Fourmolu"
-        , runsOn f.runsOn
+        , runsOn f.runsOn.value
         , timeout
         , "steps"
             .= sequenceNode
@@ -346,7 +346,7 @@ workflow opts source config project =
     hlintJob h =
       mapping
         [ "name" .= plain "HLint"
-        , runsOn h.runsOn
+        , runsOn h.runsOn.value
         , timeout
         , "steps"
             .= sequenceNode
@@ -636,7 +636,7 @@ workflow opts source config project =
                 <> maybe
                   ""
                   (\r -> " --constraint=" <> shellQuote ("doctest " <> T.pack (prettyShow r)))
-                  d.version
+                  d.version.value
                 <> " | sed -n 's/^ - doctest-\\([0-9.]*\\) (exe:doctest).*/\\1/p')"
             , "if [ -z \"$version\" ]; then"
             , "  echo 'The dry run of cabal install shows no doctest version.' >&2"

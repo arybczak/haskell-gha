@@ -21,6 +21,7 @@ module HaskellGha.Config
   , defaultHLint
 
     -- * Values
+  , Optional (..)
   , Positive (..)
   , MappingNode (..)
   , Permissions (..)
@@ -105,7 +106,7 @@ data HLint = HLint
   , path :: [Located HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
   -- directory.
-  , runsOn :: Maybe (Commented RunsOn)
+  , runsOn :: Optional (Commented RunsOn)
   -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
@@ -134,7 +135,7 @@ data Fourmolu = Fourmolu
   , version :: Version
   , patterns :: [Pattern]
   -- ^ The files to check. An empty list gives the default of the action.
-  , runsOn :: Maybe (Commented RunsOn)
+  , runsOn :: Optional (Commented RunsOn)
   -- ^ 'Nothing' gives the @runs-on@ of the build jobs.
   }
   deriving stock (Eq, Show, Generic)
@@ -270,7 +271,7 @@ instance GenericYamlOptions Hooks where
 data Doctest = Doctest
   { enabled :: Bool
   , ghc :: Located VersionRange
-  , version :: Maybe VersionRange
+  , version :: Optional VersionRange
   , skip :: [Located T.Text]
   , options :: [T.Text]
   }
@@ -350,7 +351,7 @@ defaultHLint =
     , version = mkVersion [3, 10]
     , failOn = FailSuggestion
     , path = []
-    , runsOn = Nothing
+    , runsOn = Optional Nothing
     }
 
 -- | The fourmolu configuration without a @fourmolu@ field. Version 0.20 and
@@ -361,7 +362,7 @@ defaultFourmolu =
     { enabled = False
     , version = mkVersion [0, 20, 1, 0]
     , patterns = []
-    , runsOn = Nothing
+    , runsOn = Optional Nothing
     }
 
 -- | The doctest configuration without a @doctest@ field.
@@ -370,7 +371,7 @@ defaultDoctest =
   Doctest
     { enabled = False
     , ghc = Located anyVersion noOffset
-    , version = Nothing
+    , version = Optional Nothing
     , skip = []
     , options = []
     }
@@ -390,6 +391,15 @@ instance FromYaml Version where
 -- | A version range, e.g. @>=9.6 && <9.14@.
 instance FromYaml VersionRange where
   parseYaml = withText $ \t -> maybe (fail "expected a version range") pure (simpleParsec (T.unpack t))
+
+-- | A value that only a missing key leaves out. Unlike for 'Maybe', null is an
+-- error.
+newtype Optional a = Optional {value :: Maybe a}
+  deriving newtype (Eq, Show)
+
+instance FromYaml a => FromYaml (Optional a) where
+  parseYaml n = Optional . Just <$> parseYaml n
+  parseYamlField k n = Optional . Just <$> parseYamlField k n
 
 -- | A positive integer.
 newtype Positive = Positive {value :: Int}

@@ -145,7 +145,7 @@ test_example = do
   assertEqual
     "doctest version"
     (Just (orLaterVersion $ mkVersion [0, 24]))
-    config.doctest.version
+    config.doctest.version.value
   assertEqual "doctest skip" ["some-package"] (map (.value) config.doctest.skip)
   assertEqual "doctest options" ["--fast"] config.doctest.options
   assertEqual "check" False config.check
@@ -157,7 +157,7 @@ test_example = do
       { enabled = True
       , version = mkVersion [0, 19, 0, 1]
       , patterns = [Pattern "src/**/*.hs"]
-      , runsOn = Nothing
+      , runsOn = Optional Nothing
       }
     config.fourmolu
   assertEqual "hlint enabled" True config.hlint.enabled
@@ -352,6 +352,18 @@ test_errors = do
     "doctest range"
     "doctest.ghc: expected a version range"
     "doctest:\n  ghc: nine\n"
+  assertError
+    "doctest version null"
+    "doctest.version: expected a string, but got null"
+    "doctest:\n  version:\n"
+  assertError
+    "hlint runs-on null"
+    "hlint.runs-on: expected a runner label, a list of labels or a mapping"
+    "hlint:\n  runs-on:\n"
+  assertError
+    "fourmolu runs-on null"
+    "fourmolu.runs-on: expected a runner label, a list of labels or a mapping"
+    "fourmolu:\n  runs-on: ~\n"
   assertError
     "apt"
     "apt: expected a list, but got a string"
