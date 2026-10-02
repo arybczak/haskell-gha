@@ -16,8 +16,6 @@ module HaskellGha.Config
   , Actions (..)
   , ActionRef (..)
   , defaultConfig
-  , defaultDoctest
-  , defaultFourmolu
   , defaultHLint
 
     -- * Values
