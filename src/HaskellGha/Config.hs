@@ -41,6 +41,7 @@ module HaskellGha.Config
   , emptySource
   , sourceErrors
   , defaultConfigPath
+  , configPath
   , readConfig
   , parseConfig
   ) where
@@ -677,9 +678,14 @@ readConfig root configFile =
         parent = takeDirectory (root </> file)
 
     file :: FilePath
-    file = case configFile of
-      DefaultConfigFile -> defaultConfigPath
-      ConfigFile path -> path
+    file = configPath configFile
+
+-- | The path of the configuration file, relative to the root of the
+-- repository.
+configPath :: ConfigFile -> FilePath
+configPath = \case
+  DefaultConfigFile -> defaultConfigPath
+  ConfigFile path -> path
 
 -- | Parse the configuration. An empty file gives 'defaultConfig'.
 parseConfig

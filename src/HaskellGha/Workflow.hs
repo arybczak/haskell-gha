@@ -117,9 +117,34 @@ generate
   -> Options
   -> IO (Either [String] Node)
 generate root opts = runExceptT $ do
+  ExceptT inRepository
   (config, source) <- ExceptT $ readConfig root opts.config
   project <- ExceptT $ readProject root opts.projectDir
   except $ workflow opts source config project
+  where
+    -- The options reject a path that leads out of the repository by its text,
+    -- but a symbolic link can also lead out, and CI has only the repository.
+    inRepository :: IO (Either [String] ())
+    inRepository = do
+      top <- splitDirectories <$> canonicalizePath root
+      errors <-
+        forM
+          [ ("configuration file", configPath opts.config)
+          , ("project directory", opts.projectDir)
+          ]
+          $ \(what, path) -> do
+            target <- splitDirectories <$> canonicalizePath (root </> path)
+            pure
+              [ "The "
+                  ++ what
+                  ++ " "
+                  ++ path
+                  ++ " leads out of the repository through a symbolic link. Give a path in the repository."
+              | not (top `L.isPrefixOf` target)
+              ]
+      pure $ case concat errors of
+        [] -> Right ()
+        es -> Left es
 
 -- | Render the workflow with its header comment.
 renderWorkflow

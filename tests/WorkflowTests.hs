@@ -46,6 +46,7 @@ workflowTests =
     , testCase "the modes of the command line" test_modes
     , testCase "the generated workflows" test_findWorkflows
     , testCase "the commands write and check the workflow files" test_runCommand
+    , testCase "a symbolic link out of the repository" test_linkOutOfRepository
     ]
 
 test_comments :: Assertion
@@ -453,6 +454,27 @@ test_findWorkflows =
       )
       . firstLines
       =<< findWorkflows root
+
+test_linkOutOfRepository :: Assertion
+test_linkOutOfRepository =
+  withSystemTempDirectory "haskell-gha-tests" $ \tmp -> do
+    let root = tmp </> "repo"
+        outside = tmp </> "outside"
+    createDirectoryIfMissing True (outside </> "project")
+    createDirectory root
+    writeFile (outside </> "conf.yml") ""
+    createFileLink (outside </> "conf.yml") (root </> "conf.yml")
+    createDirectoryLink (outside </> "project") (root </> "project")
+    result <-
+      generate root defaultOptions {config = ConfigFile "conf.yml", projectDir = "project"}
+    assertEqual
+      "errors"
+      ( Left
+          [ "The configuration file conf.yml leads out of the repository through a symbolic link. Give a path in the repository."
+          , "The project directory project leads out of the repository through a symbolic link. Give a path in the repository."
+          ]
+      )
+      (void result)
 
 test_runCommand :: Assertion
 test_runCommand =

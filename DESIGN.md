@@ -153,6 +153,10 @@ the user gave `--config`, the command contains it, also with the default
 path. The command also contains each other option that is not a default.
 The configuration file must be a relative path in the repository, because a
 run with `--check` in CI or in another checkout reads it from the header.
+The parser of the command line checks the text of the path. A symbolic link
+in the path can still lead out of the repository, so the tool also checks
+the real path of the configuration file and of the project directory before
+it reads them.
 
 `--generate` does not replace a file without the header. Such a file can be a
 workflow that the user wrote, and it may not be committed. The user deletes
