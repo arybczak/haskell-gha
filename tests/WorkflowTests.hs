@@ -476,10 +476,11 @@ test_runCommand =
     assertEqual "regenerate after an edit" [] =<< run Regenerate
     assertEqual "--check after regenerate" [] =<< run Check
     removeFile (root </> "a.cabal")
-    assertEqual
-      "error"
-      ["There are no packages in the implicit project of \".\"."]
-      =<< run (Generate defaultOptions)
+    let noPackages = "There are no packages in the implicit project of \".\"."
+    assertEqual "error" [noPackages] =<< run (Generate defaultOptions)
+    let named = [outputPath defaultOptions ++ ": " ++ noPackages]
+    assertEqual "error of regenerate" named =<< run Regenerate
+    assertEqual "error of --check" named =<< run Check
 
 -- | The options of a command line for one workflow, after @--generate@.
 parseOptions :: [String] -> Maybe Options

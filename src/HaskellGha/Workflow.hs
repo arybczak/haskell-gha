@@ -50,20 +50,24 @@ runCommand
   -> Command
   -> IO [String]
 runCommand root version = \case
-  Generate opts -> run False opts
+  Generate opts -> run False id opts
   Regenerate -> everyWorkflow False
   Check -> everyWorkflow True
   where
+    -- The errors of the project do not name the workflow, so each error
+    -- starts with the file of its workflow.
     everyWorkflow :: Bool -> IO [String]
     everyWorkflow check =
       findWorkflows root >>= \case
         Left errors -> pure errors
-        Right workflows -> concat <$> traverse (run check) workflows
+        Right workflows ->
+          concat <$> traverse (\opts -> run check ((outputPath opts ++ ": ") ++) opts) workflows
 
-    run :: Bool -> Options -> IO [String]
-    run check opts =
+    -- The label changes each error of the generation.
+    run :: Bool -> (String -> String) -> Options -> IO [String]
+    run check label opts =
       generate root opts >>= \case
-        Left errors -> pure errors
+        Left errors -> pure (map label errors)
         Right node -> do
           let rendered = T.encodeUtf8 $ renderWorkflow version opts node
               output = root </> outputPath opts
