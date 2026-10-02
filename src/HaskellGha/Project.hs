@@ -122,7 +122,8 @@ readProject root dir = runExceptT $ do
     [("The package file " ++ inProject dir f, inProject dir f) | f <- cabalFiles]
   packages <-
     ExceptT $
-      runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (inProject dir f) f)
+      runCheck . traverse fromErrors
+        <$> forM cabalFiles (\f -> readPackage root (inProject dir f) f)
   except . runCheck $ projectFrom exists dir packages (byToken found packages) parts
   where
     projectFile :: FilePath
