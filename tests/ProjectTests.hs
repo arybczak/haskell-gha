@@ -119,6 +119,9 @@ test_globs = do
       [ ("cabal.project", "packages: pkgs/*/\n          other/*.cabal, {x,y}\n")
       , ("pkgs/a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("pkgs/b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      , ("pkgs/docs/index.md", "")
+      , ("pkgs/two/c.cabal", cabal "c" "GHC ^>= 9.10" False)
+      , ("pkgs/two/d.cabal", cabal "d" "GHC ^>= 9.10" False)
       , ("other/o.cabal", cabal "o" "GHC ^>= 9.10" False)
       , ("x/x.cabal", cabal "x" "GHC ^>= 9.10" False)
       , ("y/y.cabal", cabal "y" "GHC ^>= 9.10" False)
@@ -133,10 +136,20 @@ test_optional :: Assertion
 test_optional = do
   project <-
     readOk
-      [ ("cabal.project", "packages: a\noptional-packages: vendor/*/\n")
+      [ ("cabal.project", "packages: a\noptional-packages: vendor/*/ docs/\n")
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      , ("docs/index.md", "")
       ]
   assertEqual "packages" ["a"] (map (.name) project.packages)
+  errors <-
+    readErrors
+      [ ("cabal.project", "packages: a\noptional-packages: vendor/* {broken\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  assertEqual
+    "errors"
+    ["PROJECT/cabal.project:2:29: the package location \"{broken\" is not a valid glob."]
+    errors
 
 test_exactAndSeries :: Assertion
 test_exactAndSeries = do
@@ -327,13 +340,15 @@ test_locationErrors = do
       [
         ( "cabal.project"
         , unlines
-            [ "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two"
+            [ "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two docs/*"
             , "  /opt/pkg, ~/pkgs/*/"
             , "  ../../outside ../../*/*.cabal {broken"
             ]
         )
       , ("two/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("two/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      , ("docs/a.md", "")
+      , ("docs/pkg.tar.gz", "")
       ]
   assertEqual
     "errors"
@@ -341,6 +356,7 @@ test_locationErrors = do
     , "PROJECT/cabal.project:1:20: the package location \"nothing/*.cabal\" matches no files."
     , "PROJECT/cabal.project:1:36: the package location \"https://example.com/a.tar.gz\" is a URL. The tool supports only local packages."
     , "PROJECT/cabal.project:1:65: the directory \"two\" contains more than one .cabal file."
+    , "PROJECT/cabal.project:1:69: the package location \"docs/pkg.tar.gz\" is a tarball. The tool supports only local packages."
     , "PROJECT/cabal.project:2:3: the package location \"/opt/pkg\" is not a relative path. The tool supports only packages in the repository."
     , "PROJECT/cabal.project:2:13: the package location \"~/pkgs/*/\" is not a relative path. The tool supports only packages in the repository."
     , "PROJECT/cabal.project:3:3: the package location \"../../outside\" is not in the repository. The tool supports only packages in the repository."

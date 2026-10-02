@@ -251,6 +251,14 @@ the `Parsec` instance of `RootedGlob` and matches it with `matchGlob` from
 `Cabal`. A relative glob needs no root, so the tool does not copy
 `matchFileGlob` from `cabal-install`.
 
+A match of a glob without a package, e.g. a directory without a `.cabal`
+file, is an error only if no match of the glob has a package. In
+`optional-packages:` it is never an error. cabal does the same
+(`checkIsFileGlobPackage` in
+`cabal-install/src/Distribution/Client/ProjectConfig.hs`), so `*/` can match
+a directory with documentation next to the packages. A location of
+`optional-packages:` that is not a valid glob is an error, as in cabal.
+
 An absolute path, a path outside the repository, a URL or a tarball in
 `packages:` is an error. The workflow uses the path on the runner, where
 only the repository exists. If a path outside the project directory, e.g.

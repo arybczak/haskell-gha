@@ -19,7 +19,6 @@ import Control.Monad.Trans.Except
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.Char
-import Data.Either
 import Data.Foldable
 import Data.Functor
 import Data.List qualified as L
@@ -272,6 +271,16 @@ parseProjectFile file input = case readFields input of
 ----------------------------------------
 -- Package locations
 
+-- | A path that a package location gives.
+data LocationMatch
+  = -- | A @.cabal@ file, relative to the project directory.
+    MatchCabalFile FilePath
+  | -- | A package that cabal reads and the tool does not support, with the
+    -- error.
+    MatchUnsupported String
+  | -- | A path without a package, with the error.
+    MatchNoPackage String
+
 -- | Find the @.cabal@ files of an entry of @packages:@. The paths are relative
 -- to the project directory.
 findPackages
@@ -308,12 +317,16 @@ findPackages root projectDir required entry
           else collect <$> mapM classify matches
       -- A glob from the root or the home directory.
       Just _ -> notRelative
-      -- As in cabal, a location that is not a glob can still be a path.
-      Nothing -> do
-        exists <- (||) <$> doesFileExist (dir </> t) <*> doesDirectoryExist (dir </> t)
-        if exists
-          then collect . pure <$> classify t
-          else pure $ missing "is not a valid glob, and no file or directory has this path"
+      -- As in cabal, a location of packages: that is not a glob can still be a
+      -- path, but a location of optional-packages: must be a glob.
+      Nothing
+        | required -> do
+            exists <- (||) <$> doesFileExist (dir </> t) <*> doesDirectoryExist (dir </> t)
+            if exists
+              then collect . pure <$> classify t
+              else pure $ missing "is not a valid glob, and no file or directory has this path"
+        | otherwise ->
+            pure $ Left [at $ "the package location " ++ show t ++ " is not a valid glob."]
   where
     t :: String
     t = entry.target
@@ -356,32 +369,43 @@ findPackages root projectDir required entry
                 ++ " is not a relative path. The tool supports only packages in the repository."
           ]
 
-    collect :: [Either String FilePath] -> Either [String] [FilePath]
-    collect results = case partitionEithers results of
-      ([], files) -> Right files
-      (errors, _) -> Left errors
+    -- As in cabal, a path without a package is an error only if no path of
+    -- the location has a package, so the glob */ can match a directory with
+    -- documentation next to the packages. In optional-packages: it is never
+    -- an error (checkIsFileGlobPackage in
+    -- cabal-install/src/Distribution/Client/ProjectConfig.hs).
+    collect :: [LocationMatch] -> Either [String] [FilePath]
+    collect matches = case [e | MatchUnsupported e <- matches] of
+      [] -> case [f | MatchCabalFile f <- matches] of
+        []
+          | required -> Left [e | MatchNoPackage e <- matches]
+          | otherwise -> Right []
+        files -> Right files
+      errors -> Left errors
 
     -- Classify a match of the package location.
-    classify :: FilePath -> IO (Either String FilePath)
+    classify :: FilePath -> IO LocationMatch
     classify path = do
       isDir <- doesDirectoryExist (dir </> path)
       if isDir
         then do
           cabalFiles <- filter ((== ".cabal") . takeExtension) <$> listDirectory (dir </> path)
           pure $ case cabalFiles of
-            [f] -> Right (normalise $ path </> f)
-            [] -> Left . at $ "the directory " ++ show path ++ " contains no .cabal file."
-            _ -> Left . at $ "the directory " ++ show path ++ " contains more than one .cabal file."
+            [f] -> MatchCabalFile (normalise $ path </> f)
+            [] -> MatchNoPackage . at $ "the directory " ++ show path ++ " contains no .cabal file."
+            _ ->
+              MatchNoPackage . at $
+                "the directory " ++ show path ++ " contains more than one .cabal file."
         else pure $ case () of
           _
             | ".tar.gz" `L.isSuffixOf` path ->
-                Left . at $
+                MatchUnsupported . at $
                   "the package location "
                     ++ show path
                     ++ " is a tarball. The tool supports only local packages."
-            | takeExtension path == ".cabal" -> Right (normalise path)
+            | takeExtension path == ".cabal" -> MatchCabalFile (normalise path)
             | otherwise ->
-                Left . at $
+                MatchNoPackage . at $
                   "the package location " ++ show path ++ " is not a directory or a .cabal file."
 
 ----------------------------------------
