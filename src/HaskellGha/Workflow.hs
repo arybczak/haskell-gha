@@ -920,16 +920,20 @@ workflow opts source config project = runCheck $ checks $> root
         names = map (.name)
 
     -- GHC and cabal can use different versions of the semaphore protocol. GHC
-    -- then warns and compiles the modules one at a time. GHC 9.12 and older do
-    -- not know this warning. The stanzas must come after the ghc-options of the
-    -- configuration, because a later -Werror makes both warnings errors again.
+    -- then warns and compiles the modules one at a time. Only some minor
+    -- versions of a series know this warning, and a series entry gets its
+    -- newest release when the job runs, so the job asks GHC. The stanzas must
+    -- come after the ghc-options of the configuration, because a later -Werror
+    -- makes the warning an error again.
     semaphoreScript :: [Package] -> T.Text
     semaphoreScript pkgs =
-      heredoc . L.intercalate [""] $
-        ["semaphore: True"]
-          : [ stanza p "ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure"
-            | p <- pkgs
-            ]
+      T.concat
+        [ heredoc ["semaphore: True"]
+        , "if ghc --show-options | grep -x -- -Wsemaphore-open-failure > /dev/null; then\n"
+        , heredoc . L.intercalate [""] $
+            [stanza p "ghc-options: -Wwarn=semaphore-open-failure" | p <- pkgs]
+        , "fi\n"
+        ]
 
     -- The semaphore needs GHC 9.8. A matrix entry is an exact version or a
     -- major series, so the range decides each entry completely.

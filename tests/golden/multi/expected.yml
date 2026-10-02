@@ -115,13 +115,16 @@ jobs:
       run: |
         cat >> cabal.project.local <<'EOF'
         semaphore: True
-
+        EOF
+        if ghc --show-options | grep -x -- -Wsemaphore-open-failure > /dev/null; then
+        cat >> cabal.project.local <<'EOF'
         package core
-          ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+          ghc-options: -Wwarn=semaphore-open-failure
 
         package new
-          ghc-options: -Wwarn=unrecognised-warning-flags -Wwarn=semaphore-open-failure
+          ghc-options: -Wwarn=semaphore-open-failure
         EOF
+        fi
 
     - name: Make the build plan
       id: plan

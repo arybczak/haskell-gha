@@ -350,17 +350,20 @@ a developer can run the same `cabal` commands locally. The default `ghc-options`
 are `-Werror`, and they apply only to the local packages, so the warnings of a
 dependency do not fail the build.
 
-The semaphore step adds `-Wwarn=unrecognised-warning-flags` and
-`-Wwarn=semaphore-open-failure` to each local package. They come from a test
-with GHC 10.0.0.20260917 and cabal 3.16.1.0. GHC uses version 2 of the semaphore
-protocol and cabal version 1, so GHC warns and compiles sequentially, and
-`-Werror` makes the warning an error. GHC 9.12 and older do not know that
-warning, and with `-Werror` the unknown flag is an error. GHC 9.14.1.20260916
-and 9.14.2-rc2 know it. The step adds the options whatever the `ghc-options` of
-the configuration are, because the user cannot see that the semaphore needs
-them. The step comes after the configuration step, because GHC reads the options
-in order, and a later `-Werror` makes both warnings errors again. This also
-holds for a `-Werror` in the text of `cabal-project-local`.
+The semaphore step adds `-Wwarn=semaphore-open-failure` to each local package if
+GHC knows that warning. The option comes from a test with GHC 10.0.0.20260917
+and cabal 3.16.1.0. GHC uses version 2 of the semaphore protocol and cabal
+version 1, so GHC warns and compiles sequentially, and `-Werror` makes the
+warning an error. GHC 9.14.1 and older do not know that warning, and GHC
+9.14.1.20260916 and 9.14.2-rc2 know it. An unknown warning flag is an error with
+`-Werror`, and without it GHC warns about the flag once for each module and each
+configure step. A series entry gets its newest release when the job runs, so the
+tool cannot decide from the matrix whether GHC knows the warning. The step asks
+GHC with `ghc --show-options` instead. The step adds the option whatever the
+`ghc-options` of the configuration are, because the user cannot see that the
+semaphore needs it. The step comes after the configuration step, because GHC
+reads the options in order, and a later `-Werror` makes the warning an error
+again. This also holds for a `-Werror` in the text of `cabal-project-local`.
 
 cabal merges two `package` stanzas for the same package, so the `-j<N>` and the
 semaphore stanzas can come after the stanza with the `ghc-options` of the
