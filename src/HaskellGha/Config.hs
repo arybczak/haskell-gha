@@ -343,6 +343,9 @@ defaultConfig =
                 }
           }
     }
+  where
+    bare :: a -> Commented a
+    bare a = Commented a noComments
 
 -- | The HLint configuration without an @hlint@ field.
 defaultHLint :: HLint
@@ -376,10 +379,6 @@ defaultDoctest =
     , skip = []
     , options = []
     }
-
--- | A value without comments.
-bare :: a -> Commented a
-bare a = Commented a noComments
 
 ----------------------------------------
 -- Values
