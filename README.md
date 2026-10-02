@@ -576,7 +576,7 @@ hints appear as annotations in the pull request.
 | `hlint.enabled` | `false` | Add the HLint job. |
 | `hlint.version` | `3.10` | The HLint version. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
-| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, and it must not contain a tab or another control character. |
+| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, must not be empty, and must not contain a tab or another control character. |
 | `hlint.runs-on` | the value of `runs-on` | The runner of the HLint job, as for `fourmolu.runs-on`. |
 
 By default, every hint fails the job. To turn off a hint that the project does

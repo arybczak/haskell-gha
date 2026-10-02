@@ -143,11 +143,7 @@ options = do
     -- The workflow uses the directory on the runner, so it must be in the
     -- repository.
     projectDirReader :: ReadM FilePath
-    projectDirReader =
-      pathReader >>= \case
-        "" ->
-          readerError "The project directory is empty. For the root of the repository, give \".\"."
-        dir -> inRepository "The project directory" dir
+    projectDirReader = pathReader >>= inRepository "The project directory"
 
     inRepository :: String -> FilePath -> ReadM FilePath
     inRepository what path
@@ -189,6 +185,7 @@ options = do
     pathReader =
       str >>= \path -> case () of
         _
+          | null path -> readerError "The path is empty."
           | any isControl path ->
               readerError $
                 "The path "

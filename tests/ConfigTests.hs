@@ -406,6 +406,10 @@ test_errors = do
     "hlint.path[1]: a path must not contain a control character, e.g. a tab or a line break"
     "hlint:\n  path: [src, \"a\\tb\"]\n"
   assertError
+    "empty hlint path"
+    "hlint.path[1]: a path must not be empty"
+    "hlint:\n  path: [src, \"\"]\n"
+  assertError
     "hlint fail-on"
     "hlint.fail-on: unknown value \"warnings\", did you mean \"warning\"?"
     "hlint:\n  fail-on: warnings\n"

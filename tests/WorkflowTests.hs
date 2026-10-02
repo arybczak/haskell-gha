@@ -192,6 +192,7 @@ test_outputPath = do
 test_controlCharacters :: Assertion
 test_controlCharacters =
   forM_ ["--config", "--project-dir", "--output"] $ \opt -> do
+    assertEqual (opt ++ " empty") Nothing (parseOptions [opt, ""])
     assertEqual (opt ++ " with a line break") Nothing (parseOptions [opt, "a\nb"])
     assertEqual (opt ++ " with a tab") Nothing (parseOptions [opt, "a\tb"])
     assertEqual (opt ++ " with U+2028") Nothing (parseOptions [opt, "a\x2028\&b"])

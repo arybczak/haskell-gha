@@ -485,10 +485,12 @@ newtype HLintPath = HLintPath {value :: T.Text}
   deriving newtype (Eq, Show)
 
 instance FromYaml HLintPath where
-  parseYaml = withText $ \p ->
-    if T.any isControl p
-      then fail "a path must not contain a control character, e.g. a tab or a line break"
-      else pure $ HLintPath p
+  parseYaml = withText $ \p -> case () of
+    _
+      | T.null p -> fail "a path must not be empty"
+      | T.any isControl p ->
+          fail "a path must not contain a control character, e.g. a tab or a line break"
+      | otherwise -> pure $ HLintPath p
 
 ----------------------------------------
 -- Matrix
