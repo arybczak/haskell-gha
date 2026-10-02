@@ -661,7 +661,9 @@ readConfig root configFile =
   doesFileExist (root </> file) >>= \case
     True -> parseConfig file <$> BS.readFile (root </> file)
     False ->
-      hasEntry <&> \case
+      -- The entry of the name in its directory does not show a path such as
+      -- . or a/, so the directory needs its own check.
+      ((||) <$> doesDirectoryExist (root </> file) <*> hasEntry) <&> \case
         -- Also for the default file, because the defaults would hide the
         -- broken file.
         True ->

@@ -1,5 +1,6 @@
 module ConfigTests (configTests) where
 
+import Control.Monad
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe
 import Data.Text qualified as T
@@ -63,6 +64,12 @@ test_brokenFile =
     removeFile file
     createDirectory file
     assertEqual "directory" broken . fmap fst =<< readConfig root DefaultConfigFile
+    forM_ [".", defaultConfigPath ++ "/"] $ \path ->
+      assertEqual
+        ("directory " ++ path)
+        (Left ["The configuration file " ++ path ++ " is a directory or a broken symbolic link."])
+        . fmap fst
+        =<< readConfig root (ConfigFile path)
 
 test_emptyFile :: Assertion
 test_emptyFile = assertEqual "config" (Right defaultConfig) (parse "# only a comment\n")
