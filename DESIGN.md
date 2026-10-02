@@ -415,7 +415,11 @@ known use. They can come later without a breaking change.
 GitHub rejects a workflow if two steps of a job have the same id. Thus a hook
 step with the id of a step of the tool is an error. The check uses the ids of
 the steps that the workflow has, so without doctest, a hook step can use the
-ids of the doctest steps.
+ids of the doctest steps. GitHub compares the ids without case, e.g. `Cache`
+and `cache` are the same id, so the check does too. The documentation does not
+say this, but the parser of `actions/runner` keeps the ids in a set with
+`StringComparer.OrdinalIgnoreCase` (`IdBuilder.cs`), and a test of the parser
+in `actions/languageservices` rejects `STEP1` after `step1`.
 
 `cabal test all` fails for a project without test suites. Thus the test step
 runs only for the GHC versions with a local package that has a test suite.

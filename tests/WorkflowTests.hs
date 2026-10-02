@@ -135,9 +135,9 @@ test_hlintPathOutside = do
 test_hookStepId :: Assertion
 test_hookStepId = do
   assertErrors
-    "hooks:\n  after-setup:\n  - id: cache\n    run: echo a\n  after-build:\n  - id: setup\n    run: echo b\n"
+    "hooks:\n  after-setup:\n  - id: cache\n    run: echo a\n  after-build:\n  - id: Setup\n    run: echo b\n"
     [ "conf.yml:3:9: hooks.after-setup[0].id: the build job already has a step with the id cache. Give the hook step another id."
-    , "conf.yml:6:9: hooks.after-build[0].id: the build job already has a step with the id setup. Give the hook step another id."
+    , "conf.yml:6:9: hooks.after-build[0].id: the build job already has a step with the id setup, and GitHub compares the ids without case. Give the hook step another id."
     ]
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   (config, source) <-

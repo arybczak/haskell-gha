@@ -66,14 +66,17 @@ validateWorkflow opts source config project stepIds = do
         path :: FilePath
         path = T.unpack p.value.value
 
-    -- GitHub rejects a workflow if two steps of a job have the same id.
+    -- GitHub rejects a workflow if two steps of a job have the same id. It
+    -- compares the ids without case (the StringComparer.OrdinalIgnoreCase of
+    -- IdBuilder.cs in actions/runner), and an id has only ASCII characters.
     checkHookId :: MappingNode -> Check ()
     checkHookId s = case stringField "id" s.value of
       Just i
-        | i.value `elem` stepIds ->
+        | Just own <- L.find (\t -> T.toLower t == T.toLower i.value) stepIds ->
             failureAt i.offset $
               "the build job already has a step with the id "
-                ++ T.unpack i.value
+                ++ T.unpack own
+                ++ (if own == i.value then "" else ", and GitHub compares the ids without case")
                 ++ ". Give the hook step another id."
       _ -> pure ()
 

@@ -375,7 +375,9 @@ to the root of the repository.
 
 The steps of the build job have the ids `setup`, `versions`, `plan` and `cache`,
 and with doctest also `doctest` and `doctest-cache`. A hook step must not use
-these ids, but it can read the outputs of these steps, e.g.
+these ids, also not with other upper and lower case letters, e.g. `Cache`,
+because GitHub compares the ids without case. A hook can read the outputs of
+these steps, e.g.
 `${{ steps.setup.outputs.ghc-version }}`.
 
 The copy of the source tarballs is in `${{ runner.temp }}/haskell-gha`. The
