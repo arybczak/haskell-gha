@@ -280,6 +280,13 @@ only the repository exists. If a path outside the project directory, e.g.
 `../other`, stays in the repository, it is legal. The same rules apply to
 the local file of an `import:` line.
 
+The reader removes each component of a package path that a later `..`
+cancels, e.g. `a/../b` becomes `b`. Thus two paths of one package give one
+package, as in cabal, and not two stanzas and two tarballs in the workflow.
+The removal ignores symbolic links, so `a/../b` with a link `a` gives `b`,
+but the system reads the other directory. A package path through a link
+and `..` has no known use.
+
 ### GHC versions
 
 The reader splits the `tested-with` range of each package into intervals

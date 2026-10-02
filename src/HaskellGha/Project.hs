@@ -394,7 +394,7 @@ findPackages root projectDir required entry
             filter (\f -> takeExtension f == ".cabal" && not ("." `L.isPrefixOf` f))
               <$> listDirectory (dir </> path)
           pure $ case cabalFiles of
-            [f] -> MatchCabalFile (normalise $ path </> f)
+            [f] -> MatchCabalFile (collapse $ path </> f)
             [] -> MatchNoPackage . at $ "the directory " ++ show path ++ " contains no .cabal file."
             _ ->
               MatchNoPackage . at $
@@ -406,10 +406,22 @@ findPackages root projectDir required entry
                   "the package location "
                     ++ show path
                     ++ " is a tarball. The tool supports only local packages."
-            | takeExtension path == ".cabal" -> MatchCabalFile (normalise path)
+            | takeExtension path == ".cabal" -> MatchCabalFile (collapse path)
             | otherwise ->
                 MatchNoPackage . at $
                   "the package location " ++ show path ++ " is not a directory or a .cabal file."
+
+    -- Remove each component that a .. after it cancels, so that two paths of
+    -- one package, e.g. b and a/../b, give the same path. A .. at the start
+    -- stays.
+    collapse :: FilePath -> FilePath
+    collapse = joinPath . reverse . foldl' step [] . splitDirectories . normalise
+      where
+        step :: [FilePath] -> FilePath -> [FilePath]
+        step acc = \case
+          "." -> acc
+          ".." | c : rest <- acc, c /= ".." -> rest
+          c -> c : acc
 
 ----------------------------------------
 -- Packages

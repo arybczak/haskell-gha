@@ -132,6 +132,13 @@ test_globs = do
     "directories"
     ["other", "pkgs/a", "pkgs/b", "x", "y"]
     (L.sort $ map (.directory) project.packages)
+  twoPaths <-
+    readOk
+      [ ("cabal.project", "packages: b a/../b ./a/\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      ]
+  assertEqual "two paths of a package" [(s 9 10, ["b", "a"])] (matrixOf twoPaths)
   -- A wildcard does not match the entries . and .. of a directory.
   dots <-
     readErrors
