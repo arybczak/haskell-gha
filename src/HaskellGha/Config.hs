@@ -654,10 +654,28 @@ readConfig
 readConfig root configFile =
   doesFileExist (root </> file) >>= \case
     True -> parseConfig file <$> BS.readFile (root </> file)
-    False -> pure $ case configFile of
-      DefaultConfigFile -> Right (defaultConfig, emptySource file)
-      ConfigFile _ -> Left ["The configuration file " ++ file ++ " does not exist."]
+    False ->
+      hasEntry <&> \case
+        -- Also for the default file, because the defaults would hide the
+        -- broken file.
+        True ->
+          Left
+            ["The configuration file " ++ file ++ " is a directory or a broken symbolic link."]
+        False -> case configFile of
+          DefaultConfigFile -> Right (defaultConfig, emptySource file)
+          ConfigFile _ -> Left ["The configuration file " ++ file ++ " does not exist."]
   where
+    -- Whether the directory of the file has an entry with its name. Unlike
+    -- doesPathExist, this is also true for a broken symbolic link.
+    hasEntry :: IO Bool
+    hasEntry =
+      doesDirectoryExist parent >>= \case
+        True -> elem (takeFileName file) <$> listDirectory parent
+        False -> pure False
+      where
+        parent :: FilePath
+        parent = takeDirectory (root </> file)
+
     file :: FilePath
     file = case configFile of
       DefaultConfigFile -> defaultConfigPath

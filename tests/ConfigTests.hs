@@ -5,6 +5,9 @@ import Data.Maybe
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Distribution.Version
+import System.Directory
+import System.FilePath
+import System.IO.Temp
 import Test.Tasty
 import Test.Tasty.HUnit
 import Yamlet
@@ -19,6 +22,7 @@ configTests =
   testGroup
     "Config"
     [ testCase "a missing file" test_missingFile
+    , testCase "a broken file" test_brokenFile
     , testCase "an empty file gives the defaults" test_emptyFile
     , testCase "the example configuration" test_example
     , testCase "a section without enabled stays off" test_sectionWithoutEnabled
@@ -42,6 +46,23 @@ test_missingFile = do
     "named"
     (Left ["The configuration file tests/does-not-exist.yml does not exist."])
     (fst <$> required)
+
+test_brokenFile :: Assertion
+test_brokenFile =
+  withSystemTempDirectory "haskell-gha-tests" $ \root -> do
+    let file = root </> defaultConfigPath
+        broken =
+          Left
+            [ "The configuration file "
+                ++ defaultConfigPath
+                ++ " is a directory or a broken symbolic link."
+            ]
+    createDirectoryIfMissing True (takeDirectory file)
+    createFileLink (root </> "missing.yml") file
+    assertEqual "broken link" broken . fmap fst =<< readConfig root DefaultConfigFile
+    removeFile file
+    createDirectory file
+    assertEqual "directory" broken . fmap fst =<< readConfig root DefaultConfigFile
 
 test_emptyFile :: Assertion
 test_emptyFile = assertEqual "config" (Right defaultConfig) (parse "# only a comment\n")
