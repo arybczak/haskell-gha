@@ -130,10 +130,10 @@ directory, which must be the root of the repository.
 ### Keeping the workflow up to date
 
 Each workflow file starts with a header comment that gives the command that made
-the file and the tool version. Without options, the tool finds each file in
-`.github/workflows` with this header and generates the workflow again with the
-options from the header. If no file has the header, the tool stops with an
-error. Each error of a workflow starts with the name of its file.
+the file. Without options, the tool finds each file in `.github/workflows` with
+this header and generates the workflow again with the options from the header.
+If no file has the header, the tool stops with an error. Each error of a
+workflow starts with the name of its file.
 
 The `--output` of the command in the header must be the name of the file
 itself, so a renamed workflow file is an error. To rename a workflow file, run
@@ -149,8 +149,8 @@ haskell-gha --check
 
 With `--check`, the tool generates each workflow again and compares the result
 with the committed file. It writes no file. If a file differs, the tool exits
-with code 1. The comparison includes the header comment with the tool version,
-so after you upgrade the tool, run it again and commit the files.
+with code 1. If a new version of the tool makes a different workflow, run it
+again and commit the files.
 
 ### More than one workflow
 

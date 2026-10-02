@@ -798,8 +798,7 @@ Golden tests cover the generated workflow. Each directory under
 `tests/golden/` has a project, an optional configuration file, an optional
 file `args` with the command line, and the expected workflow. If the
 environment variable `HASKELL_GHA_ACCEPT=1` is set, the tests write the new
-output to the expected file. The comparison ignores the header comment, so a
-new tool version does not change the result.
+output to the expected file.
 
 The repository also tests itself on GitHub.
 `.github/workflows/haskell-gha.yml` is the workflow for the tool, and

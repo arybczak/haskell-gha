@@ -4,8 +4,6 @@
 # To regenerate it, run from the root of the repository:
 #   haskell-gha
 #
-# Version: 1.0
-#
 # For more information, see https://github.com/arybczak/haskell-gha
 
 # A name of its own tells this workflow apart from the main one on GitHub.

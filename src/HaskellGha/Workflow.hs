@@ -45,11 +45,9 @@ import HaskellGha.Yaml
 runCommand
   :: FilePath
   -- ^ The root of the repository.
-  -> String
-  -- ^ The version of the tool.
   -> Command
   -> IO [String]
-runCommand root version = \case
+runCommand root = \case
   Generate opts -> run False id opts
   Regenerate -> everyWorkflow False
   Check -> everyWorkflow True
@@ -69,7 +67,7 @@ runCommand root version = \case
       generate root opts >>= \case
         Left errors -> pure (map label errors)
         Right node -> do
-          let rendered = T.encodeUtf8 $ renderWorkflow version opts node
+          let rendered = T.encodeUtf8 $ renderWorkflow opts node
               output = root </> outputPath opts
           exists <- doesFileExist output
           current <- if exists then Just <$> BS.readFile output else pure Nothing
@@ -153,21 +151,16 @@ generate root opts = runExceptT $ do
         es -> Left es
 
 -- | Render the workflow with its header comment.
-renderWorkflow
-  :: String
-  -- ^ The version of the tool.
-  -> Options
-  -> Node
-  -> T.Text
-renderWorkflow version opts =
+renderWorkflow :: Options -> Node -> T.Text
+renderWorkflow opts =
   renderDocument
+    -- The header has no tool version, so that two versions with the same
+    -- output agree in --check.
     [ headerMarker
     , "  " <> T.unwords (map (shellQuote . T.pack) $ commandLine opts)
     , ""
     , "To regenerate it, run from the root of the repository:"
     , "  haskell-gha"
-    , ""
-    , "Version: " <> T.pack version
     , ""
     , "For more information, see https://github.com/arybczak/haskell-gha"
     ]

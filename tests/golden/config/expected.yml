@@ -4,8 +4,6 @@
 # To regenerate it, run from the root of the repository:
 #   haskell-gha
 #
-# Version: TEST
-#
 # For more information, see https://github.com/arybczak/haskell-gha
 
 name: Postgres CI

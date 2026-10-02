@@ -13,7 +13,7 @@ import Paths_haskell_gha
 main :: IO ()
 main = do
   problems <-
-    runCommand "." (showVersion version) =<< execParser (optionsParser (showVersion version))
+    runCommand "." =<< execParser (optionsParser (showVersion version))
   unless (null problems) $ do
     hPutStr stderr (unlines problems)
     exitFailure

@@ -89,7 +89,7 @@ test_comments = do
   project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
-  let rendered = T.lines $ renderWorkflow "TEST" defaultOptions node
+  let rendered = T.lines $ renderWorkflow defaultOptions node
       assertLines preface ls = assertBool preface $ map T.pack ls `L.isInfixOf` rendered
   assertLines
     "top comment"
@@ -214,7 +214,7 @@ test_sdistNamePrefix = do
     , "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-2d-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/b"
     ]
     [ T.unpack (T.strip l)
-    | l <- T.lines (renderWorkflow "TEST" defaultOptions node)
+    | l <- T.lines (renderWorkflow defaultOptions node)
     , T.pack "tar -xzf" `T.isInfixOf` l
     ]
 
@@ -296,7 +296,7 @@ test_headerCommandLine = do
         T.unpack
           <$> L.find
             (T.isInfixOf (T.pack "haskell-gha --"))
-            (T.lines $ renderWorkflow "TEST" opts (mapping []))
+            (T.lines $ renderWorkflow opts (mapping []))
   assertEqual
     "command line"
     (Just "#   haskell-gha --generate --project-dir 'my project' --output 'it'\\''s.yml'")
@@ -409,12 +409,12 @@ test_findWorkflows =
       )
       =<< findWorkflows root
     createDirectoryIfMissing True (root </> dir)
-    write "a.yml" $ renderWorkflow "TEST" opts (mapping [])
+    write "a.yml" $ renderWorkflow opts (mapping [])
     write "b.yml" (T.pack "name: other\n")
     createDirectory (root </> dir </> "directory.yml")
     createFileLink (root </> dir </> "missing") (root </> dir </> "dangling.yml")
     assertEqual "generated workflow" (Right [opts]) =<< findWorkflows root
-    write "c.yaml" $ renderWorkflow "TEST" opts {output = "d.yml"} (mapping [])
+    write "c.yaml" $ renderWorkflow opts {output = "d.yml"} (mapping [])
     assertEqual
       "other output"
       ( Left
@@ -433,7 +433,7 @@ test_findWorkflows =
             . T.unlines
             . zipWith (\i l -> if i == 1 then T.pack ("#   " ++ line) else l) [0 :: Int ..]
             . T.lines
-            $ renderWorkflow "TEST" opts (mapping [])
+            $ renderWorkflow opts (mapping [])
         firstLines :: Either [String] a -> Either [String] a
         firstLines = either (Left . map (takeWhile (/= '\n'))) Right
     withCommand "echo haskell-gha"
@@ -490,7 +490,7 @@ test_runCommand =
             ]
     writePackage
     let run :: Command -> IO [String]
-        run = runCommand root "TEST"
+        run = runCommand root
         output :: FilePath
         output = root </> outputPath defaultOptions
         old = posixSecondsToUTCTime 0

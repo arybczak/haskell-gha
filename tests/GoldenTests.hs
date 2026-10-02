@@ -3,7 +3,6 @@ module GoldenTests (goldenTests) where
 import Control.Monad
 import Data.ByteString qualified as BS
 import Data.List qualified as L
-import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Options.Applicative
 import System.Directory
@@ -42,12 +41,12 @@ golden fixture = do
     _ -> assertFailure $ "invalid arguments: " ++ unwords args'
   result <- generate dir opts
   node <- either (assertFailure . unlines) pure result
-  let actual = renderWorkflow "TEST" opts node
+  let actual = renderWorkflow opts node
       expectedFile = dir </> "expected.yml"
   accept <- (== Just "1") <$> lookupEnv "HASKELL_GHA_ACCEPT"
   when accept $ BS.writeFile expectedFile (T.encodeUtf8 actual)
   expected <- T.decodeUtf8 <$> BS.readFile expectedFile
-  assertEqual "workflow" (dropHeader expected) (dropHeader actual)
+  assertEqual "workflow" expected actual
   case decodeText @(Maybe Node) actual of
     Right (Just reparsed) -> assertEqual "reparsed workflow" (normalize node) (normalize reparsed)
     Right Nothing -> assertFailure "the workflow is empty"
@@ -58,6 +57,3 @@ golden fixture = do
       doesFileExist path >>= \case
         True -> words <$> readFile path
         False -> pure []
-
-    dropHeader :: T.Text -> T.Text
-    dropHeader = T.unlines . dropWhile ((== Just '#') . fmap fst . T.uncons) . T.lines
