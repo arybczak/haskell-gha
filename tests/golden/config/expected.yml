@@ -161,16 +161,19 @@ jobs:
       run: |
         echo 'prefer-oldest: True' >> cabal.project.local
 
-    - name: Enable the GHC job semaphore
+    - name: Enable the GHC job semaphore or parallel module builds
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
+        if ghc --info | grep -F '("Semaphore version","2")' > /dev/null; then
+        echo 'GHC and cabal use version 2 of the semaphore protocol, so GHC uses the semaphore.'
         cat >> cabal.project.local <<'EOF'
         semaphore: True
         EOF
-        if ghc --show-options | grep -x -- -Wsemaphore-open-failure > /dev/null; then
+        else
+        echo 'GHC uses version 1 of the semaphore protocol and cabal version 2, so GHC uses -j2.'
         cat >> cabal.project.local <<'EOF'
         package config
-          ghc-options: -Wwarn=semaphore-open-failure
+          ghc-options: -j2
         EOF
         fi
 

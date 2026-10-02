@@ -104,10 +104,11 @@ variables are empty, and the cache key contains the image of the container
 instead.
 
 The default `cabal-version` is `3.16.1.0`. In October 2026, the action selects
-cabal `3.18.1.0` for `latest`, and that version has a bug in the GHC job
-semaphore: [cabal issue 12306][issue-12306]. If a cabal release fixes the issue,
-change the default to `latest`. Then a new cabal release needs no new release of
-haskell-gha.
+cabal `3.18.1.0` for `latest`, and that version uses only version 2 of the
+semaphore protocol: [cabal issue 12306][issue-12306]. No released GHC uses
+version 2 yet, so with cabal 3.18 no job would use the semaphore. When GHC
+9.10.4, 9.12.5 and 9.14.2 are released with version 2, change the default to
+`latest`. Then a new cabal release needs no new release of haskell-gha.
 
 [issue-12306]: https://github.com/haskell/cabal/issues/12306
 
@@ -337,8 +338,9 @@ The default of `jobs` is 4, because the standard Linux runners of GitHub have
 4 CPUs. The configuration step writes `jobs: <N>`, so cabal builds up to N
 packages at the same time. GHC 9.8 and later support the GHC job semaphore,
 which makes cabal and all GHC processes share one job count. For older GHC
-versions, each local package gets `ghc-options: -j<N>`. The dependencies do
-not get it, because cabal already builds N of them at the same time.
+versions, and if GHC and cabal use different versions of the semaphore protocol,
+each local package gets `ghc-options: -j<N>`. The dependencies do not get it,
+because cabal already builds N of them at the same time.
 
 If a step applies only to some matrix entries, it gets an `if:` condition
 that lists them. The packages of the project can differ between GHC
@@ -350,24 +352,26 @@ a developer can run the same `cabal` commands locally. The default `ghc-options`
 are `-Werror`, and they apply only to the local packages, so the warnings of a
 dependency do not fail the build.
 
-The semaphore step adds `-Wwarn=semaphore-open-failure` to each local package if
-GHC knows that warning. The option comes from a test with GHC 10.0.0.20260917
-and cabal 3.16.1.0. GHC uses version 2 of the semaphore protocol and cabal
-version 1, so GHC warns and compiles sequentially, and `-Werror` makes the
-warning an error. GHC 9.14.1 and older do not know that warning, and GHC
-9.14.1.20260916 and 9.14.2-rc2 know it. An unknown warning flag is an error with
-`-Werror`, and without it GHC warns about the flag once for each module and each
-configure step. A series entry gets its newest release when the job runs, so the
-tool cannot decide from the matrix whether GHC knows the warning. The step asks
-GHC with `ghc --show-options` instead. The step adds the option whatever the
-`ghc-options` of the configuration are, because the user cannot see that the
-semaphore needs it. The step comes after the configuration step, because GHC
-reads the options in order, and a later `-Werror` makes the warning an error
-again. This also holds for a `-Werror` in the text of `cabal-project-local`.
+GHC and cabal must use the same version of the semaphore protocol. A test with
+GHC 10.0.0.20260917 and cabal 3.16.1.0 showed the failure: GHC uses version 2
+and cabal version 1, so GHC warns with `semaphore-open-failure` and compiles
+sequentially, and `-Werror` makes the warning an error. cabal 3.18 and later use
+only version 2, and older cabal only version 1. The semaphore step therefore
+uses the semaphore only if GHC and cabal use the same version, and otherwise
+gives each local package `ghc-options: -j<N>`, like the step for older GHC
+versions. The tool knows the cabal version when it makes the workflow, and
+`latest` is 3.18 or later.
 
-cabal merges two `package` stanzas for the same package, so the `-j<N>` and the
-semaphore stanzas can come after the stanza with the `ghc-options` of the
-configuration.
+GHC 9.14.1.20260916, 9.14.2-rc2 and 10.0.0.20260917 show the entry
+`("Semaphore version","2")` in `ghc --info`. GHC 9.14.1 and older have no such
+entry and use version 1. A series entry gets its newest release when the job
+runs, so the tool cannot decide from the matrix which version GHC uses. The step
+asks GHC with `ghc --info` instead. A flag `-Wwarn=semaphore-open-failure` is
+not a fix, because GHC still compiles sequentially, and an unknown warning flag
+makes GHC warn once for each module and each configure step.
+
+cabal merges two `package` stanzas for the same package, so the `-j<N>` stanzas
+can come after the stanza with the `ghc-options` of the configuration.
 
 The text of `cabal-project-local` comes at the end of the configuration step, so
 it can add to the stanzas of that step. The step comes before the build plan, so

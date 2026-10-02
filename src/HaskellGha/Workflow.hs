@@ -555,7 +555,10 @@ workflow opts source config project = runCheck $ checks $> root
               (parallelScript pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, not (hasSemaphore e.ghc)]
           ]
-        , [ sourceStep "Enable the GHC job semaphore" (Just group) (semaphoreScript pkgs)
+        , [ sourceStep
+              "Enable the GHC job semaphore or parallel module builds"
+              (Just group)
+              (semaphoreScript pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, hasSemaphore e.ghc]
           ]
         , [planStep]
@@ -919,21 +922,53 @@ workflow opts source config project = runCheck $ checks $> root
         names :: [Package] -> [String]
         names = map (.name)
 
-    -- GHC and cabal can use different versions of the semaphore protocol. GHC
-    -- then warns and compiles the modules one at a time. Only some minor
-    -- versions of a series know this warning, and a series entry gets its
-    -- newest release when the job runs, so the job asks GHC. The stanzas must
-    -- come after the ghc-options of the configuration, because a later -Werror
-    -- makes the warning an error again.
+    -- If GHC and cabal use different versions of the semaphore protocol, GHC
+    -- compiles the modules one at a time, so the job then uses -j<N> instead.
+    -- Only some minor versions of a series use version 2, and a series entry
+    -- gets its newest release when the job runs, so the job asks GHC. A GHC
+    -- without the Semaphore version entry in its info uses version 1.
     semaphoreScript :: [Package] -> T.Text
     semaphoreScript pkgs =
       T.concat
-        [ heredoc ["semaphore: True"]
-        , "if ghc --show-options | grep -x -- -Wsemaphore-open-failure > /dev/null; then\n"
-        , heredoc . L.intercalate [""] $
-            [stanza p "ghc-options: -Wwarn=semaphore-open-failure" | p <- pkgs]
+        [ "if ghc --info | grep -F '(\"Semaphore version\",\"2\")' > /dev/null; then\n"
+        , branch 2
+        , "else\n"
+        , branch 1
         , "fi\n"
         ]
+      where
+        branch :: Int -> T.Text
+        branch ghcV
+          | ghcV == cabalV =
+              echo
+                ( "GHC and cabal use version "
+                    <> tshow ghcV
+                    <> " of the semaphore protocol, so GHC uses the semaphore."
+                )
+                <> heredoc ["semaphore: True"]
+          | otherwise =
+              echo
+                ( "GHC uses version "
+                    <> tshow ghcV
+                    <> " of the semaphore protocol and cabal version "
+                    <> tshow cabalV
+                    <> ", so GHC uses -j"
+                    <> tshow config.jobs.value
+                    <> "."
+                )
+                <> parallelScript pkgs
+
+        echo :: T.Text -> T.Text
+        echo msg = "echo '" <> msg <> "'\n"
+
+        -- cabal 3.18 and later use only version 2, older versions only
+        -- version 1.
+        cabalV :: Int
+        cabalV = case config.cabalVersion of
+          CabalLatest -> 2
+          CabalVersion v
+            | v >= mkVersion [3, 18] -> 2
+            | otherwise -> 1
 
     -- The semaphore needs GHC 9.8. A matrix entry is an exact version or a
     -- major series, so the range decides each entry completely.

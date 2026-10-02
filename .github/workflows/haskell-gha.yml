@@ -130,17 +130,20 @@ jobs:
           ghc-options: -j4
         EOF
 
-    - name: Enable the GHC job semaphore
+    - name: Enable the GHC job semaphore or parallel module builds
       if: contains(fromJSON('["9.8","9.10","9.12","9.14","10.0"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
-        cat >> cabal.project.local <<'EOF'
-        semaphore: True
-        EOF
-        if ghc --show-options | grep -x -- -Wsemaphore-open-failure > /dev/null; then
+        if ghc --info | grep -F '("Semaphore version","2")' > /dev/null; then
+        echo 'GHC uses version 2 of the semaphore protocol and cabal version 1, so GHC uses -j4.'
         cat >> cabal.project.local <<'EOF'
         package haskell-gha
-          ghc-options: -Wwarn=semaphore-open-failure
+          ghc-options: -j4
+        EOF
+        else
+        echo 'GHC and cabal use version 1 of the semaphore protocol, so GHC uses the semaphore.'
+        cat >> cabal.project.local <<'EOF'
+        semaphore: True
         EOF
         fi
 
