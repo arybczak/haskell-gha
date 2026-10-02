@@ -32,9 +32,7 @@ validateWorkflow
   -- ^ The ids of the steps that the tool makes in the build job.
   -> Check ()
 validateWorkflow opts source config project stepIds = do
-  traverse_
-    checkGhcValue
-    (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude))
+  traverse_ checkGhcValue (combinationValues "ghc" combinations)
   checkDependencies
   when config.doctest.enabled $ do
     checkRange config.doctest.ghc
@@ -48,6 +46,12 @@ validateWorkflow opts source config project stepIds = do
   where
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
+
+    axisText :: String
+    axisText = L.intercalate ", " (map (T.unpack . entryText) entries)
+
+    combinations :: [[(T.Text, Located T.Text)]]
+    combinations = config.matrix.value.include ++ config.matrix.value.exclude
 
     -- An error at a value of the configuration, with its position.
     failureAt :: Offset -> String -> Check ()
@@ -125,7 +129,7 @@ validateWorkflow opts source config project stepIds = do
         $ failureAt r.offset
         $ name
           ++ " includes no GHC version of the matrix, which contains only "
-          ++ L.intercalate ", " (map (T.unpack . entryText) entries)
+          ++ axisText
       where
         name :: String
         name = "the range " ++ prettyShow r.value
@@ -141,12 +145,7 @@ validateWorkflow opts source config project stepIds = do
     checkDependencies
       | config.dependencies == DependenciesBoth = do
           traverse_ ownAxis [a.offset | a <- config.matrix.value.axes, a.value == "dependencies"]
-          traverse_
-            value
-            ( combinationValues
-                "dependencies"
-                (config.matrix.value.include ++ config.matrix.value.exclude)
-            )
+          traverse_ value (combinationValues "dependencies" combinations)
       | "dependencies" `elem` map (.value) config.matrix.value.axes = pure ()
       | otherwise =
           traverse_ noAxis (combinationValues "dependencies" config.matrix.value.exclude)
@@ -180,4 +179,4 @@ validateWorkflow opts source config project stepIds = do
             "GHC "
               ++ T.unpack v.value
               ++ " is not in the ghc axis, which contains only "
-              ++ L.intercalate ", " (map (T.unpack . entryText) entries)
+              ++ axisText
