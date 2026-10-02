@@ -154,6 +154,11 @@ path. The command also contains each other option that is not a default.
 The configuration file must be a relative path in the repository, because a
 run with `--check` in CI or in another checkout reads it from the header.
 
+`--generate` does not replace a file without the header. Such a file can be a
+workflow that the user wrote, and it may not be committed. The user deletes
+it or gives another `--output`, so the tool needs no option to force the
+write.
+
 A run without `--generate` reads the command back from the header. The first
 line of the header marks a generated workflow, and the next line has the
 command. The command must start with `haskell-gha --generate`, and the tool
