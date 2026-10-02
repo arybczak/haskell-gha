@@ -71,9 +71,8 @@ steps:
 4. Make the build plan, and restore the cached cabal store for that plan.
 5. Build the dependencies, and save the cache if the plan is new.
 6. Build the project.
-7. Run the tests.
-8. Run `cabal check`, build the documentation and, if you enable it, run
-   doctest.
+7. Run the tests and, if you enable it, doctest.
+8. Run `cabal check` and build the documentation.
 
 You can add steps after step 1 and after step 6. See [Hooks](#hooks).
 
@@ -395,7 +394,7 @@ hooks.
 | `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add to `cabal.project.local`, e.g. package flags or constraints. See [Extra cabal.project.local text](#extra-cabalprojectlocal-text). |
-| `jobs` | `4` | The number of parallel build jobs. |
+| `jobs` | `4` | The number of parallel jobs for cabal, as its `jobs` setting, and for GHC in the local packages. |
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `dependencies` | `newest` | The versions of the dependencies: `newest`, `oldest` or `both`. See [Dependencies](#dependencies). |
