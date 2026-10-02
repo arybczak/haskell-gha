@@ -7,6 +7,7 @@ import Data.Either
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
+import Data.Time.Clock.POSIX
 import Options.Applicative
 import System.Directory
 import System.FilePath
@@ -41,6 +42,7 @@ workflowTests =
     , testCase "the comments that the workflow keeps and drops" test_comments
     , testCase "the modes of the command line" test_modes
     , testCase "the generated workflows" test_findWorkflows
+    , testCase "the commands write and check the workflow files" test_runCommand
     ]
 
 test_comments :: Assertion
@@ -412,6 +414,43 @@ test_findWorkflows =
       )
       . firstLines
       =<< findWorkflows root
+
+test_runCommand :: Assertion
+test_runCommand =
+  withSystemTempDirectory "haskell-gha-tests" $ \root -> do
+    writeFile (root </> "a.cabal") . unlines $
+      [ "cabal-version: 3.0"
+      , "name: a"
+      , "version: 0"
+      , "tested-with: GHC ^>= 9.10"
+      , "library"
+      ]
+    let run :: Command -> IO [String]
+        run = runCommand root "TEST"
+        output :: FilePath
+        output = root </> defaultOptions.output
+        old = posixSecondsToUTCTime 0
+        notUpToDate =
+          [ "The workflow "
+              ++ defaultOptions.output
+              ++ " is not up to date. To update it, run haskell-gha without --check."
+          ]
+    assertEqual "first --generate" [] =<< run (Generate defaultOptions)
+    assertBool "workflow written" =<< doesFileExist output
+    assertEqual "--check after --generate" [] =<< run Check
+    setModificationTime output old
+    assertEqual "second --generate" [] =<< run (Generate defaultOptions)
+    assertEqual "regenerate" [] =<< run Regenerate
+    assertEqual "mtime of an unchanged workflow" old =<< getModificationTime output
+    appendFile output "# An edit.\n"
+    assertEqual "--check after an edit" notUpToDate =<< run Check
+    assertEqual "regenerate after an edit" [] =<< run Regenerate
+    assertEqual "--check after regenerate" [] =<< run Check
+    removeFile (root </> "a.cabal")
+    assertEqual
+      "error"
+      ["The package location \"./*.cabal\" matches no files."]
+      =<< run (Generate defaultOptions)
 
 -- | The options of a command line for one workflow, after @--generate@.
 parseOptions :: [String] -> Maybe Options

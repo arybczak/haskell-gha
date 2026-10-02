@@ -4,8 +4,11 @@
 
 -- | The generated workflow.
 module HaskellGha.Workflow
-  ( -- * Workflow
-    generate
+  ( -- * Command
+    runCommand
+
+    -- * Workflow
+  , generate
   , workflow
   , renderWorkflow
   , findWorkflows
@@ -36,6 +39,52 @@ import HaskellGha.Project
 import HaskellGha.Workflow.Script
 import HaskellGha.Workflow.Validate
 import HaskellGha.Yaml
+
+-- | Run a command of the command line. The result has the errors, and the
+-- workflows that are not up to date for 'Check'.
+runCommand
+  :: FilePath
+  -- ^ The root of the repository.
+  -> String
+  -- ^ The version of the tool.
+  -> Command
+  -> IO [String]
+runCommand root version = \case
+  Generate opts -> run False opts
+  Regenerate -> everyWorkflow False
+  Check -> everyWorkflow True
+  where
+    everyWorkflow :: Bool -> IO [String]
+    everyWorkflow check =
+      findWorkflows root >>= \case
+        Left errors -> pure errors
+        Right workflows -> concat <$> traverse (run check) workflows
+
+    run :: Bool -> Options -> IO [String]
+    run check opts =
+      generate root opts >>= \case
+        Left errors -> pure errors
+        Right node -> do
+          let rendered = T.encodeUtf8 $ renderWorkflow version opts node
+              output = root </> opts.output
+          exists <- doesFileExist output
+          current <- if exists then Just <$> BS.readFile output else pure Nothing
+          let upToDate = current == Just rendered
+          if check
+            then
+              pure
+                [ "The workflow "
+                    ++ opts.output
+                    ++ " is not up to date. To update it, run haskell-gha without --check."
+                | not upToDate
+                ]
+            else do
+              -- A write of the same content changes the mtime. Then tools
+              -- that trust the Git index, e.g. gitk, list the file as changed.
+              unless upToDate $ do
+                createDirectoryIfMissing True (takeDirectory output)
+                BS.writeFile output rendered
+              pure []
 
 -- | Read the configuration and the project, and make the workflow. The phases
 -- run in order, and each phase shows all its errors.
