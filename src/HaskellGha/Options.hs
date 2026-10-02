@@ -108,7 +108,7 @@ options :: Parser Options
 options = do
   config <-
     option
-      (ConfigFile <$> pathReader)
+      configReader
       ( long "config"
           <> metavar "FILE"
           <> value DefaultConfigFile
@@ -135,6 +135,11 @@ options = do
       )
   pure Options {..}
   where
+    -- A run without --generate reads the file from the header, also in
+    -- another checkout of the repository, e.g. with --check in CI.
+    configReader :: ReadM ConfigFile
+    configReader = ConfigFile <$> (pathReader >>= inRepository "The configuration file")
+
     -- The workflow uses the directory on the runner, so it must be in the
     -- repository.
     projectDirReader :: ReadM FilePath
@@ -142,13 +147,17 @@ options = do
       pathReader >>= \case
         "" ->
           readerError "The project directory is empty. For the root of the repository, give \".\"."
-        dir
-          | isAbsolute dir || leadsAbove dir ->
-              readerError $
-                "The project directory "
-                  ++ show dir
-                  ++ " is not in the repository. Give a path relative to the root of the repository."
-          | otherwise -> pure dir
+        dir -> inRepository "The project directory" dir
+
+    inRepository :: String -> FilePath -> ReadM FilePath
+    inRepository what path
+      | isAbsolute path || leadsAbove path =
+          readerError $
+            what
+              ++ " "
+              ++ show path
+              ++ " is not in the repository. Give a path relative to the root of the repository."
+      | otherwise = pure path
 
     -- GitHub reads only these files, and a run without --generate finds only
     -- them.

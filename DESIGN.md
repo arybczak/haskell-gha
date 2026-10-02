@@ -151,6 +151,8 @@ problems, and it needs no git.
 The header comment of the workflow gives the command that made the file. If
 the user gave `--config`, the command contains it, also with the default
 path. The command also contains each other option that is not a default.
+The configuration file must be a relative path in the repository, because a
+run with `--check` in CI or in another checkout reads it from the header.
 
 A run without `--generate` reads the command back from the header. The first
 line of the header marks a generated workflow, and the next line has the

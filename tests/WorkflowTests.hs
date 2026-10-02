@@ -36,6 +36,7 @@ workflowTests =
     , testCase "an import outside the repository" test_importOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     , testCase "a project directory outside the repository" test_projectDirOutside
+    , testCase "a configuration file outside the repository" test_configOutside
     , testCase "an output file that GitHub does not read" test_outputPath
     , testCase "a control character in a path option" test_controlCharacters
     , testCase "a named default configuration file" test_namedDefaultConfig
@@ -157,6 +158,13 @@ test_namedDefaultConfig = do
     "command line"
     (Just ["haskell-gha", "--generate", "--config", defaultConfigPath])
     (commandLine <$> parse ["--config", defaultConfigPath])
+
+test_configOutside :: Assertion
+test_configOutside = do
+  let parse path = (.config) <$> parseOptions ["--config", path]
+  assertEqual "sub" (Just (ConfigFile "a/../b.yml")) (parse "a/../b.yml")
+  assertEqual "absolute" Nothing (parse "/tmp/conf.yml")
+  assertEqual "parent" Nothing (parse "../conf.yml")
 
 test_projectDirOutside :: Assertion
 test_projectDirOutside = do
