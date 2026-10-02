@@ -677,6 +677,11 @@ separate restore and save steps, because the combined `actions/cache` saves
 only at the end of a successful job. The workflow runs doctest by its full
 path, because a cache hit skips the install step.
 
+The workflow installs doctest before it builds the project. A build error is
+much more common than a doctest error. Thus a run whose build fails still
+saves doctest in its cache, and the run after the fix does not build doctest
+again.
+
 A library can have no `hs-source-dirs`, or only `.`. The tool then does not
 give `.` to doctest, because the package directory can contain other
 components, e.g. the tests. haskell-ci gives the names of the exposed
