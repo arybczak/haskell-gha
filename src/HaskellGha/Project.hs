@@ -44,7 +44,7 @@ import System.FilePath
 import HaskellGha.Check
 import HaskellGha.Compat
 import HaskellGha.Ghc
-import HaskellGha.Options
+import HaskellGha.Path
 
 -- | A local package.
 data Package = Package
@@ -112,11 +112,14 @@ readProject
   -> IO (Either [String] Project)
 readProject root dir = runExceptT $ do
   exists <- lift $ doesFileExist (root </> projectFile)
+  ExceptT . linkErrors root $ [("The project file " ++ projectFile, projectFile) | exists]
   parts <- ExceptT $ readParts exists
   found <- ExceptT $ locatePackages parts
   let cabalFiles = L.nub (concatMap snd found)
   when (null cabalFiles) $
     throwE ["There are no packages in " ++ projectDescription exists dir ++ "."]
+  ExceptT . linkErrors root $
+    [("The package file " ++ (dir </> f), dir </> f) | f <- cabalFiles]
   packages <-
     ExceptT $
       runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (dir </> f) f)
@@ -300,7 +303,7 @@ findPackages root projectDir required entry
   | isAbsolute t = notRelative
   -- A glob component other than .. does not lead up, so the location itself
   -- decides for all its matches.
-  | leadsAbove (projectDir </> t) =
+  | leadsOut (projectDir </> t) =
       pure $
         Left
           [ at $

@@ -19,6 +19,7 @@ import Control.Monad.Trans.Except
 import Data.Bifunctor
 import Data.ByteString qualified as BS
 import Data.Either
+import Data.Foldable
 import Data.Functor
 import Data.List qualified as L
 import Data.Maybe
@@ -35,6 +36,7 @@ import HaskellGha.Check
 import HaskellGha.Config
 import HaskellGha.Ghc
 import HaskellGha.Options
+import HaskellGha.Path
 import HaskellGha.Project
 import HaskellGha.Workflow.Script
 import HaskellGha.Workflow.Validate
@@ -64,7 +66,7 @@ runCommand root = \case
     -- The label changes each error of the generation.
     run :: Bool -> (String -> String) -> Options -> IO [String]
     run check label opts =
-      generate root opts >>= \case
+      runExceptT (outputInRepository *> ExceptT (generate root opts)) >>= \case
         Left errors -> pure (map label errors)
         Right node -> do
           let rendered = T.encodeUtf8 $ renderWorkflow opts node
@@ -106,6 +108,10 @@ runCommand root = \case
                       createDirectoryIfMissing True (takeDirectory output)
                       BS.writeFile output rendered
                     pure []
+      where
+        outputInRepository :: ExceptT [String] IO ()
+        outputInRepository =
+          ExceptT $ linkErrors root [("The workflow " ++ outputPath opts, outputPath opts)]
 
     -- Whether the content of a workflow file starts with the header.
     generated :: BS.ByteString -> Bool
@@ -121,34 +127,35 @@ generate
   -> Options
   -> IO (Either [String] Node)
 generate root opts = runExceptT $ do
-  ExceptT inRepository
+  ExceptT $
+    linkErrors
+      root
+      [ ("The configuration file " ++ configPath opts.config, configPath opts.config)
+      , ("The project directory " ++ opts.projectDir, opts.projectDir)
+      ]
   (config, source) <- ExceptT $ readConfig root opts.config
   project <- ExceptT $ readProject root opts.projectDir
-  except $ workflow opts source config project
+  node <- except $ workflow opts source config project
+  ExceptT $ runnerPaths config source project
+  pure node
   where
-    -- The options reject a path that leads out of the repository by its text,
-    -- but a symbolic link can also lead out, and CI has only the repository.
-    inRepository :: IO (Either [String] ())
-    inRepository = do
-      top <- splitDirectories <$> canonicalizePath root
-      errors <-
-        forM
-          [ ("configuration file", configPath opts.config)
-          , ("project directory", opts.projectDir)
+    -- The paths that only the workflow uses. The checks of the workflow
+    -- already rejected each path that leads out by its text.
+    runnerPaths :: Config -> ConfigSource -> Project -> IO (Either [String] ())
+    runnerPaths config source project = do
+      hlint <- forM (if config.hlint.enabled then config.hlint.path else []) $ \p -> do
+        let path = T.unpack p.value.value
+        fmap (\r -> (p.offset, "the path " ++ path ++ " " ++ r ++ "."))
+          <$> linkProblem root (opts.projectDir </> path)
+      imports <-
+        linkErrors
+          root
+          [ (i.location ++ "the imported file " ++ i.target, opts.projectDir </> i.target)
+          | i <- project.imports
+          , not ("://" `L.isInfixOf` i.target)
           ]
-          $ \(what, path) -> do
-            target <- splitDirectories <$> canonicalizePath (root </> path)
-            pure
-              [ "The "
-                  ++ what
-                  ++ " "
-                  ++ path
-                  ++ " leads out of the repository through a symbolic link. Give a path in the repository."
-              | not (top `L.isPrefixOf` target)
-              ]
-      pure $ case concat errors of
-        [] -> Right ()
-        es -> Left es
+      pure . runCheck $
+        traverse_ failure (sourceErrors source (catMaybes hlint)) *> fromErrors imports
 
 -- | Render the workflow with its header comment.
 renderWorkflow :: Options -> Node -> T.Text

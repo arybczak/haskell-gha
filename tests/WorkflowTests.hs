@@ -46,7 +46,7 @@ workflowTests =
     , testCase "the modes of the command line" test_modes
     , testCase "the generated workflows" test_findWorkflows
     , testCase "the commands write and check the workflow files" test_runCommand
-    , testCase "a symbolic link out of the repository" test_linkOutOfRepository
+    , testCase "symbolic links" test_symbolicLinks
     ]
 
 test_comments :: Assertion
@@ -455,26 +455,104 @@ test_findWorkflows =
       . firstLines
       =<< findWorkflows root
 
-test_linkOutOfRepository :: Assertion
-test_linkOutOfRepository =
+test_symbolicLinks :: Assertion
+test_symbolicLinks =
   withSystemTempDirectory "haskell-gha-tests" $ \tmp -> do
     let root = tmp </> "repo"
         outside = tmp </> "outside"
-    createDirectoryIfMissing True (outside </> "project")
-    createDirectory root
+        writePackage :: FilePath -> IO ()
+        writePackage dir = do
+          createDirectoryIfMissing True dir
+          writeFile (dir </> "a.cabal") . unlines $
+            [ "cabal-version: 3.0"
+            , "name: a"
+            , "version: 0"
+            , "tested-with: GHC ^>= 9.10"
+            , "library"
+            ]
+        -- Without the excerpts of the configuration.
+        errors :: Options -> IO (Either [String] ())
+        errors = fmap (either (Left . map (takeWhile (/= '\n'))) (const (Right ()))) . generate root
+        throughLink :: String -> String
+        throughLink start = start ++ " leads out of the repository through a symbolic link."
+    writePackage (root </> "real")
+    writePackage (outside </> "project")
     writeFile (outside </> "conf.yml") ""
-    createFileLink (outside </> "conf.yml") (root </> "conf.yml")
-    createDirectoryLink (outside </> "project") (root </> "project")
-    result <-
-      generate root defaultOptions {config = ConfigFile "conf.yml", projectDir = "project"}
+    writeFile (outside </> "cabal.project") "packages: .\n"
+    writeFile (root </> "real" </> "conf.yml") ""
+    createFileLink "../outside/conf.yml" (root </> "out.yml")
+    createDirectoryLink "../outside/project" (root </> "out")
+    createDirectoryLink ".." (root </> "up")
+    createFileLink (outside </> "conf.yml") (root </> "absolute.yml")
+    createFileLink "loop.yml" (root </> "loop.yml")
+    createFileLink "real/conf.yml" (root </> "in.yml")
+    createDirectoryLink "real" (root </> "in")
+
+    assertEqual "links in the repository" (Right ())
+      =<< errors defaultOptions {config = ConfigFile "in.yml", projectDir = "in"}
     assertEqual
-      "errors"
+      "links out of the repository"
       ( Left
-          [ "The configuration file conf.yml leads out of the repository through a symbolic link. Give a path in the repository."
-          , "The project directory project leads out of the repository through a symbolic link. Give a path in the repository."
+          [ throughLink "The configuration file out.yml"
+          , throughLink "The project directory out"
           ]
       )
-      (void result)
+      =<< errors defaultOptions {config = ConfigFile "out.yml", projectDir = "out"}
+    assertEqual
+      "a link to the parent directory"
+      (Left [throughLink "The project directory up"])
+      =<< errors defaultOptions {projectDir = "up"}
+    assertEqual
+      "an absolute target"
+      ( Left
+          [ "The configuration file absolute.yml goes through the symbolic link absolute.yml with an absolute target, but the repository is at another place on the runner. Give the link a relative target."
+          ]
+      )
+      =<< errors defaultOptions {config = ConfigFile "absolute.yml", projectDir = "real"}
+    assertEqual
+      "a loop"
+      ( Left
+          [ "The configuration file loop.yml goes through more than 40 symbolic links, and Linux on the runner follows no more."
+          ]
+      )
+      =<< errors defaultOptions {config = ConfigFile "loop.yml", projectDir = "real"}
+
+    createDirectory (root </> "linked")
+    createFileLink "../../outside/cabal.project" (root </> "linked" </> "cabal.project")
+    assertEqual
+      "the project file"
+      (Left [throughLink "The project file linked/cabal.project"])
+      =<< errors defaultOptions {projectDir = "linked"}
+
+    createDirectory (root </> "proj")
+    writeFile (root </> "proj" </> "cabal.project") "packages: pkg\nimport: ../out.yml\n"
+    createDirectoryLink "../../outside/project" (root </> "proj" </> "pkg")
+    assertEqual
+      "a package file"
+      (Left [throughLink "The package file proj/pkg/a.cabal"])
+      =<< errors defaultOptions {projectDir = "proj"}
+
+    removeDirectoryLink (root </> "proj" </> "pkg")
+    createDirectoryLink "../real" (root </> "proj" </> "pkg")
+    writeFile
+      (root </> "proj" </> "conf.yml")
+      "sdist: false\nhlint:\n  enabled: true\n  path: [../out]\n"
+    assertEqual
+      "the paths on the runner"
+      ( Left
+          [ throughLink "proj/conf.yml:4:10: hlint.path[0]: the path ../out"
+          , throughLink "proj/cabal.project:2:1: the imported file ../out.yml"
+          ]
+      )
+      =<< errors defaultOptions {config = ConfigFile "proj/conf.yml", projectDir = "proj"}
+
+    createDirectoryIfMissing True (root </> workflowDirectory)
+    createFileLink "../../../outside/new.yml" (root </> outputPath defaultOptions)
+    assertEqual
+      "a broken link at the output"
+      [throughLink ("The workflow " ++ outputPath defaultOptions)]
+      =<< runCommand root (Generate defaultOptions {projectDir = "real"})
+    assertBool "no file outside" . not =<< doesPathExist (outside </> "new.yml")
 
 test_runCommand :: Assertion
 test_runCommand =

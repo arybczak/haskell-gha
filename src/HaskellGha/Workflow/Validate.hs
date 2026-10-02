@@ -18,6 +18,7 @@ import HaskellGha.Check
 import HaskellGha.Config
 import HaskellGha.Ghc
 import HaskellGha.Options
+import HaskellGha.Path
 import HaskellGha.Project
 import HaskellGha.Yaml
 
@@ -56,7 +57,7 @@ validateWorkflow opts source config project stepIds = do
     -- exists.
     checkHLintPath :: Located HLintPath -> Check ()
     checkHLintPath p
-      | isAbsolute path || leadsAbove (opts.projectDir </> path) =
+      | leadsOut (opts.projectDir </> path) =
           failureAt p.offset $
             "the path "
               ++ path
@@ -86,7 +87,7 @@ validateWorkflow opts source config project stepIds = do
     checkImport :: Import -> Check ()
     checkImport i
       | "://" `L.isInfixOf` i.target = pure ()
-      | isAbsolute i.target || leadsAbove (opts.projectDir </> i.target) =
+      | leadsOut (opts.projectDir </> i.target) =
           failure $
             i.location
               ++ "the imported file "

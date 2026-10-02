@@ -79,6 +79,7 @@ library api
                      HaskellGha.Config
                      HaskellGha.Ghc
                      HaskellGha.Options
+                     HaskellGha.Path
                      HaskellGha.Project
                      HaskellGha.Workflow
                      HaskellGha.Workflow.Script

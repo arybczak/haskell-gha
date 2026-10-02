@@ -14,7 +14,6 @@ module HaskellGha.Options
     -- * Paths
   , workflowDirectory
   , workflowExtensions
-  , leadsAbove
   ) where
 
 import Data.Char
@@ -23,6 +22,7 @@ import Options.Applicative
 import System.FilePath
 
 import HaskellGha.Config
+import HaskellGha.Path
 
 -- | What the tool does.
 data Command
@@ -151,7 +151,7 @@ options = do
 
     inRepository :: String -> FilePath -> ReadM FilePath
     inRepository what path
-      | isAbsolute path || leadsAbove path =
+      | leadsOut path =
           readerError $
             what
               ++ " "
@@ -216,14 +216,3 @@ parseCommandLine = \case
       Failure failure -> Left . fst $ renderFailure failure "haskell-gha --generate"
       CompletionInvoked _ -> Left "the command asks for a shell completion"
   _ -> Left "the command does not start with haskell-gha --generate"
-
--- | Whether the @..@ components of a relative path lead above its start, e.g.
--- @a/../../b@.
-leadsAbove :: FilePath -> Bool
-leadsAbove = any (< 0) . scanl (+) 0 . map depth . splitDirectories
-  where
-    depth :: FilePath -> Int
-    depth = \case
-      ".." -> -1
-      "." -> 0
-      _ -> 1

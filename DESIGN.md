@@ -153,10 +153,27 @@ the user gave `--config`, the command contains it, also with the default
 path. The command also contains each other option that is not a default.
 The configuration file must be a relative path in the repository, because a
 run with `--check` in CI or in another checkout reads it from the header.
-The parser of the command line checks the text of the path. A symbolic link
-in the path can still lead out of the repository, so the tool also checks
-the real path of the configuration file and of the project directory before
-it reads them.
+
+Two rules apply to each path that the tool reads or writes, and to each path
+that the workflow uses on the runner, e.g. `hlint.path` and the local file
+of an `import:` line. The runner has only the repository, at another place
+than the local checkout.
+
+1. By its text, the path must be relative, and its `..` components must not
+   lead above the root. Each reader checks this rule, so its error shows the
+   option or the position in the file.
+2. On disk, the path must stay in the repository. The tool follows each
+   component from the root, also a broken symbolic link, and a `..` after a
+   link leaves the target of the link, as in the system. A link may point to
+   another place in the repository, but its target must be relative, and the
+   path must not go through more than 40 links, the limit of Linux on the
+   runner. A component that does not exist is not a link, so the path can
+   name a file that the tool or the workflow makes. The tool checks this rule
+   before it reads or writes a path, and checks the paths of the runner
+   last.
+
+Without the second rule, a broken link at the output path would make the
+tool write the workflow out of the repository.
 
 `--generate` does not replace a file without the header. Such a file can be a
 workflow that the user wrote, and it may not be committed. The user deletes
