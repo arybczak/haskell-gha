@@ -217,6 +217,11 @@ and an entry of the `ghc` axis. Thus an `include` entry cannot add a job for
 a new GHC version, because the tool cannot check the packages for such a
 job.
 
+An `include` entry without `ghc` can still add a job without a GHC version,
+if it matches no job of the matrix. The tool does not check this, because a
+check would have to repeat how GitHub matches the entries, and GitHub
+documents that rule. The README lists it as a limit.
+
 Each key of an `exclude` entry must be `ghc` or an axis of the `matrix`
 mapping, because GitHub rejects the workflow otherwise. An `include` entry can
 have any key, because GitHub adds a new key to the jobs as a variable.

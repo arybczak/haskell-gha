@@ -624,6 +624,11 @@ the actions to Node.js 24. These commits run the same code as the release
   `hs-source-dirs` or has `.` in it, and the package directory has no `.hs` or
   `.lhs` file for an exposed module. The module can come from another file, e.g.
   a `.hsc` file for `hsc2hs`. The same applies to each sublibrary.
+- If an `include` entry cannot extend any job without a change to the value of
+  an axis, GitHub adds a new job for it, e.g. for `postgres: '16'` with the axis
+  `postgres: ['15', '18']`. The tool does not check such an entry. Give it a
+  `ghc` value, and with `dependencies: both` a `dependencies` value. Otherwise
+  the new job has no GHC version and fails.
 
 ### Caches
 
