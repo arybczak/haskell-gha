@@ -6,6 +6,7 @@ module HaskellGha.Yaml
   , singleQuoted
   , literal
   , addBefore
+  , mapBefore
 
     -- * Rendering
   , renderDocument
@@ -38,12 +39,18 @@ literal = scalarNode Literal
 
 -- | Put lines above a node, in front of the lines that it already has.
 addBefore :: [Line] -> Node -> Node
-addBefore ls n =
+addBefore ls = mapBefore (ls ++)
+
+-- | Change the lines above a node.
+mapBefore :: ([Line] -> [Line]) -> Node -> Node
+mapBefore f n =
+  -- A record update of comments is ambiguous, because another record of
+  -- yamlet has a field with this name.
   Node
     { offset = n.offset
     , endOffset = n.endOffset
     , props = n.props
-    , comments = n.comments {before = ls ++ n.comments.before}
+    , comments = n.comments {before = f n.comments.before}
     , content = n.content
     }
 
@@ -76,20 +83,11 @@ renderDocument header separated root =
   where
     separate :: [T.Text] -> Node -> Node
     separate path n = case n.content of
-      MappingContent style entries -> withContent (MappingContent style (zipWith entry [0 ..] entries))
-      SequenceContent style items | separated path -> withContent (SequenceContent style (zipWith spaced [0 ..] items))
+      MappingContent style entries -> n {content = MappingContent style (zipWith entry [0 ..] entries)}
+      SequenceContent style items
+        | separated path -> n {content = SequenceContent style (zipWith spaced [0 ..] items)}
       _ -> n
       where
-        withContent :: Content -> Node
-        withContent c =
-          Node
-            { offset = n.offset
-            , endOffset = n.endOffset
-            , props = n.props
-            , comments = n.comments
-            , content = c
-            }
-
         entry :: Int -> (Node, Node) -> (Node, Node)
         entry i (k, v) =
           ( spaced i k
