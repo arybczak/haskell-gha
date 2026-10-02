@@ -214,16 +214,16 @@ newtype Container = Container {image :: T.Text}
   deriving stock (Eq, Show)
 
 instance FromYaml Container where
-  parseYaml = oneOf [(i, Container i) | v <- containerVersions, let i = "buildpack-deps:" <> v]
-
--- | The Ubuntu versions of the buildpack-deps images of the LTS releases, from
--- the file library/buildpack-deps of docker-library/official-images on
--- 2026-09-27. An interim release has support for only 9 months, so the list
--- leaves it out. The tool accepts only the images that it knows, because
--- another image can lack a package that the workflow needs, e.g. git or
--- xz-utils.
-containerVersions :: [T.Text]
-containerVersions = ["22.04", "24.04", "26.04"]
+  parseYaml = oneOf [(i, Container i) | v <- versions, let i = "buildpack-deps:" <> v]
+    where
+      -- The Ubuntu versions of the buildpack-deps images of the LTS releases,
+      -- from the file library/buildpack-deps of docker-library/official-images
+      -- on 2026-09-27. An interim release has support for only 9 months, so
+      -- the list leaves it out. The tool accepts only the images that it
+      -- knows, because another image can lack a package that the workflow
+      -- needs, e.g. git or xz-utils.
+      versions :: [T.Text]
+      versions = ["22.04", "24.04", "26.04"]
 
 -- | The versions of the dependencies that the build jobs use.
 data Dependencies
