@@ -389,7 +389,11 @@ findPackages root projectDir required entry
       isDir <- doesDirectoryExist (dir </> path)
       if isDir
         then do
-          cabalFiles <- filter ((== ".cabal") . takeExtension) <$> listDirectory (dir </> path)
+          -- cabal searches the directory with the glob *.cabal, which skips a
+          -- hidden file, e.g. the lock file .#a.cabal of Emacs.
+          cabalFiles <-
+            filter (\f -> takeExtension f == ".cabal" && not ("." `L.isPrefixOf` f))
+              <$> listDirectory (dir </> path)
           pure $ case cabalFiles of
             [f] -> MatchCabalFile (normalise $ path </> f)
             [] -> MatchNoPackage . at $ "the directory " ++ show path ++ " contains no .cabal file."

@@ -118,6 +118,7 @@ test_globs = do
     readOk
       [ ("cabal.project", "packages: pkgs/*/\n          other/*.cabal, {x,y}\n")
       , ("pkgs/a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      , ("pkgs/a/.#a.cabal", "")
       , ("pkgs/b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       , ("pkgs/docs/index.md", "")
       , ("pkgs/two/c.cabal", cabal "c" "GHC ^>= 9.10" False)
