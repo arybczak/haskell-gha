@@ -26,6 +26,7 @@ projectTests =
     , testCase "an exact entry next to a series entry" test_exactNextToSeries
     , testCase "a missing conditional block" test_missingBlock
     , testCase "a tested-with version that the project excludes" test_untestedVersion
+    , testCase "the paths of a project in the root" test_rootProject
     , testCase "a condition that includes a part of a series" test_partialCondition
     , testCase "a condition on the first release of a series" test_firstRelease
     , testCase "a flag condition" test_flagCondition
@@ -225,6 +226,28 @@ test_untestedVersion = do
     [ "Package b lists GHC 9.8 in tested-with, but PROJECT/cabal.project does not include the package for that GHC version, so no job tests it. Remove the version from tested-with, or change the conditional block in cabal.project."
     ]
     errors
+
+test_rootProject :: Assertion
+test_rootProject =
+  withSystemTempDirectory "haskell-gha-tests" $ \root -> do
+    let write :: FilePath -> String -> IO ()
+        write path contents = do
+          createDirectoryIfMissing True (takeDirectory (root </> path))
+          writeFile (root </> path) contents
+    write "cabal.project" "packages: a\nif flag(dev)\n  packages: b\n"
+    write "a/a.cabal" (cabal "a" "GHC ^>= 9.10" False)
+    assertEqual
+      "errors of the package locations"
+      (Left ["cabal.project:3:13: the package location \"b\" does not exist."])
+      =<< readProject root "."
+    write "b/b.cabal" (cabal "b" "GHC ^>= 9.10" False)
+    assertEqual
+      "errors of the conditions"
+      ( Left
+          [ "cabal.project:2:1: the condition flag(dev) is not supported, because the tool does not know the value of the flag."
+          ]
+      )
+      =<< readProject root "."
 
 test_partialCondition :: Assertion
 test_partialCondition = do

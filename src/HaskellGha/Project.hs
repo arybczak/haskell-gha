@@ -119,14 +119,14 @@ readProject root dir = runExceptT $ do
   when (null cabalFiles) $
     throwE ["There are no packages in " ++ projectDescription exists dir ++ "."]
   ExceptT . linkErrors root $
-    [("The package file " ++ (dir </> f), dir </> f) | f <- cabalFiles]
+    [("The package file " ++ inProject dir f, inProject dir f) | f <- cabalFiles]
   packages <-
     ExceptT $
-      runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (dir </> f) f)
+      runCheck . traverse fromErrors <$> forM cabalFiles (\f -> readPackage root (inProject dir f) f)
   except . runCheck $ projectFrom exists dir packages (byToken found packages) parts
   where
     projectFile :: FilePath
-    projectFile = dir </> "cabal.project"
+    projectFile = inProject dir "cabal.project"
 
     readParts :: Bool -> IO (Either [String] [Part])
     readParts = \case
@@ -164,7 +164,12 @@ readProject root dir = runExceptT $ do
 
 projectDescription :: Bool -> FilePath -> String
 projectDescription exists dir =
-  if exists then dir </> "cabal.project" else "the implicit project of " ++ show dir
+  if exists then inProject dir "cabal.project" else "the implicit project of " ++ show dir
+
+-- | A path in the project directory, relative to the root, e.g. @cabal.project@
+-- and not @./cabal.project@ for the project directory @.@.
+inProject :: FilePath -> FilePath -> FilePath
+inProject dir path = normalise (dir </> path)
 
 ----------------------------------------
 -- cabal.project
@@ -630,4 +635,4 @@ projectFrom exists dir packages byToken parts = do
       | otherwise = (if z then (||) else (&&)) <$> a <*> b
 
     location :: Position -> String
-    location pos = showPError (dir </> "cabal.project") (PError pos "")
+    location pos = showPError (inProject dir "cabal.project") (PError pos "")
