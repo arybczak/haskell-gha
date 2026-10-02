@@ -375,8 +375,9 @@ workflow file and the ref. `github.workflow` is the name of the workflow, so
 two workflows with the same name in a group with it would cancel each other.
 
 Without `timeout-minutes`, GitHub stops a job only after six hours, so a
-test that hangs uses up the runner minutes. The default of 60 minutes leaves
-room for a build without a cache.
+test that hangs uses up the runner minutes. A build usually takes way less
+than an hour, so the default of 60 minutes leaves room for a build without a
+cache.
 
 The job `name` cannot show the version that the action selects for a series
 entry, because GitHub evaluates the job name before the steps run. Thus the

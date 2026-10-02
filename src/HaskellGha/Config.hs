@@ -295,7 +295,10 @@ defaultConfig =
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
     , runsOn = bare (RunsOn (plain "ubuntu-26.04"))
     , container = Nothing
-    , timeoutMinutes = Positive 60
+    , -- Without a limit, GitHub stops a job only after six hours. A build
+      -- usually takes way less than an hour, so 60 leaves room for a build
+      -- without a cache.
+      timeoutMinutes = Positive 60
     , branches = bare (bare "master" NE.:| [bare "main"])
     , submodules = NoSubmodules
     , matrix =
@@ -313,7 +316,8 @@ defaultConfig =
     , hooks = Hooks {afterSetup = [], afterBuild = []}
     , ghcOptions = GhcOptions "-Werror"
     , cabalProjectLocal = ProjectText ""
-    , jobs = Positive 4
+    , -- The standard Linux runners of GitHub have 4 CPUs.
+      jobs = Positive 4
     , tests = True
     , benchmarks = True
     , dependencies = DependenciesNewest
