@@ -236,6 +236,10 @@ exist, the project is `packages: ./*.cabal`, as in cabal
 (`defaultImplicitProjectConfig` in
 `cabal-install/src/Distribution/Client/ProjectConfig.hs`).
 
+An error of an entry of `packages:` gives the position of the entry, as for an
+`import:` line. The entry of the implicit project has no position, so a
+directory without a package gets the error for a project without packages.
+
 The reader parses each condition with `parseConditionConfVar` and decides it
 for each matrix entry. `os(linux)` and `arch(x86_64)` are true. `flag(...)`
 is an error, because the tool does not know the value of the flag. If one

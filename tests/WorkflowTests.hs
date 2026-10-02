@@ -478,7 +478,7 @@ test_runCommand =
     removeFile (root </> "a.cabal")
     assertEqual
       "error"
-      ["The package location \"./*.cabal\" matches no files."]
+      ["There are no packages in the implicit project of \".\"."]
       =<< run (Generate defaultOptions)
 
 -- | The options of a command line for one workflow, after @--generate@.

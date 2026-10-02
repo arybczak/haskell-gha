@@ -326,26 +326,33 @@ test_locationErrors = do
     readErrors
       [
         ( "cabal.project"
-        , "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two /opt/pkg ~/pkgs/*/ ../../outside ../../*/*.cabal {broken\n"
+        , unlines
+            [ "packages: missing/ nothing/*.cabal https://example.com/a.tar.gz two"
+            , "  /opt/pkg, ~/pkgs/*/"
+            , "  ../../outside ../../*/*.cabal {broken"
+            ]
         )
       , ("two/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("two/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       ]
   assertEqual
     "errors"
-    [ "The package location \"missing/\" does not exist."
-    , "The package location \"nothing/*.cabal\" matches no files."
-    , "The package location \"https://example.com/a.tar.gz\" is a URL. The tool supports only local packages."
-    , "The directory \"two\" contains more than one .cabal file."
-    , "The package location \"/opt/pkg\" is not a relative path. The tool supports only packages in the repository."
-    , "The package location \"~/pkgs/*/\" is not a relative path. The tool supports only packages in the repository."
-    , "The package location \"../../outside\" is not in the repository. The tool supports only packages in the repository."
-    , "The package location \"../../*/*.cabal\" is not in the repository. The tool supports only packages in the repository."
-    , "The package location \"{broken\" is not a valid glob, and no file or directory has this path."
+    [ "PROJECT/cabal.project:1:11: the package location \"missing/\" does not exist."
+    , "PROJECT/cabal.project:1:20: the package location \"nothing/*.cabal\" matches no files."
+    , "PROJECT/cabal.project:1:36: the package location \"https://example.com/a.tar.gz\" is a URL. The tool supports only local packages."
+    , "PROJECT/cabal.project:1:65: the directory \"two\" contains more than one .cabal file."
+    , "PROJECT/cabal.project:2:3: the package location \"/opt/pkg\" is not a relative path. The tool supports only packages in the repository."
+    , "PROJECT/cabal.project:2:13: the package location \"~/pkgs/*/\" is not a relative path. The tool supports only packages in the repository."
+    , "PROJECT/cabal.project:3:3: the package location \"../../outside\" is not in the repository. The tool supports only packages in the repository."
+    , "PROJECT/cabal.project:3:17: the package location \"../../*/*.cabal\" is not in the repository. The tool supports only packages in the repository."
+    , "PROJECT/cabal.project:3:33: the package location \"{broken\" is not a valid glob, and no file or directory has this path."
     ]
     errors
   noPackages <- readErrors [("README", "")]
-  assertEqual "no packages" 1 (length noPackages)
+  assertEqual
+    "no packages"
+    ["There are no packages in the implicit project of \"PROJECT\"."]
+    noPackages
 
 test_doctestRootAndSubdirectory :: Assertion
 test_doctestRootAndSubdirectory = do

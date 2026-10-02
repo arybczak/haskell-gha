@@ -88,11 +88,19 @@ data Import = Import
   }
   deriving stock (Eq, Show)
 
+-- | An entry of a @packages:@ or @optional-packages:@ field.
+data PackageEntry = PackageEntry
+  { location :: String
+  -- ^ The prefix of the error messages, with the file and the position.
+  , target :: String
+  }
+  deriving stock (Eq)
+
 -- | A part of @cabal.project@ that the reader uses.
 data Part
   = -- | A @packages:@ or @optional-packages:@ field. The flag is true for
     -- @packages:@.
-    Packages Bool [String]
+    Packages Bool [PackageEntry]
   | ImportLine Import
   | -- | An @if@ section with its @elif@ and @else@ sections.
     Conditional Position (Condition ConfVar) [Part] [Part]
@@ -122,16 +130,19 @@ readProject root dir = runExceptT $ do
     readParts :: Bool -> IO (Either [String] [Part])
     readParts = \case
       True -> parseProjectFile projectFile <$> BS.readFile (root </> projectFile)
+      -- The entry has no position in a file, so it is optional, and a project
+      -- without packages gets the error for an empty project.
       False ->
         doesDirectoryExist (root </> dir) <&> \case
-          True -> Right [Packages True ["./*.cabal"]]
+          True -> Right [Packages False [PackageEntry {location = "", target = "./*.cabal"}]]
           False -> Left ["The project directory " ++ show dir ++ " does not exist."]
 
     -- The .cabal files of each entry of packages:, relative to the project
     -- directory.
     locatePackages :: [Part] -> IO (Either [String] [(String, [FilePath])])
     locatePackages parts = do
-      locations <- forM (L.nub (allTokens parts)) $ \(required, t) -> (t,) <$> findPackages root dir required t
+      locations <- forM (L.nub (allEntries parts)) $ \(required, e) ->
+        (e.target,) <$> findPackages root dir required e
       pure . runCheck $ traverse (\(t, r) -> (t,) <$> fromErrors r) locations
 
     -- A package is known by its directory. If two .cabal files in one
@@ -144,15 +155,15 @@ readProject root dir = runExceptT $ do
       , Just p <- [L.find (\p -> p.directory == takeDirectory f) packages]
       ]
 
-    allTokens :: [Part] -> [(Bool, String)]
-    allTokens = concatMap $ \case
-      Packages required ts -> map (required,) ts
+    allEntries :: [Part] -> [(Bool, PackageEntry)]
+    allEntries = concatMap $ \case
+      Packages required es -> map (required,) es
       ImportLine _ -> []
-      Conditional _ _ yes no -> allTokens yes ++ allTokens no
+      Conditional _ _ yes no -> allEntries yes ++ allEntries no
 
 projectDescription :: Bool -> FilePath -> String
 projectDescription exists dir =
-  if exists then dir </> "cabal.project" else "the implicit project of " ++ dir
+  if exists then dir </> "cabal.project" else "the implicit project of " ++ show dir
 
 ----------------------------------------
 -- cabal.project
@@ -167,10 +178,10 @@ parseProjectFile file input = case readFields input of
     parts = \case
       [] -> pure []
       Field (Name pos n) ls : rest
-        | n == "packages" -> (:) (Packages True (fieldTokens ls)) <$> parts rest
-        | n == "optional-packages" -> (:) (Packages False (fieldTokens ls)) <$> parts rest
+        | n == "packages" -> (:) (Packages True (fieldEntries ls)) <$> parts rest
+        | n == "optional-packages" -> (:) (Packages False (fieldEntries ls)) <$> parts rest
         | n == "import" ->
-            let i = Import {location = at pos "", target = unwords (fieldTokens ls)}
+            let i = Import {location = at pos "", target = unwords (map (.target) (fieldEntries ls))}
             in (:) (ImportLine i) <$> parts rest
         | otherwise -> parts rest
       Section (Name pos n) args body : rest
@@ -216,14 +227,34 @@ parseProjectFile file input = case readFields input of
     at pos msg = showPError file (PError pos msg)
 
     -- Split the value of a packages: field into its entries, as cabal does.
-    fieldTokens :: [FieldLine Position] -> [String]
-    fieldTokens ls = tokens . unwords $ [T.unpack (T.decodeUtf8Lenient l) | FieldLine _ l <- ls]
+    -- An entry can continue on the next line, so the split runs on the joined
+    -- lines, and the offset of an entry in them gives its position.
+    fieldEntries :: [FieldLine Position] -> [PackageEntry]
+    fieldEntries ls =
+      [ PackageEntry {location = at (position i) "", target = t}
+      | (i, t) <- tokens 0 (unwords texts)
+      ]
       where
-        tokens :: String -> [String]
-        tokens s = case dropWhile separator s of
-          [] -> []
-          s'@('"' : _) | [(t, rest)] <- reads s' -> t : tokens rest
-          s' -> let (t, rest) = token 0 s' in t : tokens rest
+        texts :: [String]
+        texts = [T.unpack (T.decodeUtf8Lenient l) | FieldLine _ l <- ls]
+
+        -- The offset of each line in the joined lines, with its position.
+        starts :: [(Int, Position)]
+        starts = zip (scanl (\o t -> o + length t + 1) 0 texts) [p | FieldLine p _ <- ls]
+
+        position :: Int -> Position
+        position i = case [(o, p) | (o, p) <- starts, o <= i] of
+          [] -> zeroPos
+          before -> let (o, Position row col) = last before in Position row (col + i - o)
+
+        tokens :: Int -> String -> [(Int, String)]
+        tokens i s =
+          let (skipped, s') = span separator s
+              i' = i + length skipped
+          in case s' of
+               [] -> []
+               '"' : _ | [(t, rest)] <- reads s' -> (i', t) : tokens (i' + length s' - length rest) rest
+               _ -> let (t, rest) = token 0 s' in (i', t) : tokens (i' + length t) rest
 
         token :: Int -> String -> (String, String)
         token depth = \case
@@ -249,22 +280,25 @@ findPackages
   -> FilePath
   -- ^ The project directory, relative to the root.
   -> Bool
-  -> String
+  -> PackageEntry
   -> IO (Either [String] [FilePath])
-findPackages root projectDir required t
+findPackages root projectDir required entry
   | "://" `L.isInfixOf` t =
       pure $
         Left
-          ["The package location " ++ show t ++ " is a URL. The tool supports only local packages."]
+          [ at $
+              "the package location " ++ show t ++ " is a URL. The tool supports only local packages."
+          ]
   | isAbsolute t = notRelative
   -- A glob component other than .. does not lead up, so the location itself
   -- decides for all its matches.
   | leadsAbove (projectDir </> t) =
       pure $
         Left
-          [ "The package location "
-              ++ show t
-              ++ " is not in the repository. The tool supports only packages in the repository."
+          [ at $
+              "the package location "
+                ++ show t
+                ++ " is not in the repository. The tool supports only packages in the repository."
           ]
   | otherwise = case simpleParsec @RootedGlob t of
       Just (RootedGlob FilePathRelative glob) -> do
@@ -281,9 +315,18 @@ findPackages root projectDir required t
           then collect . pure <$> classify t
           else pure $ missing "is not a valid glob, and no file or directory has this path"
   where
+    t :: String
+    t = entry.target
+
+    -- An entry without a position starts the message itself.
+    at :: String -> String
+    at msg = case msg of
+      c : cs | null entry.location -> toUpper c : cs
+      _ -> entry.location ++ msg
+
     missing :: String -> Either [String] [FilePath]
     missing reason
-      | required = Left ["The package location " ++ show t ++ " " ++ reason ++ "."]
+      | required = Left [at $ "the package location " ++ show t ++ " " ++ reason ++ "."]
       | otherwise = Right []
 
     -- A glob without a wildcard or a union names one path.
@@ -307,9 +350,10 @@ findPackages root projectDir required t
     notRelative =
       pure $
         Left
-          [ "The package location "
-              ++ show t
-              ++ " is not a relative path. The tool supports only packages in the repository."
+          [ at $
+              "the package location "
+                ++ show t
+                ++ " is not a relative path. The tool supports only packages in the repository."
           ]
 
     collect :: [Either String FilePath] -> Either [String] [FilePath]
@@ -326,18 +370,19 @@ findPackages root projectDir required t
           cabalFiles <- filter ((== ".cabal") . takeExtension) <$> listDirectory (dir </> path)
           pure $ case cabalFiles of
             [f] -> Right (normalise $ path </> f)
-            [] -> Left $ "The directory " ++ show path ++ " contains no .cabal file."
-            _ -> Left $ "The directory " ++ show path ++ " contains more than one .cabal file."
+            [] -> Left . at $ "the directory " ++ show path ++ " contains no .cabal file."
+            _ -> Left . at $ "the directory " ++ show path ++ " contains more than one .cabal file."
         else pure $ case () of
           _
             | ".tar.gz" `L.isSuffixOf` path ->
-                Left $
-                  "The package location "
+                Left . at $
+                  "the package location "
                     ++ show path
                     ++ " is a tarball. The tool supports only local packages."
             | takeExtension path == ".cabal" -> Right (normalise path)
             | otherwise ->
-                Left $ "The package location " ++ show path ++ " is not a directory or a .cabal file."
+                Left . at $
+                  "the package location " ++ show path ++ " is not a directory or a .cabal file."
 
 ----------------------------------------
 -- Packages
@@ -456,7 +501,7 @@ projectFrom exists dir packages byToken parts = do
       fmap concat
         . traverse
           ( \case
-              Packages _ ts -> pure (concatMap byToken ts)
+              Packages _ es -> pure (concatMap (byToken . (.target)) es)
               ImportLine _ -> pure []
               Conditional pos c yes no -> do
                 b <- evaluate entry pos c
