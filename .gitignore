@@ -1,5 +1,6 @@
 dist-newstyle/
 cabal.project.local
+.ghc-tags.yaml
 .projectile-cache.eld
 TAGS
 TAGS.mtime
