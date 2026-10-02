@@ -81,6 +81,8 @@ library api
                      HaskellGha.Options
                      HaskellGha.Project
                      HaskellGha.Workflow
+                     HaskellGha.Workflow.Script
+                     HaskellGha.Workflow.Validate
                      HaskellGha.Yaml
 
 executable haskell-gha

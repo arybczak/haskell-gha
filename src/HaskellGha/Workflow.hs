@@ -15,9 +15,7 @@ import Control.Monad
 import Control.Monad.Trans.Except
 import Data.Bifunctor
 import Data.ByteString qualified as BS
-import Data.Char
 import Data.Either
-import Data.Foldable
 import Data.Functor
 import Data.List qualified as L
 import Data.Maybe
@@ -35,6 +33,8 @@ import HaskellGha.Config
 import HaskellGha.Ghc
 import HaskellGha.Options
 import HaskellGha.Project
+import HaskellGha.Workflow.Script
+import HaskellGha.Workflow.Validate
 import HaskellGha.Yaml
 
 -- | Read the configuration and the project, and make the workflow. The phases
@@ -146,155 +146,13 @@ findWorkflows root = do
       c : rest | c /= ' ' -> first (c :) <$> shellWord rest
       rest -> Just ("", rest)
 
--- | Quote a word for bash, if it needs quotes.
-shellQuote :: T.Text -> T.Text
-shellQuote t
-  | not (T.null t) && T.all safe t = t
-  | otherwise = "'" <> T.replace "'" "'\\''" t <> "'"
-  where
-    safe :: Char -> Bool
-    safe c = isAsciiLower c || isAsciiUpper c || isDigit c || c `elem` ("-_./=:+@%," :: String)
-
 -- | Make the workflow.
 workflow :: Options -> ConfigSource -> Config -> Project -> Either [String] Node
-workflow opts source config project = runCheck $ checks $> root
+workflow opts source config project =
+  runCheck $ validateWorkflow opts source config project $> root
   where
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
-
-    checks :: Check ()
-    checks = do
-      traverse_
-        checkGhcValue
-        (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude))
-      checkDependencies
-      when config.doctest.enabled $ do
-        checkRange config.doctest.ghc
-        traverse_ checkSkip config.doctest.skip
-      traverse_ checkImport project.imports
-      when config.sdist $
-        traverse_ checkInside project.packages
-      when config.hlint.enabled $
-        traverse_ checkHLintPath config.hlint.path
-
-    -- An error at a value of the configuration, with its position.
-    failureAt :: Offset -> String -> Check ()
-    failureAt off msg = traverse_ failure (sourceErrors source [(off, msg)])
-
-    -- The action gets the path on the runner, where only the repository
-    -- exists.
-    checkHLintPath :: Located HLintPath -> Check ()
-    checkHLintPath p
-      | isAbsolute path || leadsAbove (projectDir </> path) =
-          failureAt p.offset $
-            "the path "
-              ++ path
-              ++ " is not in the repository. Give a path relative to the project directory."
-      | otherwise = pure ()
-      where
-        path :: FilePath
-        path = T.unpack p.value.value
-
-    -- cabal fetches an import from a URL. It reads a local file on the runner,
-    -- where only the repository exists, and the copy of the source tarballs
-    -- does not contain it.
-    checkImport :: Import -> Check ()
-    checkImport i
-      | "://" `L.isInfixOf` i.target = pure ()
-      | isAbsolute i.target || leadsAbove (projectDir </> i.target) =
-          failure $
-            i.location
-              ++ "the imported file "
-              ++ i.target
-              ++ " is not in the repository. Give a path relative to the project directory."
-      | config.sdist =
-          failure $
-            i.location
-              ++ "the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file "
-              ++ i.target
-              ++ ". Set sdist: false in the configuration."
-      | otherwise = pure ()
-
-    -- The unpack step keeps the path of each package relative to the project
-    -- directory, so a path with .. leads out of the copy.
-    checkInside :: Package -> Check ()
-    checkInside p
-      | leadsAbove p.directory =
-          failure $
-            "Package "
-              ++ p.name
-              ++ " is in "
-              ++ p.directory
-              ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
-      | otherwise = pure ()
-
-    -- A range that includes no matrix entry turns its feature off without
-    -- any sign in the workflow, e.g. ==10.0 for the series 10.0.
-    checkRange :: Located VersionRange -> Check ()
-    checkRange r = do
-      traverse_
-        (either (failureAt r.offset) (const (pure ())) . decideRange name r.value)
-        entries
-      when (all (\e -> decide r.value e == Excluded) entries)
-        $ failureAt r.offset
-        $ name
-          ++ " includes no GHC version of the matrix, which contains only "
-          ++ L.intercalate ", " (map (T.unpack . entryText) entries)
-      where
-        name :: String
-        name = "the range " ++ prettyShow r.value
-
-    checkSkip :: Located T.Text -> Check ()
-    checkSkip p
-      | T.unpack p.value `elem` map (.name) project.packages = pure ()
-      | otherwise = failureAt p.offset $ "the project has no local package " ++ T.unpack p.value
-
-    -- The tool makes the dependencies axis only for both. Otherwise the name
-    -- is free for an axis of the user.
-    checkDependencies :: Check ()
-    checkDependencies
-      | bothDependencies = do
-          traverse_ ownAxis [a.offset | a <- config.matrix.value.axes, a.value == "dependencies"]
-          traverse_
-            value
-            ( combinationValues
-                "dependencies"
-                (config.matrix.value.include ++ config.matrix.value.exclude)
-            )
-      | "dependencies" `elem` map (.value) config.matrix.value.axes = pure ()
-      | otherwise =
-          traverse_ noAxis (combinationValues "dependencies" config.matrix.value.exclude)
-      where
-        ownAxis :: Offset -> Check ()
-        ownAxis off =
-          failureAt
-            off
-            "the tool makes the dependencies axis for dependencies: both, so the matrix must not contain it"
-
-        value :: Located T.Text -> Check ()
-        value v
-          | v.value `elem` ["newest", "oldest"] = pure ()
-          | otherwise =
-              failureAt v.offset $
-                "dependencies "
-                  ++ T.unpack v.value
-                  ++ " is not in the dependencies axis, which contains only newest, oldest"
-
-        noAxis :: Located T.Text -> Check ()
-        noAxis v =
-          failureAt
-            v.offset
-            "the matrix has no dependencies axis. Set dependencies: both to add it."
-
-    checkGhcValue :: Located T.Text -> Check ()
-    checkGhcValue v
-      | v.value `elem` map entryText entries = pure ()
-      | otherwise =
-          failureAt v.offset $
-            "GHC "
-              ++ T.unpack v.value
-              ++ " is not in the ghc axis, which contains only "
-              ++ L.intercalate ", " (map (T.unpack . entryText) entries)
 
     root :: Node
     root =
@@ -520,10 +378,13 @@ workflow opts source config project = runCheck $ checks $> root
     setupSteps =
       concat
         [ [checkoutStep config.submodules]
-        , [ runStep "Install the system packages" Nothing (aptScript config.apt)
+        , [ runStep "Install the system packages" Nothing (aptScript config.container config.apt)
           | not (null config.apt)
           ]
-        , [ runStep "Install the gold linker" (Just goldEntries) (aptScript ["binutils-gold"])
+        , [ runStep
+              "Install the gold linker"
+              (Just goldEntries)
+              (aptScript config.container ["binutils-gold"])
           | not (null goldEntries)
           ]
         , [setupStep]
@@ -537,18 +398,23 @@ workflow opts source config project = runCheck $ checks $> root
           | config.sdist
           , (group, pkgs) <- packageGroups project.matrix
           ]
-        , [sourceStep "Configure the project" Nothing configureScript]
+        ,
+          [ sourceStep
+              "Configure the project"
+              Nothing
+              (configureScript config (not (null doctestEntries)) project.packages)
+          ]
         , oldestStep
         , [ sourceStep
               "Enable parallel module builds for the local packages"
               (Just group)
-              (parallelScript pkgs)
+              (parallelScript config.jobs.value pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, not (hasSemaphore e.ghc)]
           ]
         , [ sourceStep
               "Enable the GHC job semaphore or parallel module builds"
               (Just group)
-              (semaphoreScript pkgs)
+              (semaphoreScript config.jobs.value config.cabalVersion pkgs)
           | (group, pkgs) <- packageGroups [e | e <- project.matrix, hasSemaphore e.ghc]
           ]
         , [planStep]
@@ -572,7 +438,7 @@ workflow opts source config project = runCheck $ checks $> root
         , [ sourceStep
               ("Run doctest for " <> T.pack p.name)
               (Just es)
-              (doctestScript config.doctest p)
+              (doctestScript config.doctest.options p)
           | p <- project.packages
           , T.pack p.name `notElem` map (.value) config.doctest.skip
           , not (null p.doctestArgs)
@@ -704,67 +570,6 @@ workflow opts source config project = runCheck $ checks $> root
             , "echo \"version=$version\" >> \"$GITHUB_OUTPUT\""
             ]
 
-    doctestScript :: Doctest -> Package -> T.Text
-    doctestScript d p =
-      T.unlines $
-        ["cd " <> shellQuote (T.pack p.directory) | p.directory /= "."]
-          ++ [ T.unwords ("\"$HOME\"/.local/bin/doctest" : map shellQuote (d.options ++ map T.pack args))
-             | args <- p.doctestArgs
-             ]
-
-    -- cabal check works on the package in the current directory, and its
-    -- output does not name the package. The step runs with bash -e, so a
-    -- failed check must not end the script before the other packages.
-    checkScript :: [Package] -> T.Text
-    checkScript pkgs =
-      T.unlines $
-        concat
-          [
-            [ "failed=0"
-            , "check() {"
-            , "  echo \"Checking the package $1\""
-            , "  (cd \"$2\" && cabal check) || { echo \"::error::cabal check failed for the package $1\"; failed=1; }"
-            , "}"
-            ]
-          , [ "check " <> shellQuote (T.pack p.name) <> " " <> shellQuote (T.pack p.directory)
-            | p <- pkgs
-            ]
-          , ["exit \"$failed\""]
-          ]
-
-    -- The content of the tarballs, at the same relative paths as in the project
-    -- directory.
-    sourceDir :: T.Text
-    sourceDir = "\"$RUNNER_TEMP\"/haskell-gha"
-
-    -- The step makes the tarballs of the packages of the matrix entry, so a
-    -- package that is not in the project has no tarball. The pattern of a
-    -- tarball allows only a version after the name, because the tarball of a
-    -- package foo-2d also starts with foo-.
-    unpackScript :: [Package] -> T.Text
-    unpackScript pkgs =
-      T.unlines $
-        [ "shopt -s extglob"
-        , "cabal sdist all --output-directory=\"$RUNNER_TEMP\"/haskell-gha-sdist"
-        , "mkdir " <> sourceDir
-        , "for f in cabal.project cabal.project.freeze cabal.project.local; do"
-        , "  if [ -f \"$f\" ]; then cp \"$f\" " <> sourceDir <> "; fi"
-        , "done"
-        ]
-          ++ concat
-            [ ["mkdir -p " <> dir | p.directory /= "."]
-                ++ [ "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/"
-                       <> T.pack p.name
-                       <> "-+([0-9.]).tar.gz --strip-components=1 -C "
-                       <> dir
-                   ]
-            | p <- pkgs
-            , let dir =
-                    if p.directory == "."
-                      then sourceDir
-                      else sourceDir <> "/" <> shellQuote (T.pack p.directory)
-            ]
-
     -- A step with a script. The script runs for the given matrix entries, or
     -- for all of them.
     runStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
@@ -784,7 +589,7 @@ workflow opts source config project = runCheck $ checks $> root
         ]
 
     sourceWorkingDirectory :: (Node, Node)
-    sourceWorkingDirectory = "working-directory" .= plain "${{ runner.temp }}/haskell-gha"
+    sourceWorkingDirectory = "working-directory" .= plain ("${{ runner.temp }}/" <> sourceDirName)
 
     -- hashFiles only reads files in the workspace, and the content of the
     -- tarballs is outside it. Thus the step gives the hash of the plan to the
@@ -856,23 +661,6 @@ workflow opts source config project = runCheck $ checks $> root
         (summaryImage, keyImage) = case config.container of
           Nothing -> ("$ImageOS $ImageVersion", "$ImageOS")
           Just c -> (c.image, c.image)
-    configureScript :: T.Text
-    configureScript =
-      heredoc $
-        concat
-          [ ["jobs: " <> tshow config.jobs.value]
-          , ["tests: True" | config.tests]
-          , ["benchmarks: True" | config.benchmarks]
-          , ["write-ghc-environment-files: always" | not (null doctestEntries)]
-          , concat
-              [ "" : stanza p ("ghc-options: " <> config.ghcOptions.value)
-              | not (T.null config.ghcOptions.value)
-              , p <- project.packages
-              ]
-          , case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal.value) of
-              [] -> []
-              ls -> "" : ls
-          ]
 
     -- Each later cabal command reads cabal.project.local, so all of them use
     -- the plan with the oldest versions.
@@ -891,17 +679,6 @@ workflow opts source config project = runCheck $ checks $> root
             , ["run" .= literal "echo 'prefer-oldest: True' >> cabal.project.local\n"]
             ]
 
-    parallelScript :: [Package] -> T.Text
-    parallelScript pkgs =
-      heredoc . L.intercalate [""] $
-        [stanza p ("ghc-options: -j" <> tshow config.jobs.value) | p <- pkgs]
-
-    stanza :: Package -> T.Text -> [T.Text]
-    stanza p line = ["package " <> T.pack p.name, "  " <> line]
-
-    heredoc :: [T.Text] -> T.Text
-    heredoc ls = T.unlines $ ["cat >> cabal.project.local <<'EOF'"] ++ ls ++ ["EOF"]
-
     -- The matrix entries, grouped by their packages.
     packageGroups :: [MatrixEntry] -> [([GhcEntry], [Package])]
     packageGroups es =
@@ -911,54 +688,6 @@ workflow opts source config project = runCheck $ checks $> root
       where
         names :: [Package] -> [String]
         names = map (.name)
-
-    -- If GHC and cabal use different versions of the semaphore protocol, GHC
-    -- compiles the modules one at a time, so the job then uses -j<N> instead.
-    -- Only some minor versions of a series use version 2, and a series entry
-    -- gets its newest release when the job runs, so the job asks GHC. A GHC
-    -- without the Semaphore version entry in its info uses version 1.
-    semaphoreScript :: [Package] -> T.Text
-    semaphoreScript pkgs =
-      T.concat
-        [ "if ghc --info | grep -F '(\"Semaphore version\",\"2\")' > /dev/null; then\n"
-        , branch 2
-        , "else\n"
-        , branch 1
-        , "fi\n"
-        ]
-      where
-        branch :: Int -> T.Text
-        branch ghcV
-          | ghcV == cabalV =
-              echo
-                ( "GHC and cabal use version "
-                    <> tshow ghcV
-                    <> " of the semaphore protocol, so GHC uses the semaphore."
-                )
-                <> heredoc ["semaphore: True"]
-          | otherwise =
-              echo
-                ( "GHC uses version "
-                    <> tshow ghcV
-                    <> " of the semaphore protocol and cabal version "
-                    <> tshow cabalV
-                    <> ", so GHC uses -j"
-                    <> tshow config.jobs.value
-                    <> "."
-                )
-                <> parallelScript pkgs
-
-        echo :: T.Text -> T.Text
-        echo msg = "echo '" <> msg <> "'\n"
-
-        -- cabal 3.18 and later use only version 2, older versions only
-        -- version 1.
-        cabalV :: Int
-        cabalV = case config.cabalVersion of
-          CabalLatest -> 2
-          CabalVersion v
-            | v >= mkVersion [3, 18] -> 2
-            | otherwise -> 1
 
     -- The semaphore needs GHC 9.8. A matrix entry is an exact version or a
     -- major series, so the range decides each entry completely.
@@ -1007,23 +736,3 @@ workflow opts source config project = runCheck $ checks $> root
               , "key" .= plain "${{ steps.cache.outputs.cache-primary-key }}"
               ]
         ]
-
-    -- A job in a container runs as root, and the image has no sudo. The runner
-    -- images set DEBIAN_FRONTEND in /etc/environment, but the containers do
-    -- not, and a debconf question there waits for an answer on stdin. sudo
-    -- drops the variable from the environment of the step, so the command line
-    -- sets it.
-    aptScript :: [T.Text] -> T.Text
-    aptScript packages =
-      T.unlines
-        [ sudo <> "apt-get update"
-        , sudo
-            <> "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "
-            <> T.unwords (map shellQuote packages)
-        ]
-      where
-        sudo :: T.Text
-        sudo = maybe "sudo " (const "") config.container
-
-    tshow :: Int -> T.Text
-    tshow = T.pack . show
