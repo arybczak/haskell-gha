@@ -53,13 +53,13 @@ jobs:
     - name: Install the system packages
       run: |
         apt-get update
-        apt-get install -y --no-install-recommends libpq-dev
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpq-dev
 
     - name: Install the gold linker
       if: contains(fromJSON('["9.4"]'), matrix.ghc)
       run: |
         apt-get update
-        apt-get install -y --no-install-recommends binutils-gold
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends binutils-gold
 
     - uses: haskell-actions/setup@v2
       id: setup

@@ -1018,13 +1018,17 @@ workflow opts source config project = runCheck $ checks $> root
               ]
         ]
 
-    -- A job in a container runs as root, and the image has no sudo.
+    -- A job in a container runs as root, and the image has no sudo. The runner
+    -- images set DEBIAN_FRONTEND in /etc/environment, but the containers do
+    -- not, and a debconf question there waits for an answer on stdin. sudo
+    -- drops the variable from the environment of the step, so the command line
+    -- sets it.
     aptScript :: [T.Text] -> T.Text
     aptScript packages =
       T.unlines
         [ sudo <> "apt-get update"
         , sudo
-            <> "apt-get install -y --no-install-recommends "
+            <> "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "
             <> T.unwords (map shellQuote packages)
         ]
       where

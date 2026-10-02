@@ -111,7 +111,7 @@ jobs:
     - name: Install the system packages
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends libpq-dev postgresql-client
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libpq-dev postgresql-client
 
     - uses: haskell-actions/setup@v2.8.2
       id: setup
