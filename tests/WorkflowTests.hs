@@ -410,6 +410,8 @@ test_findWorkflows =
     createDirectoryIfMissing True (root </> dir)
     write "a.yml" $ renderWorkflow "TEST" opts (mapping [])
     write "b.yml" (T.pack "name: other\n")
+    createDirectory (root </> dir </> "directory.yml")
+    createFileLink (root </> dir </> "missing") (root </> dir </> "dangling.yml")
     assertEqual "generated workflow" (Right [opts]) =<< findWorkflows root
     write "c.yaml" $ renderWorkflow "TEST" opts {output = "d.yml"} (mapping [])
     assertEqual
@@ -504,6 +506,16 @@ test_runCommand =
       ]
       =<< run (Generate ciOptions)
     assertEqual "the workflow that the tool did not generate" "name: CI\n" =<< readFile ci
+    let dirOptions = defaultOptions {output = "dir.yml"}
+    createDirectory (root </> outputPath dirOptions)
+    assertEqual
+      "--generate over a directory"
+      [ "The workflow "
+          ++ outputPath dirOptions
+          ++ " is a directory, so the tool does not replace it. Delete the directory first, or give another name with --output."
+      ]
+      =<< run (Generate dirOptions)
+    assertEqual "regenerate next to a directory" [] =<< run Regenerate
 
 -- | The options of a command line for one workflow, after @--generate@.
 parseOptions :: [String] -> Maybe Options
