@@ -1,5 +1,6 @@
 module WorkflowTests (workflowTests) where
 
+import Control.Monad
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.Either
@@ -34,6 +35,7 @@ workflowTests =
     , testCase "an import outside the repository" test_importOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     , testCase "a project directory outside the repository" test_projectDirOutside
+    , testCase "a control character in a path option" test_controlCharacters
     , testCase "a named default configuration file" test_namedDefaultConfig
     , testCase "an hlint path outside the repository" test_hlintPathOutside
     , testCase "the comments that the workflow keeps and drops" test_comments
@@ -146,6 +148,12 @@ test_projectDirOutside = do
   assertEqual "absolute" Nothing (parse "/tmp/project")
   assertEqual "parent" Nothing (parse "a/../../b")
   assertEqual "empty" Nothing (parse "")
+
+test_controlCharacters :: Assertion
+test_controlCharacters =
+  forM_ ["--config", "--project-dir", "--output"] $ \opt -> do
+    assertEqual (opt ++ " with a line break") Nothing (parseOptions [opt, "a\nb"])
+    assertEqual (opt ++ " with a tab") Nothing (parseOptions [opt, "a\tb"])
 
 test_sdistNamePrefix :: Assertion
 test_sdistNamePrefix = do

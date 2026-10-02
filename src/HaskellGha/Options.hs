@@ -14,6 +14,7 @@ module HaskellGha.Options
   , leadsAbove
   ) where
 
+import Data.Char
 import Options.Applicative
 import System.FilePath
 
@@ -89,7 +90,7 @@ options :: Parser Options
 options = do
   config <-
     option
-      (ConfigFile <$> str)
+      (ConfigFile <$> pathReader)
       ( long "config"
           <> metavar "FILE"
           <> value DefaultConfigFile
@@ -106,7 +107,8 @@ options = do
           <> help "The directory that contains cabal.project or the package"
       )
   output <-
-    strOption
+    option
+      pathReader
       ( long "output"
           <> metavar "FILE"
           <> value defaultOptions.output
@@ -118,15 +120,31 @@ options = do
     -- The workflow uses the directory on the runner, so it must be in the
     -- repository.
     projectDirReader :: ReadM FilePath
-    projectDirReader = eitherReader $ \case
-      "" -> Left "The project directory is empty. For the root of the repository, give \".\"."
-      dir
-        | isAbsolute dir || leadsAbove dir ->
-            Left $
-              "The project directory "
-                ++ show dir
-                ++ " is not in the repository. Give a path relative to the root of the repository."
-        | otherwise -> Right dir
+    projectDirReader =
+      pathReader >>= \case
+        "" ->
+          readerError "The project directory is empty. For the root of the repository, give \".\"."
+        dir
+          | isAbsolute dir || leadsAbove dir ->
+              readerError $
+                "The project directory "
+                  ++ show dir
+                  ++ " is not in the repository. Give a path relative to the root of the repository."
+          | otherwise -> pure dir
+
+    -- The header of the workflow has the command line in a comment, and a line
+    -- break ends the comment. YAML does not allow most other control
+    -- characters.
+    pathReader :: ReadM FilePath
+    pathReader =
+      str >>= \path ->
+        if any isControl path
+          then
+            readerError $
+              "The path "
+                ++ show path
+                ++ " contains a control character, e.g. a tab or a line break."
+          else pure path
 
 -- | The command line that gives the options. It contains @--config@ if the user
 -- gave it, and each other option that is not a default.
