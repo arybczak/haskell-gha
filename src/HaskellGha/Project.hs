@@ -241,9 +241,9 @@ parseProjectFile file input = case readFields input of
         starts = zip (scanl (\o t -> o + length t + 1) 0 texts) [p | FieldLine p _ <- ls]
 
         position :: Int -> Position
-        position i = case [(o, p) | (o, p) <- starts, o <= i] of
+        position i = case reverse (takeWhile ((<= i) . fst) starts) of
           [] -> zeroPos
-          before -> let (o, Position row col) = last before in Position row (col + i - o)
+          (o, Position row col) : _ -> Position row (col + i - o)
 
         tokens :: Int -> String -> [(Int, String)]
         tokens i s =
