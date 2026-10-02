@@ -6,15 +6,19 @@ module HaskellGha.Options
     Command (..)
   , Options (..)
   , defaultOptions
+  , outputPath
   , optionsParser
   , commandLine
   , parseCommandLine
 
     -- * Paths
+  , workflowDirectory
+  , workflowExtensions
   , leadsAbove
   ) where
 
 import Data.Char
+import Data.List qualified as L
 import Options.Applicative
 import System.FilePath
 
@@ -37,6 +41,7 @@ data Options = Options
   { config :: ConfigFile
   , projectDir :: FilePath
   , output :: FilePath
+  -- ^ The name of the workflow file in 'workflowDirectory'.
   }
   deriving stock (Eq, Show)
 
@@ -46,8 +51,21 @@ defaultOptions =
   Options
     { config = DefaultConfigFile
     , projectDir = "."
-    , output = ".github/workflows/haskell-gha.yml"
+    , output = "haskell-gha.yml"
     }
+
+-- | The path of the workflow file, relative to the root of the repository.
+outputPath :: Options -> FilePath
+outputPath opts = workflowDirectory </> opts.output
+
+-- | The directory of the workflow files. GitHub reads only the files directly
+-- in it.
+workflowDirectory :: FilePath
+workflowDirectory = ".github/workflows"
+
+-- | The extensions of the files that GitHub reads as workflows.
+workflowExtensions :: [String]
+workflowExtensions = [".yml", ".yaml"]
 
 -- | The parser of the command line.
 optionsParser
@@ -60,7 +78,7 @@ optionsParser version =
     ( fullDesc
         <> progDesc
           ( "Write a GitHub Actions workflow that builds and tests a cabal project on each GHC version from tested-with. Without --generate, make each workflow in "
-              ++ takeDirectory defaultOptions.output
+              ++ workflowDirectory
               ++ " that the tool generated again, with the command in its header."
           )
     )
@@ -108,12 +126,12 @@ options = do
       )
   output <-
     option
-      pathReader
+      outputReader
       ( long "output"
-          <> metavar "FILE"
+          <> metavar "NAME"
           <> value defaultOptions.output
           <> showDefault
-          <> help "The workflow file"
+          <> help ("The name of the workflow file in " ++ workflowDirectory)
       )
   pure Options {..}
   where
@@ -131,6 +149,28 @@ options = do
                   ++ show dir
                   ++ " is not in the repository. Give a path relative to the root of the repository."
           | otherwise -> pure dir
+
+    -- GitHub reads only these files, and a run without --generate finds only
+    -- them.
+    outputReader :: ReadM FilePath
+    outputReader =
+      pathReader >>= \case
+        name
+          | any isPathSeparator name ->
+              readerError $
+                "The workflow file name "
+                  ++ show name
+                  ++ " contains a directory. GitHub reads only the files directly in "
+                  ++ workflowDirectory
+                  ++ ", so give only the name of the file, e.g. ci.yml."
+          | takeExtension name `notElem` workflowExtensions ->
+              readerError $
+                "The workflow file name "
+                  ++ show name
+                  ++ " does not end with "
+                  ++ L.intercalate " or " workflowExtensions
+                  ++ ". GitHub reads only such files."
+          | otherwise -> pure name
 
     -- The header of the workflow has the command line in a comment, and a line
     -- break ends the comment. YAML does not allow most other control

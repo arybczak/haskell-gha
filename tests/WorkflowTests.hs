@@ -36,6 +36,7 @@ workflowTests =
     , testCase "an import outside the repository" test_importOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
     , testCase "a project directory outside the repository" test_projectDirOutside
+    , testCase "an output file that GitHub does not read" test_outputPath
     , testCase "a control character in a path option" test_controlCharacters
     , testCase "a named default configuration file" test_namedDefaultConfig
     , testCase "an hlint path outside the repository" test_hlintPathOutside
@@ -164,6 +165,20 @@ test_projectDirOutside = do
   assertEqual "absolute" Nothing (parse "/tmp/project")
   assertEqual "parent" Nothing (parse "a/../../b")
   assertEqual "empty" Nothing (parse "")
+
+test_outputPath :: Assertion
+test_outputPath = do
+  let parse name = (.output) <$> parseOptions ["--output", name]
+  assertEqual "yml" (Just "a.yml") (parse "a.yml")
+  assertEqual "yaml" (Just "a.yaml") (parse "a.yaml")
+  assertEqual
+    "path"
+    (Just ".github/workflows/a.yml")
+    (outputPath <$> parseOptions ["--output", "a.yml"])
+  assertEqual "directory" Nothing (parse ".github/workflows/a.yml")
+  assertEqual "current directory" Nothing (parse "./a.yml")
+  assertEqual "absolute" Nothing (parse "/a.yml")
+  assertEqual "extension" Nothing (parse "a.txt")
 
 test_controlCharacters :: Assertion
 test_controlCharacters =
@@ -366,12 +381,12 @@ test_modes = do
 test_findWorkflows :: Assertion
 test_findWorkflows =
   withSystemTempDirectory "haskell-gha-tests" $ \root -> do
-    let dir = takeDirectory defaultOptions.output
+    let dir = workflowDirectory
         opts =
           defaultOptions
             { config = ConfigFile "it's.yml"
             , projectDir = "my project"
-            , output = dir </> "a.yml"
+            , output = "a.yml"
             }
         write :: FilePath -> T.Text -> IO ()
         write name = BS.writeFile (root </> dir </> name) . T.encodeUtf8
@@ -388,7 +403,7 @@ test_findWorkflows =
     write "a.yml" $ renderWorkflow "TEST" opts (mapping [])
     write "b.yml" (T.pack "name: other\n")
     assertEqual "generated workflow" (Right [opts]) =<< findWorkflows root
-    write "c.yaml" $ renderWorkflow "TEST" opts {output = dir </> "d.yml"} (mapping [])
+    write "c.yaml" $ renderWorkflow "TEST" opts {output = "d.yml"} (mapping [])
     assertEqual
       "other output"
       ( Left
@@ -420,7 +435,7 @@ test_findWorkflows =
           ]
       )
       =<< findWorkflows root
-    withCommand "haskell-gha --generate --output .github/workflows/c.yaml --foo"
+    withCommand "haskell-gha --generate --output c.yaml --foo"
     assertEqual
       "unknown option"
       ( Left
@@ -442,11 +457,11 @@ test_runCommand =
     let run :: Command -> IO [String]
         run = runCommand root "TEST"
         output :: FilePath
-        output = root </> defaultOptions.output
+        output = root </> outputPath defaultOptions
         old = posixSecondsToUTCTime 0
         notUpToDate =
           [ "The workflow "
-              ++ defaultOptions.output
+              ++ outputPath defaultOptions
               ++ " is not up to date. To update it, run haskell-gha without --check."
           ]
     assertEqual "first --generate" [] =<< run (Generate defaultOptions)

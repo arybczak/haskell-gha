@@ -164,6 +164,13 @@ and run it. When the tool reads the command back, the output must be the
 file itself. If it is not, the tool stops with an error. Otherwise a renamed
 file would make the tool write to the old path.
 
+`--output` gives only the name of the file in `.github/workflows`, and the
+name must end with `.yml` or `.yaml`. GitHub reads only the files directly in
+that directory with these extensions, and a run without `--generate` finds
+only them. Another path would give a workflow that never runs and that the
+tool never makes again. A name cannot give such a path, so the tool needs no
+check for an absolute path or a path outside the repository.
+
 The tool works in a sequence of phases. It reads the configuration. Then it
 parses `cabal.project`, finds the packages, reads the `.cabal` files and
 checks each package against each matrix entry. Last, it checks the

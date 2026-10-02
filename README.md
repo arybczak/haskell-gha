@@ -116,15 +116,15 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 | `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. |
 | `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
-| `--output FILE` | `.github/workflows/haskell-gha.yml` | The workflow file. |
+| `--output NAME` | `haskell-gha.yml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. |
 | `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
 
 You can use `--config`, `--project-dir` and `--output` only after `--generate`.
 You cannot use `--check` with `--generate`.
 
-All paths are relative to the current directory, which must be the root of the
-repository.
+The paths of `--config` and `--project-dir` are relative to the current
+directory, which must be the root of the repository.
 
 ### Keeping the workflow up to date
 
@@ -134,9 +134,10 @@ the file and the tool version. Without options, the tool finds each file in
 options from the header. If no file has the header, the tool stops with an
 error.
 
-The `--output` of the command in the header must be the file itself, so a
-renamed workflow file is an error. To rename a workflow file, run the command
-from its header with the new path as `--output`, and delete the old file.
+The `--output` of the command in the header must be the name of the file
+itself, so a renamed workflow file is an error. To rename a workflow file, run
+the command from its header with the new name as `--output`, and delete the old
+file.
 
 To make sure that the committed workflows are up to date, run the tool in CI
 with `--check`:
