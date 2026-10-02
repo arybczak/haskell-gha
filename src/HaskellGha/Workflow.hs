@@ -605,14 +605,11 @@ workflow opts source config project =
     -- doctest has its own cache with only the binary.
     doctestSteps :: Doctest -> [Node]
     doctestSteps d =
-      [ mappingConcat
-          [
-            [ "name" .= plain "Find the doctest version"
-            , "id" .= plain "doctest"
-            ]
-          , doctestIf []
-          , ["run" .= literal findDoctest]
-          ]
+      [ step
+          False
+          "Find the doctest version"
+          (("id" .= plain "doctest") : doctestIf [])
+          findDoctest
       , mappingConcat
           [
             [ uses "actions/cache" "/restore" config.actions.cache
@@ -627,11 +624,7 @@ workflow opts source config project =
                   ]
             ]
           ]
-      , mappingConcat
-          [ ["name" .= plain "Install doctest"]
-          , doctestIf [cacheMiss]
-          , ["run" .= literal installDoctest]
-          ]
+      , step False "Install doctest" (doctestIf [cacheMiss]) installDoctest
       , -- A separate save step keeps the binary also if a later step fails.
         mappingConcat
           [ [uses "actions/cache" "/save" config.actions.cache]
@@ -674,9 +667,7 @@ workflow opts source config project =
             <> "\n"
 
         doctestIf :: [T.Text] -> [(Node, Node)]
-        doctestIf extra = case [condition doctestEntries | doctestEntries /= entries] ++ extra of
-          [] -> []
-          cs -> ["if" .= plain (T.intercalate " && " cs)]
+        doctestIf = ifField (Just doctestEntries)
 
         -- A store that already contains doctest gives a plan without it, so the
         -- dry run uses an empty store.
@@ -699,45 +690,40 @@ workflow opts source config project =
     -- A step with a script. The script runs for the given matrix entries, or
     -- for all of them.
     runStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
-    runStep = step False
+    runStep name only = step False name (ifField only [])
 
     -- A step that runs in the content of the tarballs, if sdist is true.
     sourceStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
-    sourceStep = step config.sdist
+    sourceStep name only = step config.sdist name (ifField only [])
 
-    step :: Bool -> T.Text -> Maybe [GhcEntry] -> T.Text -> Node
-    step inSource name only script =
+    -- A step with a script and the fields between its name and its working
+    -- directory, e.g. its id.
+    step :: Bool -> T.Text -> [(Node, Node)] -> T.Text -> Node
+    step inSource name fields script =
       mappingConcat
         [ ["name" .= plain name]
-        , ["if" .= plain (condition es) | Just es <- [only], es /= entries]
-        , [sourceWorkingDirectory | inSource]
+        , fields
+        , ["working-directory" .= plain ("${{ runner.temp }}/" <> sourceDirName) | inSource]
         , ["run" .= literal script]
         ]
 
-    sourceWorkingDirectory :: (Node, Node)
-    sourceWorkingDirectory = "working-directory" .= plain ("${{ runner.temp }}/" <> sourceDirName)
+    -- The if field of a step that runs for the given matrix entries, or for
+    -- all of them, and only if each extra condition holds.
+    ifField :: Maybe [GhcEntry] -> [T.Text] -> [(Node, Node)]
+    ifField only extra = case [condition es | Just es <- [only], es /= entries] ++ extra of
+      [] -> []
+      cs -> ["if" .= plain (T.intercalate " && " cs)]
 
     -- hashFiles only reads files in the workspace, and the content of the
     -- tarballs is outside it. Thus the step gives the hash of the plan to the
     -- cache key as an output.
     planStep :: Node
     planStep =
-      mappingConcat
-        [
-          [ "name" .= plain "Make the build plan"
-          , "id" .= plain "plan"
+      step config.sdist "Make the build plan" ["id" .= plain "plan"] $
+        T.unlines
+          [ "cabal build all --dry-run"
+          , "echo \"hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)\" >> \"$GITHUB_OUTPUT\""
           ]
-        , [sourceWorkingDirectory | config.sdist]
-        ,
-          [ "run"
-              .= literal
-                ( T.unlines
-                    [ "cabal build all --dry-run"
-                    , "echo \"hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)\" >> \"$GITHUB_OUTPUT\""
-                    ]
-                )
-          ]
-        ]
 
     condition :: [GhcEntry] -> T.Text
     condition es =
@@ -794,16 +780,15 @@ workflow opts source config project =
     oldestStep = case config.dependencies of
       DependenciesNewest -> []
       DependenciesOldest -> [preferOldest []]
-      DependenciesBoth -> [preferOldest ["if" .= plain "matrix.dependencies == 'oldest'"]]
+      DependenciesBoth -> [preferOldest ["matrix.dependencies == 'oldest'"]]
       where
-        preferOldest :: [(Node, Node)] -> Node
-        preferOldest only =
-          mappingConcat
-            [ ["name" .= plain "Prefer the oldest dependencies"]
-            , only
-            , [sourceWorkingDirectory | config.sdist]
-            , ["run" .= literal "echo 'prefer-oldest: True' >> cabal.project.local\n"]
-            ]
+        preferOldest :: [T.Text] -> Node
+        preferOldest extra =
+          step
+            config.sdist
+            "Prefer the oldest dependencies"
+            (ifField Nothing extra)
+            "echo 'prefer-oldest: True' >> cabal.project.local\n"
 
     -- The matrix entries, grouped by their packages.
     packageGroups :: [MatrixEntry] -> [([GhcEntry], [Package])]
