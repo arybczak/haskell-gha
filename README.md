@@ -214,14 +214,16 @@ The tool reads these blocks as cabal does, and it checks them against
   that no job builds, e.g. one that is in the project only for `os(windows)`.
 
 The tool must know the result of each condition for each matrix entry, so these
-conditions are errors:
+parts of a condition are errors:
 
-- A condition that includes only some versions of a matrix entry. If the matrix
-  has the entry `9.10`, the condition `impl(ghc >= 9.10.2)` is an error, because
-  the result depends on the minor version of the job. The first release of a
-  series is `X.Y.1`, so `impl(ghc >= 9.10.1)` includes all of `9.10` and is not
-  an error.
-- A `flag(...)` condition, because the tool does not know the flag value.
+- An `impl(ghc ...)` test that includes only some versions of a matrix entry. If
+  the matrix has the entry `9.10`, the test `impl(ghc >= 9.10.2)` is an error,
+  because the result depends on the minor version of the job. The first release
+  of a series is `X.Y.1`, so `impl(ghc >= 9.10.1)` includes all of `9.10` and is
+  not an error. The tool decides each test on its own, so
+  `impl(ghc >= 9.10.2) || impl(ghc < 9.10.2)` is an error, although the whole
+  condition includes all of `9.10`.
+- A `flag(...)` test, because the tool does not know the flag value.
 
 These errors do not apply to a part of a condition that cannot change the
 result, e.g. `flag(dev)` in `os(linux) || flag(dev)`.
