@@ -168,6 +168,11 @@ options = do
                   ++ " contains a directory. GitHub reads only the files directly in "
                   ++ workflowDirectory
                   ++ ", so give only the name of the file, e.g. ci.yml."
+          | ',' `elem` name ->
+              readerError $
+                "The workflow file name "
+                  ++ show name
+                  ++ " contains a comma. The name is a part of the cache keys, and actions/cache does not accept a comma in a key."
           | takeExtension name `notElem` workflowExtensions ->
               readerError $
                 "The workflow file name "

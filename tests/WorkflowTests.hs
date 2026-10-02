@@ -188,6 +188,7 @@ test_outputPath = do
   assertEqual "current directory" Nothing (parse "./a.yml")
   assertEqual "absolute" Nothing (parse "/a.yml")
   assertEqual "extension" Nothing (parse "a.txt")
+  assertEqual "comma" Nothing (parse "a,b.yml")
 
 test_controlCharacters :: Assertion
 test_controlCharacters =

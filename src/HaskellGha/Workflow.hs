@@ -828,10 +828,12 @@ workflow opts source config project =
 
     -- A store from another image can link against system libraries that this
     -- image does not have. The prefix is also the restore key, so a job
-    -- restores only a store with its own kind of dependencies.
+    -- restores only a store of its own workflow with its own kind of
+    -- dependencies. A store of another workflow would be saved again with the
+    -- dependencies of both.
     cachePrefix :: T.Text
     cachePrefix =
-      "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
+      T.pack (takeBaseName opts.output) <> "-${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
         DependenciesNewest -> "newest-"
         DependenciesOldest -> "oldest-"
         DependenciesBoth -> "${{ matrix.dependencies }}-"

@@ -117,7 +117,7 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 | `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. If the workflow file exists and the tool did not generate it, the tool stops with an error and does not change the file. |
 | `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. It must be a relative path in the repository. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
-| `--output NAME` | `haskell-gha.yml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. |
+| `--output NAME` | `haskell-gha.yml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. It must not contain a comma, because the name is a part of the cache keys. |
 | `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
 
@@ -636,6 +636,11 @@ the actions to Node.js 24. These commits run the same code as the release
   the new job has no GHC version and fails.
 
 ### Caches
+
+Each workflow has its own caches. The cache keys start with the name of the
+workflow file without its extension, e.g. `ci` for `ci.yml`. Thus a renamed
+workflow file starts new caches, and two workflows `ci.yml` and `ci.yaml` share
+their caches. The tool does not check for such a pair.
 
 The cache keys contain the runner image from the environment variable `ImageOS`.
 The runners of GitHub set this variable, but a self-hosted runner can lack it.
