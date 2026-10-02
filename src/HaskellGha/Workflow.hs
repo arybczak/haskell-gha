@@ -509,11 +509,13 @@ workflow opts source config project =
           | config.sdist
           , (group, pkgs) <- packageGroups project.matrix
           ]
-        ,
+        , -- A package stanza also applies to a package from Hackage, so a job
+          -- gets the stanzas only of its own local packages.
           [ sourceStep
               "Configure the project"
-              Nothing
-              (configureScript config (not (null doctestEntries)) project.packages)
+              (Just group)
+              (configureScript config (not (null doctestEntries)) pkgs)
+          | (group, pkgs) <- packageGroups project.matrix
           ]
         , oldestStep
         , [ sourceStep

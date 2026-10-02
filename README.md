@@ -626,10 +626,6 @@ the actions to Node.js 24. These commits run the same code as the release
 - A job runs the tests if one of its packages has a test suite, whatever the
   conditions of the test suite are. If all test suites have `buildable: False`
   for a GHC version, the test step fails for that version.
-- The `ghc-options` stanzas apply to all local packages on all GHC versions. If
-  a package is left out of the project for a GHC version and another package
-  depends on it, cabal gets it from Hackage and still applies the options, e.g.
-  `-Werror`.
 - doctest skips a module without an error if the library has no
   `hs-source-dirs` or has `.` in it, and the package directory has no `.hs` or
   `.lhs` file for an exposed module. The module can come from another file, e.g.

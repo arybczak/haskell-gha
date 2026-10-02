@@ -86,6 +86,24 @@ jobs:
         tar -xzf "$RUNNER_TEMP"/haskell-gha-sdist/new-+([0-9.]).tar.gz --strip-components=1 -C "$RUNNER_TEMP"/haskell-gha/new
 
     - name: Configure the project
+      if: contains(fromJSON('["9.6.7"]'), matrix.ghc)
+      working-directory: ${{ runner.temp }}/haskell-gha
+      run: |
+        if [ -f cabal.project.local ]; then
+          echo '::error::The repository contains cabal.project.local, which holds the settings of one developer. Move the settings to cabal.project or to the key cabal-project-local of the configuration of haskell-gha, and remove the file from the repository.'
+          exit 1
+        fi
+        cat >> cabal.project.local <<'EOF'
+        jobs: 4
+        tests: True
+        benchmarks: True
+
+        package core
+          ghc-options: -Werror
+        EOF
+
+    - name: Configure the project
+      if: contains(fromJSON('["9.10","9.12"]'), matrix.ghc)
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         if [ -f cabal.project.local ]; then

@@ -395,7 +395,10 @@ group of versions with the same packages.
 The configuration step writes all its configuration to `cabal.project.local`, so
 a developer can run the same `cabal` commands locally. The default `ghc-options`
 are `-Werror`, and they apply only to the local packages, so the warnings of a
-dependency do not fail the build.
+dependency do not fail the build. A `package` stanza also applies to a package
+from Hackage, e.g. to a local package that the project leaves out for a GHC
+version and that another package depends on. Thus a job gets the stanzas only
+of the packages in its project.
 
 A committed `cabal.project.local` is an error, because each developer needs
 the file for their own settings. Without git, the tool cannot tell a
