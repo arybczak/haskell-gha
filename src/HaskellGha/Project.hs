@@ -351,11 +351,6 @@ findPackages root projectDir required entry
       GlobDirRecursive _ -> False
       GlobFile pieces -> all literalPiece pieces
       GlobDirTrailing -> True
-      where
-        literalPiece :: GlobPiece -> Bool
-        literalPiece = \case
-          Literal _ -> True
-          _ -> False
 
     dir :: FilePath
     dir = root </> projectDir

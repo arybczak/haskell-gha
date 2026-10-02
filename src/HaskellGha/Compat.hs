@@ -8,6 +8,7 @@ module HaskellGha.Compat
 
     -- * Globs
   , matchPackageGlob
+  , literalPiece
   ) where
 
 import Data.Foldable
@@ -15,12 +16,18 @@ import Distribution.Fields
 import Distribution.Fields.ConfVar
 import Distribution.Parsec
 import Distribution.Simple.Glob
+import Distribution.Simple.Glob.Internal
 import Distribution.Types.Condition
 import Distribution.Types.ConfVar
 #if !MIN_VERSION_Cabal(3,18,0)
-import Distribution.Simple.Glob.Internal
 import System.FilePath
 #endif
+
+-- | Whether a piece of a glob has no wildcard.
+literalPiece :: GlobPiece -> Bool
+literalPiece = \case
+  Literal _ -> True
+  _ -> False
 
 #if MIN_VERSION_Cabal(3,18,0)
 -- | Match a glob of @packages:@ in a directory, as cabal does.
@@ -42,12 +49,7 @@ matchPackageGlob root glob = filter (allowed glob . splitDirectories) <$> matchG
       _ -> True
 
     component :: [GlobPiece] -> FilePath -> Bool
-    component pieces c = all literal pieces || c `notElem` [".", ".."]
-
-    literal :: GlobPiece -> Bool
-    literal = \case
-      Literal _ -> True
-      _ -> False
+    component pieces c = all literalPiece pieces || c `notElem` [".", ".."]
 #endif
 
 #if MIN_VERSION_Cabal_syntax(3,18,0)
