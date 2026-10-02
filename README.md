@@ -121,7 +121,7 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 | `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
 
-You can use `--config`, `--project-dir` and `--output` only after `--generate`.
+You can use `--config`, `--project-dir` and `--output` only with `--generate`.
 You cannot use `--check` with `--generate`.
 
 The paths of `--config` and `--project-dir` are relative to the current
