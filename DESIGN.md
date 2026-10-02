@@ -186,6 +186,9 @@ command. The command must start with `haskell-gha --generate`, and the tool
 parses the rest with the parser of the command line. The tool quotes each
 word of the command for bash, and the run removes the same quotes. The
 other files in the directory are not generated, and the tool skips them.
+`--generate` and the other runs decide by the same first line. A file with
+the first line and a broken command is thus an error for a run without
+`--generate`, and `--generate` replaces it.
 
 The command keeps `--output`, so that a person can copy it from the header
 and run it. When the tool reads the command back, the output must be the
