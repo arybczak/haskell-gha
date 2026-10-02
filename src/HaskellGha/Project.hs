@@ -34,7 +34,6 @@ import Distribution.PackageDescription.Parsec
 import Distribution.Parsec
 import Distribution.Pretty
 import Distribution.Simple.FileMonitor.Types
-import Distribution.Simple.Glob
 import Distribution.Simple.Glob.Internal
 import Distribution.System
 import Distribution.Utils.Path qualified as Path
@@ -311,7 +310,7 @@ findPackages root projectDir required entry
           ]
   | otherwise = case simpleParsec @RootedGlob t of
       Just (RootedGlob FilePathRelative glob) -> do
-        matches <- matchGlob dir glob
+        matches <- matchPackageGlob dir glob
         if null matches
           then pure $ missing (if literal glob then "does not exist" else "matches no files")
           else collect <$> mapM classify matches

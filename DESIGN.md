@@ -256,7 +256,10 @@ side. Thus an error in the other side does not count.
 The glob syntax of `packages:` is the cabal syntax. The reader parses it with
 the `Parsec` instance of `RootedGlob` and matches it with `matchGlob` from
 `Cabal`. A relative glob needs no root, so the tool does not copy
-`matchFileGlob` from `cabal-install`.
+`matchFileGlob` from `cabal-install`. Before Cabal 3.18, a wildcard such as
+`.*` in `matchGlob` also matches the entries `.` and `..` of a directory, so
+a match could lead out of the repository. The tool drops such a match, as
+Cabal 3.18 and cabal do.
 
 A match of a glob without a package, e.g. a directory without a `.cabal`
 file, is an error only if no match of the glob has a package. In

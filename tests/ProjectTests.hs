@@ -132,6 +132,16 @@ test_globs = do
     "directories"
     ["other", "pkgs/a", "pkgs/b", "x", "y"]
     (L.sort $ map (.directory) project.packages)
+  -- A wildcard does not match the entries . and .. of a directory.
+  dots <-
+    readErrors
+      [ ("cabal.project", "packages: .*/*.cabal\n")
+      , ("up.cabal", cabal "up" "GHC ^>= 9.10" False)
+      ]
+  assertEqual
+    "dot wildcard"
+    ["PROJECT/cabal.project:1:11: the package location \".*/*.cabal\" matches no files."]
+    dots
 
 test_optional :: Assertion
 test_optional = do
