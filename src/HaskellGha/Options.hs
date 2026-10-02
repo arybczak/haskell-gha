@@ -181,19 +181,25 @@ options = do
                   ++ ". GitHub reads only such files."
           | otherwise -> pure name
 
-    -- The header of the workflow has the command line in a comment, and a line
-    -- break ends the comment. YAML does not allow most other control
-    -- characters.
+    -- The header of the workflow has the command line on one comment line,
+    -- and a line break ends the comment. YAML does not allow most other
+    -- control characters. YAML 1.1, which GitHub reads, also breaks a line at
+    -- U+2028 and U+2029, so the renderer splits the comment there.
     pathReader :: ReadM FilePath
     pathReader =
-      str >>= \path ->
-        if any isControl path
-          then
-            readerError $
-              "The path "
-                ++ show path
-                ++ " contains a control character, e.g. a tab or a line break."
-          else pure path
+      str >>= \path -> case () of
+        _
+          | any isControl path ->
+              readerError $
+                "The path "
+                  ++ show path
+                  ++ " contains a control character, e.g. a tab or a line break."
+          | any (`elem` ['\x2028', '\x2029']) path ->
+              readerError $
+                "The path "
+                  ++ show path
+                  ++ " contains U+2028 or U+2029, which YAML reads as a line break."
+          | otherwise -> pure path
 
 -- | The command line that gives the options. It contains @--config@ if the user
 -- gave it, and each other option that is not a default.

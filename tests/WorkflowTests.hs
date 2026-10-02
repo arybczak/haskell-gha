@@ -38,7 +38,7 @@ workflowTests =
     , testCase "a project directory outside the repository" test_projectDirOutside
     , testCase "a configuration file outside the repository" test_configOutside
     , testCase "an output file that GitHub does not read" test_outputPath
-    , testCase "a control character in a path option" test_controlCharacters
+    , testCase "a control character or a line separator in a path option" test_controlCharacters
     , testCase "a named default configuration file" test_namedDefaultConfig
     , testCase "an hlint path outside the repository" test_hlintPathOutside
     , testCase "a hook step with the id of a step of the tool" test_hookStepId
@@ -194,6 +194,8 @@ test_controlCharacters =
   forM_ ["--config", "--project-dir", "--output"] $ \opt -> do
     assertEqual (opt ++ " with a line break") Nothing (parseOptions [opt, "a\nb"])
     assertEqual (opt ++ " with a tab") Nothing (parseOptions [opt, "a\tb"])
+    assertEqual (opt ++ " with U+2028") Nothing (parseOptions [opt, "a\x2028\&b"])
+    assertEqual (opt ++ " with U+2029") Nothing (parseOptions [opt, "a\x2029\&b"])
 
 test_sdistNamePrefix :: Assertion
 test_sdistNamePrefix = do
