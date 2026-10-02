@@ -65,7 +65,9 @@ steps:
 2. Unpack the source tarballs of the local packages into a separate directory.
    See [Source tarballs](#source-tarballs).
 3. Write the build settings to `cabal.project.local`, e.g. the number of
-   parallel jobs and the GHC options of the local packages.
+   parallel jobs and the GHC options of the local packages. If the repository
+   contains `cabal.project.local`, the job fails. See
+   [Extra cabal.project.local text](#extra-cabalprojectlocal-text).
 4. Make the build plan, and restore the cached cabal store for that plan.
 5. Build the dependencies, and save the cache if the plan is new.
 6. Build the project.
@@ -404,6 +406,12 @@ before it makes the build plan, so the cache of each job contains the
 dependencies that the text adds. The text comes after the `ghc-options` stanzas,
 so it can add more options. A line of the text must not be `EOF`. You can use
 GitHub expressions in the text.
+
+A `cabal.project.local` in the repository makes the job fail. The file holds
+the settings of one developer, and a committed file leaves the other developers
+no place for their own settings. Move its settings to `cabal.project`, or to
+`cabal-project-local` if only CI needs them, and remove the file from the
+repository.
 
 ### Checks
 

@@ -98,7 +98,9 @@ aptScript container packages =
     sudo :: T.Text
     sudo = maybe "sudo " (const "") container
 
--- | Write the settings of the configuration to @cabal.project.local@.
+-- | Write the settings of the configuration to @cabal.project.local@. The file
+-- holds the settings of one developer, so a committed one is an error. The tool
+-- cannot tell it from an uncommitted one, so the job checks the checkout.
 configureScript
   :: Config
   -> Bool
@@ -107,21 +109,30 @@ configureScript
   -- ^ The packages that get the @ghc-options@ of the configuration.
   -> T.Text
 configureScript config doctest pkgs =
-  heredoc $
-    concat
-      [ ["jobs: " <> tshow config.jobs.value]
-      , ["tests: True" | config.tests]
-      , ["benchmarks: True" | config.benchmarks]
-      , ["write-ghc-environment-files: always" | doctest]
-      , concat
-          [ "" : stanza p ("ghc-options: " <> config.ghcOptions.value)
-          | not (T.null config.ghcOptions.value)
-          , p <- pkgs
-          ]
-      , case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal.value) of
-          [] -> []
-          ls -> "" : ls
-      ]
+  T.unlines
+    [ "if [ -f cabal.project.local ]; then"
+    , "  echo '::error::The repository contains cabal.project.local, which holds the settings of one developer. Move the settings to cabal.project or to the key cabal-project-local of the configuration of haskell-gha, and remove the file from the repository.'"
+    , "  exit 1"
+    , "fi"
+    ]
+    <> heredoc settings
+  where
+    settings :: [T.Text]
+    settings =
+      concat
+        [ ["jobs: " <> tshow config.jobs.value]
+        , ["tests: True" | config.tests]
+        , ["benchmarks: True" | config.benchmarks]
+        , ["write-ghc-environment-files: always" | doctest]
+        , concat
+            [ "" : stanza p ("ghc-options: " <> config.ghcOptions.value)
+            | not (T.null config.ghcOptions.value)
+            , p <- pkgs
+            ]
+        , case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal.value) of
+            [] -> []
+            ls -> "" : ls
+        ]
 
 -- | Make GHC compile the modules of the packages in parallel.
 parallelScript

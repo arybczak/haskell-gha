@@ -386,6 +386,14 @@ a developer can run the same `cabal` commands locally. The default `ghc-options`
 are `-Werror`, and they apply only to the local packages, so the warnings of a
 dependency do not fail the build.
 
+A committed `cabal.project.local` is an error, because each developer needs
+the file for their own settings. Without git, the tool cannot tell a
+committed file from the file of a developer, so the configuration step
+checks for it in the job, where the checkout has only committed files. The
+unpack step copies the file next to the tarballs, so the same check covers
+both a build of the tarballs and a build of the checkout. An `after-setup`
+hook must not make the file.
+
 GHC and cabal must use the same version of the semaphore protocol. A test with
 GHC 10.0.0.20260917 and cabal 3.16.1.0 showed the failure: GHC uses version 2
 and cabal version 1, so GHC warns with `semaphore-open-failure` and compiles
