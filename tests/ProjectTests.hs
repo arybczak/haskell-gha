@@ -150,6 +150,12 @@ test_globs = do
     "dot wildcard"
     ["PROJECT/cabal.project:1:11: the package location \".*/*.cabal\" matches no files."]
     dots
+  current <-
+    readOk
+      [ ("cabal.project", "packages: .\n")
+      , ("a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  assertEqual "the location ." [(s 9 10, ["a"])] (matrixOf current)
 
 test_optional :: Assertion
 test_optional = do

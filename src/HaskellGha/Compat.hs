@@ -31,17 +31,23 @@ matchPackageGlob = matchGlob
 -- 3.18, a wildcard such as @.*@ also matches the entries @.@ and @..@ of a
 -- directory, so a match can lead out of the directory.
 matchPackageGlob :: FilePath -> Glob -> IO [FilePath]
-matchPackageGlob root glob = filter (not . dotEntry) <$> matchGlob root glob
+matchPackageGlob root glob = filter (allowed glob . splitDirectories) <$> matchGlob root glob
   where
-    -- matchGlob starts the match after the leading literal components, so
-    -- only a later component can come from a wildcard.
-    dotEntry :: FilePath -> Bool
-    dotEntry = any (`elem` [".", ".."]) . drop (literalPrefix glob) . splitDirectories
+    -- A literal component, e.g. the location ., can still be . or .., so only
+    -- a component with a wildcard is checked.
+    allowed :: Glob -> [FilePath] -> Bool
+    allowed g cs = case (g, cs) of
+      (GlobDir pieces rest, c : cs') -> component pieces c && allowed rest cs'
+      (GlobFile pieces, [c]) -> component pieces c
+      _ -> True
 
-    literalPrefix :: Glob -> Int
-    literalPrefix = \case
-      GlobDir [Literal _] rest -> 1 + literalPrefix rest
-      _ -> 0
+    component :: [GlobPiece] -> FilePath -> Bool
+    component pieces c = all literal pieces || c `notElem` [".", ".."]
+
+    literal :: GlobPiece -> Bool
+    literal = \case
+      Literal _ -> True
+      _ -> False
 #endif
 
 #if MIN_VERSION_Cabal_syntax(3,18,0)
