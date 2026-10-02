@@ -204,10 +204,6 @@ unquoted `3.10` as the number 3.1. Thus an unquoted value that the YAML 1.2
 core schema reads as a number, a boolean or a null is an error. The error
 suggests the quotes.
 
-GitHub uses the workflow name in the concurrency group. If two workflows in
-one repository have the same name, a push starts both in one group, and one
-run cancels the other.
-
 The `matrix` mapping must not contain the key `ghc`, because the tool makes
 that axis. A `ghc` value in `include` or `exclude` must be a quoted string
 and an entry of the `ghc` axis. Thus an `include` entry cannot add a job for
@@ -315,6 +311,10 @@ start. The trigger does nothing in a repository without a merge queue.
 A push to a branch of the `push` trigger cancels the older run of the same
 branch. The newer run tests the newer code, and it saves the cache that the
 older run did not save.
+
+The concurrency group is `github.workflow_ref`, which has the path of the
+workflow file and the ref. `github.workflow` is the name of the workflow, so
+two workflows with the same name in a group with it would cancel each other.
 
 Without `timeout-minutes`, GitHub stops a job only after six hours, so a
 test that hangs uses up the runner minutes. The default of 60 minutes leaves
@@ -750,8 +750,8 @@ The repository also tests itself on GitHub.
 `.github/workflows/haskell-gha.yml` is the workflow for the tool, and
 `.github/workflows/haskell-gha-multi.yml` is the workflow for
 `examples/multi/`, a project with a conditional block. The second workflow
-has the name `CI (multi)`, because two workflows with the same name cancel
-each other.
+has the name `CI (multi)`, so the two workflows are easy to tell apart on
+GitHub.
 
 An `after-build` hook in `.github/haskell-gha.conf.yml` runs the tool with
 `--check`, which covers both workflows. Thus a pull request with an outdated

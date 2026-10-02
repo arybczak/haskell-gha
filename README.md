@@ -155,8 +155,8 @@ so after you upgrade the tool, run it again and commit the files.
 
 To make a second workflow, e.g. one that tests only the lower bounds of the
 dependencies, run `--generate` with its own `--config` and `--output`. Give it
-its own `name` in the configuration, because workflows with the same name cancel
-each other. After that, `haskell-gha` without options makes both workflows
+its own `name` in the configuration, so that the two workflows are easy to tell
+apart on GitHub. After that, `haskell-gha` without options makes both workflows
 again.
 
 ## GHC versions
@@ -294,7 +294,7 @@ hlint:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `name` | `CI` | The name of the workflow. Two workflows in one repository must have different names, because workflows with the same name cancel each other. |
+| `name` | `CI` | The name of the workflow. |
 | `branches` | `[master, main]` | The branches for the `push` trigger. |
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
 | `runs-on` | `ubuntu-26.04` | The runner of the build jobs, as GitHub Actions YAML: a label, e.g. `ubuntu-latest`, a list of labels, e.g. `[self-hosted, linux]`, or a mapping with `group` and `labels`. The tool copies it to the workflow without changes. |

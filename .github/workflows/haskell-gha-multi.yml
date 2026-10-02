@@ -8,8 +8,7 @@
 #
 # For more information, see https://github.com/arybczak/haskell-gha
 
-# Two workflows with the same name cancel each other, so this workflow has
-# its own name.
+# A name of its own tells this workflow apart from the main one on GitHub.
 name: CI (multi)
 
 on:
@@ -25,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 defaults:

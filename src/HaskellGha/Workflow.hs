@@ -215,10 +215,12 @@ workflow opts source config project =
         , "permissions" .= copied config.permissions
         , -- A new run cancels the older run of the same ref, also on a branch
           -- of the push trigger. The newer run tests the newer code and saves
-          -- the cache that the older run did not save.
+          -- the cache that the older run did not save. The workflow_ref has
+          -- the path of the workflow file and the ref, so two workflows with
+          -- the same name do not share the group.
           "concurrency"
             .= mapping
-              [ "group" .= plain "${{ github.workflow }}-${{ github.ref }}"
+              [ "group" .= plain "${{ github.workflow_ref }}"
               , "cancel-in-progress" .= True
               ]
         , "defaults"
