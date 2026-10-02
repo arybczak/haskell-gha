@@ -31,6 +31,7 @@ projectTests =
     , testCase "a flag condition" test_flagCondition
     , testCase "all errors of cabal.project are collected" test_projectFileErrors
     , testCase "a condition that the other side decides" test_decidedCondition
+    , testCase "a negated condition" test_not
     , testCase "os and arch conditions" test_osArch
     , testCase "tested-with errors" test_testedWithErrors
     , testCase "no packages for a matrix entry" test_emptyEntry
@@ -292,6 +293,16 @@ test_decidedCondition = do
       ]
   assertEqual "matrix" [(s 9 10, ["a", "c"])] (matrixOf project)
 
+test_not :: Assertion
+test_not = do
+  project <-
+    readOk
+      [ ("cabal.project", "packages: a\nif !impl(ghc >= 9.12)\n  packages: b\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10 || ^>= 9.12" False)
+      , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      ]
+  assertEqual "matrix" [(s 9 10, ["a", "b"]), (s 9 12, ["a"])] (matrixOf project)
+
 test_osArch :: Assertion
 test_osArch = do
   project <-
@@ -388,6 +399,11 @@ test_locationErrors = do
     , "PROJECT/cabal.project:3:33: the package location \"{broken\" is not a valid glob, and no file or directory has this path."
     ]
     errors
+  noCabalFile <- readErrors [("cabal.project", "packages: docs/\n"), ("docs/a.md", "")]
+  assertEqual
+    "no .cabal file"
+    ["PROJECT/cabal.project:1:11: the directory \"docs\" contains no .cabal file."]
+    noCabalFile
   noPackages <- readErrors [("README", "")]
   assertEqual
     "no packages"
