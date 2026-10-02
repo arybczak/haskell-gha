@@ -372,6 +372,11 @@ step starts in the root of the repository, because GitHub applies the run
 defaults only to `run` steps. A `working-directory` of a hook step is relative
 to the root of the repository.
 
+The steps of the build job have the ids `setup`, `versions`, `plan` and `cache`,
+and with doctest also `doctest` and `doctest-cache`. A hook step must not use
+these ids, but it can read the outputs of these steps, e.g.
+`${{ steps.setup.outputs.ghc-version }}`.
+
 The copy of the source tarballs is in `${{ runner.temp }}/haskell-gha`. The
 `after-build` hooks can use it, but it does not exist yet for the `after-setup`
 hooks.

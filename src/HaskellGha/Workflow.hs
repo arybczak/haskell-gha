@@ -198,8 +198,11 @@ findWorkflows root = do
 -- | Make the workflow.
 workflow :: Options -> ConfigSource -> Config -> Project -> Either [String] Node
 workflow opts source config project =
-  runCheck $ validateWorkflow opts source config project $> root
+  runCheck $ validateWorkflow opts source config project stepIds $> root
   where
+    stepIds :: [T.Text]
+    stepIds = [i.value | s <- setupSteps ++ buildSteps ++ testSteps, Just i <- [stringField "id" s]]
+
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
 

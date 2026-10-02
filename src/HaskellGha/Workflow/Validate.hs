@@ -19,10 +19,18 @@ import HaskellGha.Config
 import HaskellGha.Ghc
 import HaskellGha.Options
 import HaskellGha.Project
+import HaskellGha.Yaml
 
 -- | Check that the workflow can be made from the configuration and the project.
-validateWorkflow :: Options -> ConfigSource -> Config -> Project -> Check ()
-validateWorkflow opts source config project = do
+validateWorkflow
+  :: Options
+  -> ConfigSource
+  -> Config
+  -> Project
+  -> [T.Text]
+  -- ^ The ids of the steps that the tool makes in the build job.
+  -> Check ()
+validateWorkflow opts source config project stepIds = do
   traverse_
     checkGhcValue
     (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude))
@@ -35,6 +43,7 @@ validateWorkflow opts source config project = do
     traverse_ checkInside project.packages
   when config.hlint.enabled $
     traverse_ checkHLintPath config.hlint.path
+  traverse_ checkHookId (config.hooks.afterSetup ++ config.hooks.afterBuild)
   where
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
@@ -56,6 +65,17 @@ validateWorkflow opts source config project = do
       where
         path :: FilePath
         path = T.unpack p.value.value
+
+    -- GitHub rejects a workflow if two steps of a job have the same id.
+    checkHookId :: MappingNode -> Check ()
+    checkHookId s = case stringField "id" s.value of
+      Just i
+        | i.value `elem` stepIds ->
+            failureAt i.offset $
+              "the build job already has a step with the id "
+                ++ T.unpack i.value
+                ++ ". Give the hook step another id."
+      _ -> pure ()
 
     -- cabal fetches an import from a URL. It reads a local file on the runner,
     -- where only the repository exists, and the copy of the source tarballs

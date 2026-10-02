@@ -401,6 +401,11 @@ tarball. The `after-build` hooks come after the build, so a hook can run an
 executable of the project. Other hook points, e.g. after the tests, have no
 known use. They can come later without a breaking change.
 
+GitHub rejects a workflow if two steps of a job have the same id. Thus a hook
+step with the id of a step of the tool is an error. The check uses the ids of
+the steps that the workflow has, so without doctest, a hook step can use the
+ids of the doctest steps.
+
 `cabal test all` fails for a project without test suites. Thus the test step
 runs only for the GHC versions with a local package that has a test suite.
 

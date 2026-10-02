@@ -39,6 +39,7 @@ workflowTests =
     , testCase "a control character in a path option" test_controlCharacters
     , testCase "a named default configuration file" test_namedDefaultConfig
     , testCase "an hlint path outside the repository" test_hlintPathOutside
+    , testCase "a hook step with the id of a step of the tool" test_hookStepId
     , testCase "the comments that the workflow keeps and drops" test_comments
     , testCase "the modes of the command line" test_modes
     , testCase "the generated workflows" test_findWorkflows
@@ -129,6 +130,19 @@ test_hlintPathOutside = do
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hlint:\n  path: [../x]\n"
   assertBool "not enabled" (isRight $ workflow defaultOptions offSource off project)
+
+test_hookStepId :: Assertion
+test_hookStepId = do
+  assertErrors
+    "hooks:\n  after-setup:\n  - id: cache\n    run: echo a\n  after-build:\n  - id: setup\n    run: echo b\n"
+    [ "conf.yml:3:9: hooks.after-setup[0].id: the build job already has a step with the id cache. Give the hook step another id."
+    , "conf.yml:6:9: hooks.after-build[0].id: the build job already has a step with the id setup. Give the hook step another id."
+    ]
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  (config, source) <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" $
+      BS8.pack "hooks:\n  after-build:\n  - id: doctest\n    run: echo a\n"
+  assertBool "without doctest" (isRight $ workflow defaultOptions source config project)
 
 test_namedDefaultConfig :: Assertion
 test_namedDefaultConfig = do

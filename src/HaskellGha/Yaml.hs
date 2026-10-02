@@ -8,10 +8,14 @@ module HaskellGha.Yaml
   , addBefore
   , mapBefore
 
+    -- * Inspection
+  , stringField
+
     -- * Rendering
   , renderDocument
   ) where
 
+import Data.Maybe
 import Data.Text qualified as T
 import Yamlet
 import Yamlet.Schema
@@ -53,6 +57,20 @@ mapBefore f n =
     , comments = n.comments {before = f n.comments.before}
     , content = n.content
     }
+
+----------------------------------------
+-- Inspection
+
+-- | The scalar value of a key of a mapping, with its position.
+stringField :: T.Text -> Node -> Maybe (Located T.Text)
+stringField key n = case n.content of
+  MappingContent _ entries ->
+    listToMaybe
+      [ Located t v.offset
+      | (Node {content = ScalarContent _ k}, v@Node {content = ScalarContent _ t}) <- entries
+      , k == key
+      ]
+  _ -> Nothing
 
 ----------------------------------------
 -- Rendering
