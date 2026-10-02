@@ -59,10 +59,20 @@ entriesFromRange
   -- ^ The name of the package for the error messages.
   -> VersionRange
   -> Either [String] [GhcEntry]
-entriesFromRange package range = case partitionEithers . map (entry >=> supported) $ asVersionIntervals range of
-  ([], entries) -> Right entries
-  (bad, _) -> Left bad
+entriesFromRange package range = case asVersionIntervals range of
+  [] -> Left [emptyRange]
+  intervals -> case partitionEithers $ map (entry >=> supported) intervals of
+    ([], entries) -> Right entries
+    (bad, _) -> Left bad
   where
+    emptyRange :: String
+    emptyRange =
+      "Package "
+        ++ package
+        ++ " lists the GHC range "
+        ++ prettyShow range
+        ++ " in tested-with, which includes no version. Join the versions with ||, e.g. ^>= 9.10 || ^>= 9.12."
+
     -- Nobody tests older versions on the current runner images, which can
     -- lack the system libraries of their bindists.
     supported :: GhcEntry -> Either String GhcEntry

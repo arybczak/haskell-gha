@@ -308,6 +308,12 @@ test_testedWithErrors = do
     [ "Package a lists GHC == 9.10 in tested-with. No GHC release has this version. Write an exact version with three parts, e.g. == 9.10.3, or a major series, e.g. ^>= 9.10."
     ]
     shortVersion
+  emptyRange <- readErrors [("a.cabal", cabal "a" "GHC == 9.10.1 && == 9.12.1" False)]
+  assertEqual
+    "empty range"
+    [ "Package a lists the GHC range ==9.10.1 && ==9.12.1 in tested-with, which includes no version. Join the versions with ||, e.g. ^>= 9.10 || ^>= 9.12."
+    ]
+    emptyRange
   noGhc <- readErrors [("a.cabal", cabal "a" "GHCJS == 8.10.7" False)]
   assertEqual "no GHC" ["Package a has no GHC version in tested-with."] noGhc
   oldGhc <- readErrors [("a.cabal", cabal "a" "GHC == 8.8.4 || ^>= 9.0 || ^>= 8.6" False)]
