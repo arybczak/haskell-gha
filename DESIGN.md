@@ -538,8 +538,10 @@ haskell-gha with e.g. `text-2.0.2` and `unix-2.7.3`, and its tests passed.
 
 The cache prefix contains the kind, because the prefix is also the restore
 key. Without it, an oldest job restores a store with the newest versions,
-and the reverse. With `both`, the prefix of the newest jobs also changes.
-When a user sets `dependencies: both`, the cache of these jobs misses once.
+and the reverse. The caches of a repository are shared by all its
+workflows, so the kind is in the prefix also with `newest` and `oldest`.
+Otherwise the prefix of a newest job would be a prefix of the keys of an
+oldest workflow.
 
 The job name shows only the value, e.g. `GHC 9.10, oldest`. The values are
 clear without the name of the axis.

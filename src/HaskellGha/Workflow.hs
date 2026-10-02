@@ -796,7 +796,7 @@ workflow opts source config project =
     cachePrefix :: T.Text
     cachePrefix =
       "${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
-        DependenciesNewest -> ""
+        DependenciesNewest -> "newest-"
         DependenciesOldest -> "oldest-"
         DependenciesBoth -> "${{ matrix.dependencies }}-"
 
