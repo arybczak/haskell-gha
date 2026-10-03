@@ -349,6 +349,11 @@ A matrix entry has a version range. A series entry `X.Y` has the range
 i.e. the conditions of `cabal.project`, the `doctest.ghc` range, the 9.8
 limit of the semaphore and the `tested-with` range of each package.
 
+A prerelease, e.g. `10.0.0.20260917`, is below the range of its series. A
+job that gets the prerelease then decides a condition such as
+`impl(ghc >= 10.0.1)` differently from the tool. The README tells the user
+to write `impl(ghc >= 10)` for a prerelease.
+
 If a range includes all of the entry, it is true for the entry. If it
 includes none of it, it is false. If it includes only a part of it, the
 tool stops with an error. The result then depends on the minor version that

@@ -261,6 +261,11 @@ rejects a dependency because of its bounds on such a library, add the library to
 the list. If only one dependency needs a patch, the block can also take it from
 a fork with a `source-repository-package`.
 
+Write the condition as `impl(ghc >= 10)`, not `impl(ghc >= 10.0.1)`. A
+prerelease, e.g. `10.0.0.20260917`, comes before `10.0.1`, so cabal decides
+the second condition as false for it. The tool does not find this error,
+because it takes the first release `X.Y.1` as the start of each series.
+
 The `allow-newer` also applies to the oldest jobs. With `prefer-oldest`, cabal
 then also tries very old releases and often finds no build plan. With
 `dependencies: both`, exclude the oldest job of the prerelease:
