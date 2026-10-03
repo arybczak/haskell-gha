@@ -488,6 +488,7 @@ test_symbolicLinks =
         throughLink :: String -> String
         throughLink start = start ++ " leads out of the repository through a symbolic link."
     writePackage (root </> "real")
+    createDirectory (root </> ".git")
     writePackage (outside </> "project")
     writeFile (outside </> "conf.yml") ""
     writeFile (outside </> "cabal.project") "packages: .\n"
@@ -581,7 +582,17 @@ test_runCommand =
     writePackage
     let run :: Command -> IO [String]
         run = runCommand root
-        output :: FilePath
+    assertEqual
+      "--generate outside the root"
+      [ "The current directory has no .git, so it is not the root of a repository. GitHub reads only the workflows in "
+          ++ workflowDirectory
+          ++ " of the root, so run haskell-gha --generate there."
+      ]
+      =<< run (Generate defaultOptions)
+    assertBool "no workflow outside the root" . not
+      =<< doesPathExist (root </> workflowDirectory)
+    createDirectory (root </> ".git")
+    let output :: FilePath
         output = root </> outputPath defaultOptions
         old = posixSecondsToUTCTime 0
         notUpToDate =

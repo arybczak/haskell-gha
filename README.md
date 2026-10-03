@@ -125,7 +125,8 @@ You can use `--config`, `--project-dir` and `--output` only with `--generate`.
 You cannot use `--check` with `--generate`.
 
 The paths of `--config` and `--project-dir` are relative to the current
-directory, which must be the root of the repository.
+directory, which must be the root of the repository. With `--generate`, the
+current directory must contain `.git`.
 
 ### Keeping the workflow up to date
 

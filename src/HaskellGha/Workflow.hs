@@ -49,7 +49,15 @@ runCommand
   -> Command
   -> IO [String]
 runCommand root = \case
-  Generate opts -> run False id opts
+  Generate opts ->
+    doesPathExist (root </> ".git") >>= \case
+      True -> run False id opts
+      False ->
+        pure
+          [ "The current directory has no .git, so it is not the root of a repository. GitHub reads only the workflows in "
+              ++ workflowDirectory
+              ++ " of the root, so run haskell-gha --generate there."
+          ]
   Regenerate -> everyWorkflow False
   Check -> everyWorkflow True
   where

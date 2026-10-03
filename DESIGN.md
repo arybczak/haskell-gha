@@ -161,6 +161,12 @@ A run of the tool and then `git diff --exit-code` does not find a file that
 is not committed, and it changes the checkout. `--check` does not have these
 problems, and it needs no git.
 
+`--generate` in a subdirectory of the repository would write a workflow that
+GitHub never reads, without any sign of the mistake. Thus `--generate` needs
+`.git` in the current directory. The other runs do not check it. They find
+no generated workflow in a subdirectory, and `actions/checkout` without git
+gives a checkout without `.git`, where `--check` must still work.
+
 The header comment of the workflow gives the command that made the file. If
 the user gave `--config`, the command contains it, also with the default
 path. The command also contains each other option that is not a default.
