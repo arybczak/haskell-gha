@@ -830,6 +830,10 @@ The tool builds with GHC 9.6 and later. The packages that come with GHC are
 always permitted. Do not add another dependency, unless it removes a large
 amount of code.
 
+The packages that come with GHC have no upper bound, except `Cabal` and
+`Cabal-syntax`, whose API changes in each major release. Each other
+dependency has an upper bound below its next major version.
+
 ## Code style
 
 The code follows the style of the effectful project. `fourmolu.yaml` gives
