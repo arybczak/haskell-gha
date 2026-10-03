@@ -655,6 +655,7 @@ workflow opts source config project =
           T.intercalate
             "-"
             [ "${{ runner.os }}"
+            , "${{ runner.arch }}"
             , "${{ steps.versions.outputs.image }}"
             , "doctest"
             , "${{ steps.doctest.outputs.version }}"
@@ -841,7 +842,7 @@ workflow opts source config project =
     -- dependencies of both.
     cachePrefix :: T.Text
     cachePrefix =
-      T.pack opts.output <> "-${{ runner.os }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
+      T.pack opts.output <> "-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
         DependenciesNewest -> "newest-"
         DependenciesOldest -> "oldest-"
         DependenciesBoth -> "${{ matrix.dependencies }}-"

@@ -103,6 +103,11 @@ week, and each update would start a new cache. In a job container, both
 variables are empty, and the cache key contains the image of the container
 instead.
 
+The cache keys also contain `runner.arch`. The tool supports only x86_64,
+but `runs-on` accepts an ARM runner, and the tool does not know whether
+`ImageOS` differs between the architectures. A doctest binary or a cabal
+store of another architecture does not run.
+
 The cache key starts with the name of the workflow file, e.g. `ci.yml`. The
 caches of a repository are shared by all its workflows, and the start of the
 key is also the restore key. Without the name, a job could restore the store
