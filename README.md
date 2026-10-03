@@ -654,6 +654,13 @@ Then the cache keys have no image part. A cache from an earlier system of the
 runner can then link against system libraries that the runner no longer has. If
 you change the system of such a runner, delete the repository caches.
 
+When the build plan changes, a job restores the newest cabal store of its
+workflow and saves it again with the new dependencies. The store also keeps the
+old versions of the dependencies, so it grows with each change of the plan.
+GitHub removes a cache that no run used for 7 days, so a workflow that does not
+run for a week starts again with an empty store. To shrink the store of a
+workflow that runs more often, delete its caches on GitHub.
+
 ### Comments
 
 The workflow contains only the comments in the copied keys and directly above
