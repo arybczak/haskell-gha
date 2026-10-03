@@ -644,10 +644,9 @@ the actions to Node.js 24. These commits run the same code as the release
 ### Caches
 
 Each workflow has its own caches of the cabal store. Their keys start with the
-name of the workflow file without its extension, e.g. `ci` for `ci.yml`. Thus a
-renamed workflow file starts new caches, and two workflows `ci.yml` and
-`ci.yaml` share their caches. The tool does not check for such a pair. The
-doctest cache holds only the doctest binary, so all workflows share it.
+name of the workflow file, e.g. `ci.yml`. Thus a renamed workflow file starts
+new caches. The doctest cache holds only the doctest binary, so all workflows
+share it.
 
 The cache keys contain the runner image from the environment variable `ImageOS`.
 The runners of GitHub set this variable, but a self-hosted runner can lack it.

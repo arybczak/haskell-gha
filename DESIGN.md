@@ -103,18 +103,16 @@ week, and each update would start a new cache. In a job container, both
 variables are empty, and the cache key contains the image of the container
 instead.
 
-The cache key starts with the name of the workflow file without its
-extension, e.g. `ci` for `ci.yml`. The caches of a repository are shared by
-all its workflows, and the start of the key is also the restore key. Without
-the name, a job could restore the store of another workflow, e.g. of another
-project, and then save it again with the dependencies of both. Thus the
-stores would keep growing. The name comes from `--output`, not from
-`github.workflow_ref`, because `workflow_ref` also contains the Git ref. A
-pull request then could not restore a cache of its base branch. A comma in
-the name is an error, because `actions/cache` does not accept a comma in a
-key. Two workflows `ci.yml` and `ci.yaml` share their caches. The tool does
-not check for this case, because a repository with both files is very
-unlikely.
+The cache key starts with the name of the workflow file, e.g. `ci.yml`. The
+caches of a repository are shared by all its workflows, and the start of the
+key is also the restore key. Without the name, a job could restore the store
+of another workflow, e.g. of another project, and then save it again with the
+dependencies of both. Thus the stores would keep growing. The name comes from
+`--output`, not from `github.workflow_ref`, because `workflow_ref` also
+contains the Git ref. A pull request then could not restore a cache of its
+base branch. A comma in the name is an error, because `actions/cache` does not
+accept a comma in a key. The name keeps its extension, so the two workflows
+`ci.yml` and `ci.yaml` do not share their caches.
 
 The default `cabal-version` is `3.16.1.0`. In October 2026, the action selects
 cabal `3.18.1.0` for `latest`, and that version uses only version 2 of the
