@@ -6,8 +6,8 @@ import Options.Applicative
 import System.Exit
 import System.IO
 
-import HaskellGha.Options
-import HaskellGha.Workflow
+import HaskellGha.Command
+import HaskellGha.Command.Options
 import Paths_haskell_gha
 
 main :: IO ()

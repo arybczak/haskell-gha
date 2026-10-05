@@ -1,5 +1,5 @@
 -- | The entries of the @ghc@ axis of the matrix.
-module HaskellGha.Ghc
+module HaskellGha.Project.Ghc
   ( -- * Entries
     GhcEntry (..)
   , entryRange

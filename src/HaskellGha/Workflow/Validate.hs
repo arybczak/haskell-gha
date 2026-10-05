@@ -15,11 +15,11 @@ import System.FilePath
 import Yamlet
 
 import HaskellGha.Check
+import HaskellGha.Command.Options
 import HaskellGha.Config
-import HaskellGha.Ghc
-import HaskellGha.Options
 import HaskellGha.Path
 import HaskellGha.Project
+import HaskellGha.Project.Ghc
 import HaskellGha.Yaml
 
 -- | Check that the workflow can be made from the configuration and the project.

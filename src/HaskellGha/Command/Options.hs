@@ -1,7 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 -- | The command line options.
-module HaskellGha.Options
+module HaskellGha.Command.Options
   ( -- * Options
     Command (..)
   , Options (..)

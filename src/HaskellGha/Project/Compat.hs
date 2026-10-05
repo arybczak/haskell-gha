@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 
 -- | Functions whose Cabal or Cabal-syntax API differs between versions.
-module HaskellGha.Compat
+module HaskellGha.Project.Compat
   ( -- * Parsing
     runCabalParser
   , parseCondition

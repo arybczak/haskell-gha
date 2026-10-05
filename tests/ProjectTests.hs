@@ -9,8 +9,8 @@ import System.IO.Temp
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import HaskellGha.Ghc
 import HaskellGha.Project
+import HaskellGha.Project.Ghc
 
 projectTests :: TestTree
 projectTests =

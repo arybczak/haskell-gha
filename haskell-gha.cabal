@@ -75,12 +75,14 @@ library api
     hs-source-dirs:  src
 
     exposed-modules: HaskellGha.Check
-                     HaskellGha.Compat
+                     HaskellGha.Command
+                     HaskellGha.Command.Header
+                     HaskellGha.Command.Options
                      HaskellGha.Config
-                     HaskellGha.Ghc
-                     HaskellGha.Options
                      HaskellGha.Path
                      HaskellGha.Project
+                     HaskellGha.Project.Compat
+                     HaskellGha.Project.Ghc
                      HaskellGha.Workflow
                      HaskellGha.Workflow.Script
                      HaskellGha.Workflow.Validate

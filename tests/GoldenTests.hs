@@ -12,8 +12,9 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Yamlet
 
-import HaskellGha.Options
-import HaskellGha.Workflow
+import HaskellGha.Command
+import HaskellGha.Command.Header
+import HaskellGha.Command.Options
 import Utils
 
 -- | A test for each directory in @tests/golden@. The test runs the tool in the

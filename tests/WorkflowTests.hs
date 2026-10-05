@@ -16,8 +16,10 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Yamlet
 
+import HaskellGha.Command
+import HaskellGha.Command.Header
+import HaskellGha.Command.Options
 import HaskellGha.Config
-import HaskellGha.Options
 import HaskellGha.Project
 import HaskellGha.Workflow
 

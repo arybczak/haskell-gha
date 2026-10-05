@@ -42,9 +42,9 @@ import System.Directory
 import System.FilePath
 
 import HaskellGha.Check
-import HaskellGha.Compat
-import HaskellGha.Ghc
 import HaskellGha.Path
+import HaskellGha.Project.Compat
+import HaskellGha.Project.Ghc
 
 -- | A local package.
 data Package = Package
