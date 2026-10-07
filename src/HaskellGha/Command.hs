@@ -49,8 +49,8 @@ runCommand root = \case
   Regenerate -> everyWorkflow False
   Check -> everyWorkflow True
   where
-    -- The errors of the project do not name the workflow, so each error
-    -- starts with the file of its workflow.
+    -- The errors of the project do not name the workflow, so each error starts
+    -- with the file of its workflow.
     everyWorkflow :: Bool -> IO [String]
     everyWorkflow check =
       findWorkflows root >>= \case
@@ -78,8 +78,8 @@ runCommand root = \case
                 | not upToDate
                 ]
             else case current of
-              -- The file can be a workflow that the user wrote, and it may
-              -- not be committed. A generated file with a broken header is
+              -- The file can be a workflow that the user wrote, and it may not
+              -- be committed. A generated file with a broken header is
               -- replaced, so that the run repairs it.
               Just bytes
                 | NoHeader <- readHeader opts.output bytes ->
@@ -97,9 +97,9 @@ runCommand root = \case
                           ++ " is a directory, so the tool does not replace it. Delete the directory first, or give another name with --output."
                       ]
                   False -> do
-                    -- A write of the same content changes the mtime. Then
-                    -- tools that trust the Git index, e.g. gitk, list the
-                    -- file as changed.
+                    -- A write of the same content changes the mtime. Then tools
+                    -- that trust the Git index, e.g. gitk, list the file as
+                    -- changed.
                     unless upToDate $ do
                       createDirectoryIfMissing True (takeDirectory output)
                       BS.writeFile output rendered
@@ -129,8 +129,8 @@ generate root opts = runExceptT $ do
   ExceptT $ runnerPaths config source project
   pure node
   where
-    -- The paths that only the workflow uses. The checks of the workflow
-    -- already rejected each path that leads out by its text.
+    -- The paths that only the workflow uses. The checks of the workflow already
+    -- rejected each path that leads out by its text.
     runnerPaths :: Config -> ConfigSource -> Project -> IO (Either [String] ())
     runnerPaths config source project = do
       hlint <- forM (if config.hlint.enabled then config.hlint.path else []) $ \p -> do

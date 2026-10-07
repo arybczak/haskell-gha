@@ -36,9 +36,9 @@ instance Ord GhcEntry where
         GhcSeries x y -> (mkVersion [x, y], False)
         GhcExact v -> (v, True)
 
--- | The versions that the action can select for the entry. The first release
--- of a GHC series is X.Y.1, so a condition such as @impl(ghc >= 9.10.1)@
--- includes the whole series.
+-- | The versions that the action can select for the entry. The first release of
+-- a GHC series is X.Y.1, so a condition such as @impl(ghc >= 9.10.1)@ includes
+-- the whole series.
 entryRange :: GhcEntry -> VersionRange
 entryRange = \case
   GhcExact v -> thisVersion v
@@ -73,8 +73,8 @@ entriesFromRange package range = case asVersionIntervals range of
         ++ prettyShow range
         ++ " in tested-with, which includes no version. Join the versions with ||, e.g. ^>= 9.10 || ^>= 9.12."
 
-    -- Nobody tests older versions on the current runner images, which can
-    -- lack the system libraries of their bindists.
+    -- Nobody tests older versions on the current runner images, which can lack
+    -- the system libraries of their bindists.
     supported :: GhcEntry -> Either String GhcEntry
     supported e
       | decide (orLaterVersion (mkVersion [8, 10])) e == Included = Right e
@@ -90,8 +90,8 @@ entriesFromRange package range = case asVersionIntervals range of
     entry i@(VersionInterval lower upper) = case (lower, upper) of
       (LowerBound v InclusiveBound, UpperBound w InclusiveBound)
         | v == w ->
-            -- haskell-actions/setup selects the newest release of the
-            -- series for such a version, e.g. 9.10.3 for 9.10.
+            -- haskell-actions/setup selects the newest release of the series
+            -- for such a version, e.g. 9.10.3 for 9.10.
             if length (versionNumbers v) < 3
               then Left (shortVersion v)
               else Right (GhcExact v)

@@ -57,8 +57,7 @@ validateWorkflow opts source config project stepIds = do
     failureAt :: Offset -> String -> Check ()
     failureAt off msg = traverse_ failure (sourceErrors source [(off, msg)])
 
-    -- The action gets the path on the runner, where only the repository
-    -- exists.
+    -- The action gets the path on the runner, where only the repository exists.
     checkHLintPath :: Located HLintPath -> Check ()
     checkHLintPath p
       | leadsOut (opts.projectDir </> path) =
@@ -118,8 +117,8 @@ validateWorkflow opts source config project stepIds = do
               ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
       | otherwise = pure ()
 
-    -- A range that includes no matrix entry turns its feature off without
-    -- any sign in the workflow, e.g. ==10.0 for the series 10.0.
+    -- A range that includes no matrix entry turns its feature off without any
+    -- sign in the workflow, e.g. ==10.0 for the series 10.0.
     checkRange :: Located VersionRange -> Check ()
     checkRange r = do
       traverse_
@@ -139,8 +138,8 @@ validateWorkflow opts source config project stepIds = do
       | T.unpack p.value `elem` map (.name) project.packages = pure ()
       | otherwise = failureAt p.offset $ "the project has no local package " ++ T.unpack p.value
 
-    -- The tool makes the dependencies axis only for both. Otherwise the name
-    -- is free for an axis of the user.
+    -- The tool makes the dependencies axis only for both. Otherwise the name is
+    -- free for an axis of the user.
     checkDependencies :: Check ()
     checkDependencies
       | config.dependencies == DependenciesBoth = do

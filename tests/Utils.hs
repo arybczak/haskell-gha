@@ -2,9 +2,9 @@ module Utils (normalize) where
 
 import Yamlet.Syntax
 
--- | Remove the positions and the comments, and give every collection the
--- block style, as the renderer writes it. A parsed node then compares equal
--- to a built one.
+-- | Remove the positions and the comments, and give every collection the block
+-- style, as the renderer writes it. A parsed node then compares equal to a
+-- built one.
 normalize :: Node -> Node
 normalize n =
   Node

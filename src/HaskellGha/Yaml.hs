@@ -69,11 +69,11 @@ stringField key n = case n.content of
 -- | Render a node as a YAML document in the block style.
 renderDocument
   :: [T.Text]
-  -- ^ The header lines. They become comments at the start of the document,
-  -- with an empty line below them.
+  -- ^ The header lines. They become comments at the start of the document, with
+  -- an empty line below them.
   -> ([T.Text] -> Bool)
-  -- ^ The collections with an empty line between their entries, by the keys
-  -- on the path to them.
+  -- ^ The collections with an empty line between their entries, by the keys on
+  -- the path to them.
   -> Node
   -> T.Text
 renderDocument header separated root =

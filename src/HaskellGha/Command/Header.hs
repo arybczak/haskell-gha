@@ -23,8 +23,8 @@ import HaskellGha.Yaml
 renderWorkflow :: Options -> Node -> T.Text
 renderWorkflow opts =
   renderDocument
-    -- The header has no tool version, so that two versions with the same
-    -- output agree in --check.
+    -- The header has no tool version, so that two versions with the same output
+    -- agree in --check.
     [ headerMarker
     , "  " <> T.unwords (map (shellQuote . T.pack) $ commandLine opts)
     , ""

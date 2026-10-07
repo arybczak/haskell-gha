@@ -1,6 +1,6 @@
 -- | The rules for the paths that the tool reads or writes, and for the paths
--- that the workflow uses on the runner. The runner has only the repository,
--- at another place than the local checkout.
+-- that the workflow uses on the runner. The runner has only the repository, at
+-- another place than the local checkout.
 module HaskellGha.Path
   ( -- * Rules
     leadsOut
@@ -36,9 +36,9 @@ leadsAbove = any (< 0) . scanl (+) 0 . map depth . splitDirectories
 
 -- | Why a path, relative to the root of the repository, does not work on the
 -- runner, if it does not. The path follows each symbolic link, also a broken
--- one, and a @..@ after a link leaves the target of the link, as in the
--- system. A component that does not exist is not a link, so the path can name
--- a file that the tool or the workflow makes.
+-- one, and a @..@ after a link leaves the target of the link, as in the system.
+-- A component that does not exist is not a link, so the path can name a file
+-- that the tool or the workflow makes.
 linkProblem
   :: FilePath
   -- ^ The root of the repository.
@@ -82,8 +82,8 @@ linkProblem root path
     maxLinks :: Int
     maxLinks = 40
 
--- | An error for each path that 'linkProblem' rejects. The paths are relative to
--- the root of the repository, and each comes with the start of its message,
+-- | An error for each path that 'linkProblem' rejects. The paths are relative
+-- to the root of the repository, and each comes with the start of its message,
 -- e.g. @The project directory a@.
 linkErrors
   :: FilePath

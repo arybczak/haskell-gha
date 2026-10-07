@@ -48,9 +48,9 @@ workflow opts source config project =
         , "permissions" .= copied config.permissions
         , -- A new run cancels the older run of the same ref, also on a branch
           -- of the push trigger. The newer run tests the newer code and saves
-          -- the cache that the older run did not save. The workflow_ref has
-          -- the path of the workflow file and the ref, so two workflows with
-          -- the same name do not share the group.
+          -- the cache that the older run did not save. The workflow_ref has the
+          -- path of the workflow file and the ref, so two workflows with the
+          -- same name do not share the group.
           "concurrency"
             .= mapping
               [ "group" .= plain "${{ github.workflow_ref }}"
@@ -569,8 +569,8 @@ workflow opts source config project =
     hasSemaphore :: GhcEntry -> Bool
     hasSemaphore e = decide (orLaterVersion (mkVersion [9, 8])) e == Included
 
-    -- The hsc2hs of GHC 9.4 and older links with gold also if the runner has
-    -- no gold, and Ubuntu 25.10 and later do not install gold by default.
+    -- The hsc2hs of GHC 9.4 and older links with gold also if the runner has no
+    -- gold, and Ubuntu 25.10 and later do not install gold by default.
     goldEntries :: [GhcEntry]
     goldEntries = [e | e <- entries, decide (earlierVersion (mkVersion [9, 5])) e == Included]
 

@@ -41,8 +41,8 @@ matchPackageGlob = matchGlob
 matchPackageGlob :: FilePath -> Glob -> IO [FilePath]
 matchPackageGlob root glob = filter (allowed glob . splitDirectories) <$> matchGlob root glob
   where
-    -- A literal component, e.g. the location ., can still be . or .., so only
-    -- a component with a wildcard is checked.
+    -- A literal component, e.g. the location ., can still be . or .., so only a
+    -- component with a wildcard is checked.
     allowed :: Glob -> [FilePath] -> Bool
     allowed g cs = case (g, cs) of
       (GlobDir pieces rest, c : cs') -> component pieces c && allowed rest cs'

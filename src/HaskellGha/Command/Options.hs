@@ -135,8 +135,8 @@ options = do
       )
   pure Options {..}
   where
-    -- A run without --generate reads the file from the header, also in
-    -- another checkout of the repository, e.g. with --check in CI.
+    -- A run without --generate reads the file from the header, also in another
+    -- checkout of the repository, e.g. with --check in CI.
     configReader :: ReadM ConfigFile
     configReader = ConfigFile <$> (pathReader >>= inRepository "The configuration file")
 
@@ -182,10 +182,10 @@ options = do
                   ++ ". GitHub reads only such files."
           | otherwise -> pure name
 
-    -- The header of the workflow has the command line on one comment line,
-    -- and a line break ends the comment. YAML does not allow most other
-    -- control characters. YAML 1.1, which GitHub reads, also breaks a line at
-    -- U+2028 and U+2029, so the renderer splits the comment there.
+    -- The header of the workflow has the command line on one comment line, and
+    -- a line break ends the comment. YAML does not allow most other control
+    -- characters. YAML 1.1, which GitHub reads, also breaks a line at U+2028
+    -- and U+2029, so the renderer splits the comment there.
     pathReader :: ReadM FilePath
     pathReader =
       str >>= \path -> case () of

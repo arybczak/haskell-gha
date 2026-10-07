@@ -150,9 +150,9 @@ readProject root dir = runExceptT $ do
         (e.target,) <$> findPackages root dir required e
       pure . runCheck $ traverse (\(t, r) -> (t,) <$> fromErrors r) locations
 
-    -- A package is known by its directory. If two .cabal files in one
-    -- directory are listed by name, both entries give the first package. Such
-    -- a layout is rare, so the tool accepts this.
+    -- A package is known by its directory. If two .cabal files in one directory
+    -- are listed by name, both entries give the first package. Such a layout is
+    -- rare, so the tool accepts this.
     byToken :: [(String, [FilePath])] -> [Package] -> String -> [Package]
     byToken found packages t =
       [ p
@@ -212,9 +212,9 @@ parseProjectFile file input = case readFields input of
             failure (at pos $ BS8.unpack n ++ " without if") *> parts rest
         | otherwise -> parts rest
 
-    -- The elif and else sections that follow an if section. ApplicativeDo
-    -- joins the independent statements with <*>, so the errors of the
-    -- condition and of the sections come back together.
+    -- The elif and else sections that follow an if section. ApplicativeDo joins
+    -- the independent statements with <*>, so the errors of the condition and
+    -- of the sections come back together.
     conditional
       :: Position
       -> [SectionArg Position]
@@ -248,14 +248,14 @@ parseProjectFile file input = case readFields input of
     at :: Position -> String -> String
     at pos msg = showPError file (PError pos msg)
 
-    -- A message of parsec starts with a line break and has a line for each
-    -- kind of message.
+    -- A message of parsec starts with a line break and has a line for each kind
+    -- of message.
     parserError :: PError -> String
     parserError (PError pos msg) =
       at pos (L.intercalate ", " . lines $ dropWhile (== '\n') msg)
 
-    -- Split the value of a packages: field into its entries, as cabal does.
-    -- An entry can continue on the next line, so the split runs on the joined
+    -- Split the value of a packages: field into its entries, as cabal does. An
+    -- entry can continue on the next line, so the split runs on the joined
     -- lines, and the offset of an entry in them gives its position.
     fieldEntries :: [FieldLine Position] -> [PackageEntry]
     fieldEntries ls =
@@ -393,10 +393,10 @@ findPackages root projectDir required entry
                 ++ " is not a relative path. The tool supports only packages in the repository."
           ]
 
-    -- As in cabal, a path without a package is an error only if no path of
-    -- the location has a package, so the glob */ can match a directory with
-    -- documentation next to the packages. In optional-packages: it is never
-    -- an error (checkIsFileGlobPackage in
+    -- As in cabal, a path without a package is an error only if no path of the
+    -- location has a package, so the glob */ can match a directory with
+    -- documentation next to the packages. In optional-packages: it is never an
+    -- error (checkIsFileGlobPackage in
     -- cabal-install/src/Distribution/Client/ProjectConfig.hs).
     collect :: [LocationMatch] -> Either [String] [FilePath]
     collect matches = case [e | MatchUnsupported e <- matches] of
@@ -596,9 +596,9 @@ projectFrom exists dir packages byToken parts = do
             , "  packages: " ++ p.directory
             ]
 
-    -- A package that some jobs build must be in the project for each version
-    -- of its tested-with field, or no job tests that version. A package that
-    -- no job builds, e.g. one only for Windows, is out of scope.
+    -- A package that some jobs build must be in the project for each version of
+    -- its tested-with field, or no job tests that version. A package that no
+    -- job builds, e.g. one only for Windows, is out of scope.
     untested :: [MatrixEntry] -> (Package, [GhcEntry]) -> Check ()
     untested matrix (p, own)
       | not (any builds matrix) = pure ()

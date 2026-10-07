@@ -216,10 +216,10 @@ instance FromYaml Container where
     where
       -- The Ubuntu versions of the buildpack-deps images of the LTS releases,
       -- from the file library/buildpack-deps of docker-library/official-images
-      -- on 2026-09-27. An interim release has support for only 9 months, so
-      -- the list leaves it out. The tool accepts only the images that it
-      -- knows, because another image can lack a package that the workflow
-      -- needs, e.g. git or xz-utils.
+      -- on 2026-09-27. An interim release has support for only 9 months, so the
+      -- list leaves it out. The tool accepts only the images that it knows,
+      -- because another image can lack a package that the workflow needs, e.g.
+      -- git or xz-utils.
       versions :: [T.Text]
       versions = ["22.04", "24.04", "26.04"]
 
@@ -469,8 +469,8 @@ instance FromYaml ProjectText where
       else pure $ ProjectText t
 
 -- | A pattern of the files that fourmolu checks. The workflow gives the
--- patterns to the action as a literal block with one pattern on each line.
--- The YAML writer breaks the block if its first line starts with a space.
+-- patterns to the action as a literal block with one pattern on each line. The
+-- YAML writer breaks the block if its first line starts with a space.
 newtype Pattern = Pattern {value :: T.Text}
   deriving newtype (Eq, Show)
 
@@ -530,8 +530,8 @@ instance FromYaml Matrix where
           }
     _ -> typeMismatch "a mapping" n
     where
-      -- A copy of every text, so the configuration does not keep the input
-      -- file in memory.
+      -- A copy of every text, so the configuration does not keep the input file
+      -- in memory.
       m :: Node
       m = copyNode n
 
@@ -643,13 +643,13 @@ emptySource file =
     , document = document nullValue
     }
 
--- | The errors at the offsets of values of the configuration, e.g. of
--- 'Located' values.
+-- | The errors at the offsets of values of the configuration, e.g. of 'Located'
+-- values.
 sourceErrors :: ConfigSource -> [(Offset, String)] -> [String]
 sourceErrors source = map (prettyError source.file) . documentErrors source.input source.document
 
--- | Read the configuration file. If the default file does not exist, the
--- result is 'defaultConfig'.
+-- | Read the configuration file. If the default file does not exist, the result
+-- is 'defaultConfig'.
 readConfig
   :: FilePath
   -- ^ The root of the repository.
@@ -662,8 +662,8 @@ readConfig root configFile =
       -- The entry of the name in its directory does not show a path such as
       -- . or a/, so the directory needs its own check.
       ((||) <$> doesDirectoryExist (root </> file) <*> hasEntry) <&> \case
-        -- Also for the default file, because the defaults would hide the
-        -- broken file.
+        -- Also for the default file, because the defaults would hide the broken
+        -- file.
         True ->
           Left
             ["The configuration file " ++ file ++ " is a directory or a broken symbolic link."]
@@ -685,8 +685,7 @@ readConfig root configFile =
     file :: FilePath
     file = configPath configFile
 
--- | The path of the configuration file, relative to the root of the
--- repository.
+-- | The path of the configuration file, relative to the root of the repository.
 configPath :: ConfigFile -> FilePath
 configPath = \case
   DefaultConfigFile -> defaultConfigPath
