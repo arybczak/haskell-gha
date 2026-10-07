@@ -268,7 +268,7 @@ parseProjectFile file input = case readFields input of
           c : cs
             | depth == 0 && separator c -> ("", c : cs)
             | otherwise ->
-                let depth' = case c of '{' -> depth + 1; '}' -> depth - 1; _ -> depth
+                let depth' = case c of '{' -> depth + 1; '}' -> max 0 (depth - 1); _ -> depth
                     (t, rest) = token depth' cs
                 in (c : t, rest)
           [] -> ("", "")

@@ -433,6 +433,16 @@ test_locationErrors = do
     "no .cabal file"
     ["PROJECT/cabal.project:1:11: the directory \"docs\" contains no .cabal file."]
     noCabalFile
+  strayBrace <-
+    readErrors
+      [ ("cabal.project", "packages: a}b c\n")
+      , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
+      ]
+  assertEqual
+    "a stray brace"
+    [ "PROJECT/cabal.project:1:11: the package location \"a}b\" is not a valid glob, and no file or directory has this path."
+    ]
+    strayBrace
   noPackages <- readErrors [("README", "")]
   assertEqual
     "no packages"
