@@ -32,7 +32,7 @@ shellQuote t
   | otherwise = "'" <> T.replace "'" "'\\''" t <> "'"
   where
     safe :: Char -> Bool
-    safe c = isAsciiLower c || isAsciiUpper c || isDigit c || c `elem` ("-_./=:+@%," :: String)
+    safe c = isAsciiLower c || isAsciiUpper c || isDigit c || elem @[] c "-_./=:+@%,"
 
 ----------------------------------------
 -- Source tarballs
