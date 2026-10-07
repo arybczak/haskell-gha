@@ -469,14 +469,12 @@ readPackage root path relative = do
     doctestArguments :: PackageDescription -> IO [[String]]
     doctestArguments pd = fmap (L.nub . filter (not . null)) . forM (toList (library pd) ++ subLibraries pd) $ \lib -> do
       let bi = libBuildInfo lib
+          dirs = map (normalise . Path.getSymbolicPath) (hsSourceDirs bi)
       -- The package directory can also contain other components, e.g. the
       -- tests, so it gives the files of the exposed modules instead.
-      sources <- case map (normalise . Path.getSymbolicPath) $ hsSourceDirs bi of
-        dirs
-          | all (== ".") dirs -> mapM moduleFile (exposedModules lib)
-          | otherwise -> fmap concat . forM dirs $ \case
-              "." -> catMaybes <$> mapM findModuleFile (exposedModules lib)
-              dir -> pure [dir]
+      sources <- fmap concat . forM (if null dirs then ["."] else L.nub dirs) $ \case
+        "." -> catMaybes <$> mapM findModuleFile (exposedModules lib)
+        dir -> pure [dir]
       pure $
         if null sources
           then []
@@ -485,12 +483,9 @@ readPackage root path relative = do
               ++ ["-X" ++ prettyShow e | e <- defaultExtensions bi]
               ++ sources
 
-    -- For a module name, GHC takes the compiled module from the GHC environment
-    -- file, and doctest finds no examples. A file name works.
-    moduleFile :: ModuleName.ModuleName -> IO FilePath
-    moduleFile m = fromMaybe (prettyShow m) <$> findModuleFile m
-
-    -- The file of a module in the package directory.
+    -- The file of a module in the package directory. For a module name, GHC
+    -- takes the compiled module from the GHC environment file, and doctest
+    -- finds no examples.
     findModuleFile :: ModuleName.ModuleName -> IO (Maybe FilePath)
     findModuleFile m =
       listToMaybe

@@ -706,8 +706,8 @@ and doctest finds no examples without an error. Thus the tool gives the
 files of the exposed modules, e.g. `A/B.hs`.
 
 A module can have no `.hs` or `.lhs` file in the package directory, e.g. a
-module that `hsc2hs` makes from a `.hsc` file. The tool then gives the
-module name, and doctest skips the module without an error. The README
+module that `hsc2hs` makes from a `.hsc` file. The tool then leaves the module
+out, because doctest would skip its name without an error anyway. The README
 lists this as a known limit.
 
 ### Fourmolu
