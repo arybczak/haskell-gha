@@ -19,6 +19,7 @@ projectTests =
     [ testCase "a single package without cabal.project" test_single
     , testCase "a conditional block" test_conditional
     , testCase "elif and else" test_elifElse
+    , testCase "a conditional block inside another" test_nested
     , testCase "import lines" test_imports
     , testCase "globs" test_globs
     , testCase "optional packages" test_optional
@@ -87,6 +88,23 @@ test_elifElse = do
       [
         ( "cabal.project"
         , "if impl(ghc >= 9.12)\n  packages: c\nelif impl(ghc >= 9.8)\n  packages: b\nelse\n  packages: a\n"
+        )
+      , ("a/a.cabal", cabal "a" "GHC == 9.6.7" False)
+      , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
+      , ("c/c.cabal", cabal "c" "GHC ^>= 9.12" False)
+      ]
+  assertEqual
+    "matrix"
+    [(v [9, 6, 7], ["a"]), (s 9 10, ["b"]), (s 9 12, ["c"])]
+    (matrixOf project)
+
+test_nested :: Assertion
+test_nested = do
+  project <-
+    readOk
+      [
+        ( "cabal.project"
+        , "if impl(ghc >= 9.10)\n  if impl(ghc >= 9.12)\n    packages: c\n  else\n    packages: b\nelse\n  packages: a\n"
         )
       , ("a/a.cabal", cabal "a" "GHC == 9.6.7" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
@@ -307,6 +325,12 @@ test_projectFileErrors = do
       assertBool condition ("cabal.project:1:" `L.isInfixOf` condition)
       assertBool stray ("cabal.project:5:1: else without if" `L.isInfixOf` stray)
     _ -> assertFailure (unlines errors)
+  elif <-
+    readErrors
+      [ ("cabal.project", "packages: a\nelif impl(ghc >= 9.10)\n  packages: b\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  assertEqual "elif without if" ["PROJECT/cabal.project:2:1: elif without if"] elif
 
 test_decidedCondition :: Assertion
 test_decidedCondition = do

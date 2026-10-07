@@ -28,7 +28,7 @@ configTests =
     , testCase "the example configuration" test_example
     , testCase "a section without enabled stays off" test_sectionWithoutEnabled
     , testCase "cabal-version latest" test_latest
-    , testCase "a null container" test_nullContainer
+    , testCase "a null container and null services" test_nullContainer
     , testCase "recursive submodules" test_recursiveSubmodules
     , testCase "a folded ghc-options value" test_foldedGhcOptions
     , testCase "errors" test_errors
@@ -222,8 +222,9 @@ test_foldedGhcOptions = do
 
 test_nullContainer :: Assertion
 test_nullContainer = do
-  config <- parseOk "container: null\n"
+  config <- parseOk "container: null\nservices: null\n"
   assertEqual "container" Nothing config.container
+  assertBool "services" (isNothing config.services)
 
 test_latest :: Assertion
 test_latest = do

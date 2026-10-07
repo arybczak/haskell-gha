@@ -460,6 +460,13 @@ test_findWorkflows =
       )
       . firstLines
       =<< findWorkflows root
+    withCommand "haskell-gha --generate --output 'c.yaml"
+    assertEqual
+      "unclosed quote"
+      ( Left
+          [dir </> "c.yaml" ++ ": the command in the header has a quote without its end"]
+      )
+      =<< findWorkflows root
     let noCommand =
           Left [dir </> "c.yaml" ++ ": the header has no command on its second line"]
     write "c.yaml" $
