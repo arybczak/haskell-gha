@@ -230,6 +230,21 @@ test_missingBlock = do
     "errors"
     [missingBlock "servant-client" "9.6.7" "^>=9.10 || ^>=9.12" "servant-client"]
     errors
+  where
+    missingBlock :: String -> String -> String -> FilePath -> String
+    missingBlock package version range dir =
+      unlines
+        [ "Package "
+            ++ package
+            ++ " does not list GHC "
+            ++ version
+            ++ " in tested-with, but "
+            ++ "PROJECT/cabal.project"
+            ++ " includes it for that GHC version. Move the package to a conditional block in cabal.project, e.g.:"
+        , ""
+        , "if impl(ghc " ++ range ++ ")"
+        , "  packages: " ++ dir
+        ]
 
 test_untestedVersion :: Assertion
 test_untestedVersion = do
@@ -527,21 +542,6 @@ s = GhcSeries
 
 matrixOf :: Project -> [(GhcEntry, [String])]
 matrixOf project = [(e.ghc, map (.name) e.packages) | e <- project.matrix]
-
-missingBlock :: String -> String -> String -> FilePath -> String
-missingBlock package version range dir =
-  unlines
-    [ "Package "
-        ++ package
-        ++ " does not list GHC "
-        ++ version
-        ++ " in tested-with, but "
-        ++ "PROJECT/cabal.project"
-        ++ " includes it for that GHC version. Move the package to a conditional block in cabal.project, e.g.:"
-    , ""
-    , "if impl(ghc " ++ range ++ ")"
-    , "  packages: " ++ dir
-    ]
 
 -- | The contents of a @.cabal@ file.
 cabal :: String -> String -> Bool -> String
