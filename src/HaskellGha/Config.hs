@@ -283,7 +283,7 @@ instance GenericYamlOptions Doctest where
 
 -- | The options of the records of the configuration.
 options :: YamlOptions
-options = defaultYamlOptions {fieldLabelModifier = kebabCase, rejectUnknownFields = True}
+options = defaultYamlOptions {fieldLabelModifier = kebabCase}
 
 -- | The configuration if the file does not exist.
 defaultConfig :: Config

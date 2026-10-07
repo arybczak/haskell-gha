@@ -47,16 +47,7 @@ addBefore ls = mapBefore (ls ++)
 
 -- | Change the lines above a node.
 mapBefore :: ([Line] -> [Line]) -> Node -> Node
-mapBefore f n =
-  -- A record update of comments is ambiguous, because another record of
-  -- yamlet has a field with this name.
-  Node
-    { offset = n.offset
-    , endOffset = n.endOffset
-    , props = n.props
-    , comments = n.comments {before = f n.comments.before}
-    , content = n.content
-    }
+mapBefore f n = withComments n.comments {before = f n.comments.before} n
 
 ----------------------------------------
 -- Inspection
@@ -87,7 +78,7 @@ renderDocument
   -> T.Text
 renderDocument header separated root =
   renderSyntax
-    RenderOptions {forceBlock = True}
+    defaultRenderOptions {forceBlock = True}
     -- The header goes on the root node, because on the document it would
     -- need a --- marker below it.
     [ Document
