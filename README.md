@@ -391,9 +391,10 @@ because GitHub compares the ids without case. A hook can read the outputs of
 these steps, e.g.
 `${{ steps.setup.outputs.ghc-version }}`.
 
-The copy of the source tarballs is in `${{ runner.temp }}/haskell-gha`. The
-`after-build` hooks can use it, but it does not exist yet for the `after-setup`
-hooks.
+With `sdist: true`, the workflow unpacks the source tarballs in the directory
+`haskell-gha` of the temporary directory of the runner. The `after-build` hooks
+can use it, but it does not exist yet for the `after-setup` hooks. A `run`
+script finds it at `"$RUNNER_TEMP"/haskell-gha`.
 
 ### Build
 
@@ -475,6 +476,8 @@ These points are different in a container:
 - `git` does not work in the checkout, because the checkout belongs to another
   user. If a hook runs `git`, first run
   `git config --global --add safe.directory '*'` in the hook.
+- In a `run` script, `${{ runner.temp }}` gives a path on the host, which does
+  not exist in the container. Use `$RUNNER_TEMP` instead.
 - The cache keys contain the container image in place of the runner image.
 
 ## Dependencies
