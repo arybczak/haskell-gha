@@ -136,9 +136,9 @@ this header and generates the workflow again with the options from the header.
 If no file has the header, the tool stops with an error. Each error of a
 workflow starts with the name of its file.
 
-The `--output` of the command in the header must be the name of the file
-itself, so a renamed workflow file is an error. To rename a workflow file, run
-the command from its header with the new name as `--output`, and delete the old
+The `--output` of the command in the header must be the name of the file itself,
+so a renamed workflow file is an error. To rename a workflow file, run the
+command from its header with the new name as `--output`, and delete the old
 file.
 
 To make sure that the committed workflows are up to date, run the tool in CI
@@ -183,13 +183,13 @@ A package can mix the two forms, e.g.
 `GHC >= 9.10`, is an error, because the list of jobs must be finite.
 
 The workflow matrix contains the versions of all local packages. All packages
-must write a series in the same form. If one package lists
-`GHC ^>= 9.10` and another lists `GHC == 9.10.3`, the tool stops with an error,
-because no conditional block can separate the two.
+must write a series in the same form. If one package lists `GHC ^>= 9.10` and
+another lists `GHC == 9.10.3`, the tool stops with an error, because no
+conditional block can separate the two.
 
-For GHC 9.4 and older, the workflow installs the Ubuntu package
-`binutils-gold`. The `hsc2hs` of these versions needs the gold linker, and
-Ubuntu 25.10 and later do not install it by default.
+For GHC 9.4 and older, the workflow installs the Ubuntu package `binutils-gold`.
+The `hsc2hs` of these versions needs the gold linker, and Ubuntu 25.10 and later
+do not install it by default.
 
 ### Packages for some GHC versions only
 
@@ -264,9 +264,9 @@ the list. If only one dependency needs a patch, the block can also take it from
 a fork with a `source-repository-package`.
 
 Write the condition as `impl(ghc >= 10)`, not `impl(ghc >= 10.0.1)`. A
-prerelease, e.g. `10.0.0.20260917`, comes before `10.0.1`, so cabal decides
-the second condition as false for it. The tool does not find this error,
-because it takes the first release `X.Y.1` as the start of each series.
+prerelease, e.g. `10.0.0.20260917`, comes before `10.0.1`, so cabal decides the
+second condition as false for it. The tool does not find this error, because it
+takes the first release `X.Y.1` as the start of each series.
 
 The `allow-newer` also applies to the oldest jobs. With `prefer-oldest`, cabal
 then also tries very old releases and often finds no build plan. With
@@ -396,8 +396,7 @@ The steps of the build job have the ids `setup`, `versions`, `plan` and `cache`,
 and with doctest also `doctest` and `doctest-cache`. A hook step must not use
 these ids, also not with other upper and lower case letters, e.g. `Cache`,
 because GitHub compares the ids without case. A hook can read the outputs of
-these steps, e.g.
-`${{ steps.setup.outputs.ghc-version }}`.
+these steps, e.g. `${{ steps.setup.outputs.ghc-version }}`.
 
 With `sdist: true`, the workflow unpacks the source tarballs in the directory
 `haskell-gha` of the temporary directory of the runner. The `after-build` hooks
@@ -425,9 +424,9 @@ dependencies that the text adds. The text comes after the `ghc-options` stanzas,
 so it can add more options. A line of the text must not be `EOF`. You can use
 GitHub expressions in the text.
 
-A `cabal.project.local` in the repository makes the job fail. The file holds
-the settings of one developer, and a committed file leaves the other developers
-no place for their own settings. Move its settings to `cabal.project`, or to
+A `cabal.project.local` in the repository makes the job fail. The file holds the
+settings of one developer, and a committed file leaves the other developers no
+place for their own settings. Move its settings to `cabal.project`, or to
 `cabal-project-local` if only CI needs them, and remove the file from the
 repository.
 
@@ -644,10 +643,10 @@ the actions to Node.js 24. These commits run the same code as the release
 - A job runs the tests if one of its packages has a test suite, whatever the
   conditions of the test suite are. If all test suites have `buildable: False`
   for a GHC version, the test step fails for that version.
-- doctest skips a module without an error if the library has no
-  `hs-source-dirs` or has `.` in it, and the package directory has no `.hs` or
-  `.lhs` file for an exposed module. The module can come from another file, e.g.
-  a `.hsc` file for `hsc2hs`. The same applies to each sublibrary.
+- doctest skips a module without an error if the library has no `hs-source-dirs`
+  or has `.` in it, and the package directory has no `.hs` or `.lhs` file for an
+  exposed module. The module can come from another file, e.g. a `.hsc` file for
+  `hsc2hs`. The same applies to each sublibrary.
 - If an `include` entry cannot extend any job without a change to the value of
   an axis, GitHub adds a new job for it, e.g. for `postgres: '16'` with the axis
   `postgres: ['15', '18']`. The tool does not check such an entry. Give it a
