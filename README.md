@@ -212,6 +212,8 @@ The tool reads these blocks as cabal does, and it checks them against
   include the package for that version, the tool stops with an error, because no
   job tests the package with that version. This rule does not apply to a package
   that no job builds, e.g. one that is in the project only for `os(windows)`.
+  Thus if a mistake in an `impl(ghc ...)` condition excludes a package for every
+  matrix entry, no job builds the package, and the tool shows no error.
 
 The tool must know the result of each condition for each matrix entry, so these
 parts of a condition are errors:
