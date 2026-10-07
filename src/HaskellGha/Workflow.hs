@@ -457,8 +457,6 @@ workflow opts source config project =
             , "echo \"version=$version\" >> \"$GITHUB_OUTPUT\""
             ]
 
-    -- A step with a script. The script runs for the given matrix entries, or
-    -- for all of them.
     runStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
     runStep name only = step False name (ifField only [])
 
@@ -466,8 +464,6 @@ workflow opts source config project =
     sourceStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
     sourceStep name only = step config.sdist name (ifField only [])
 
-    -- A step with a script and the fields between its name and its working
-    -- directory, e.g. its id.
     step :: Bool -> T.Text -> [(Node, Node)] -> T.Text -> Node
     step inSource name fields script =
       mappingConcat
@@ -477,8 +473,7 @@ workflow opts source config project =
         , ["run" .= literal script]
         ]
 
-    -- The if field of a step that runs for the given matrix entries, or for
-    -- all of them, and only if each extra condition holds.
+    -- Nothing stands for all matrix entries.
     ifField :: Maybe [GhcEntry] -> [T.Text] -> [(Node, Node)]
     ifField only extra = case [condition es | Just es <- [only], es /= entries] ++ extra of
       [] -> []
@@ -560,7 +555,6 @@ workflow opts source config project =
             (ifField Nothing extra)
             "echo 'prefer-oldest: True' >> cabal.project.local\n"
 
-    -- The matrix entries, grouped by their packages.
     packageGroups :: [MatrixEntry] -> [([GhcEntry], [Package])]
     packageGroups es =
       [ ([e.ghc | e <- es, names e.packages == names pkgs], pkgs)
