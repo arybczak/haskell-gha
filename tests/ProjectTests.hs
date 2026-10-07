@@ -357,13 +357,20 @@ test_projectFileErrors = do
     syntax
   unfinished <-
     readErrors
-      [ ("cabal.project", "packages: a\nif impl(ghc\n  packages: b\n")
+      [ ("cabal.project", "if impl(ghc\n  packages: a\n")
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       ]
-  assertEqual
-    "unfinished condition"
-    ["PROJECT/cabal.project:2:9: unexpected end of input"]
-    unfinished
+  -- Before Cabal-syntax 3.18, the parser of a condition does not know its
+  -- position, and it gives this error the position 1:1.
+  case unfinished of
+    [e] ->
+      assertBool
+        e
+        ( "PROJECT/cabal.project:1:" `L.isPrefixOf` e
+            && ": unexpected end of input" `L.isSuffixOf` e
+            && '\n' `notElem` e
+        )
+    _ -> assertFailure (unlines unfinished)
 
 test_decidedCondition :: Assertion
 test_decidedCondition = do
