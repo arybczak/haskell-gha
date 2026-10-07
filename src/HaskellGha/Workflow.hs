@@ -309,7 +309,7 @@ workflow opts source config project =
         , [cacheRestore]
         , [sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
         , [cacheSave]
-        , concat [doctestSteps config.doctest | not (null doctestEntries)]
+        , concat [doctestSteps | not (null doctestEntries)]
         , [sourceStep "Build" Nothing "cabal build all\n"]
         ]
 
@@ -365,8 +365,8 @@ workflow opts source config project =
 
     -- The key of the main cache does not depend on the doctest version, so
     -- doctest has its own cache with only the binary.
-    doctestSteps :: Doctest -> [Node]
-    doctestSteps d =
+    doctestSteps :: [Node]
+    doctestSteps =
       [ step
           False
           "Find the doctest version"
@@ -441,7 +441,7 @@ workflow opts source config project =
                 <> maybe
                   ""
                   (\r -> " --constraint=" <> shellQuote ("doctest " <> T.pack (prettyShow r)))
-                  d.version.value
+                  config.doctest.version.value
                 <> " | sed -n 's/^ - doctest-\\([0-9.]*\\) (exe:doctest).*/\\1/p')"
             , "if [ -z \"$version\" ]; then"
             , "  echo 'The dry run of cabal install shows no doctest version.' >&2"
