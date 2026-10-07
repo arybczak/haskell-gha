@@ -11,6 +11,7 @@ module HaskellGha.Project.Compat
   , literalPiece
   ) where
 
+import Data.Bifunctor
 import Data.Foldable
 import Distribution.Fields
 import Distribution.Fields.ConfVar
@@ -59,13 +60,16 @@ runCabalParser
   -- ^ The file name for the error messages.
   -> ParseResult src a
   -> Either [String] a
-runCabalParser file p = case snd (runParseResult p) of
-  Right a -> Right a
-  Left (_, errors) -> Left [showPError file e | PErrorWithSource _ e <- toList errors]
+runCabalParser file = first (map (showPError file)) . parserErrors
 
 -- | Parse the condition of an @if@ or @elif@ section.
-parseCondition :: FilePath -> Position -> [SectionArg Position] -> Either [String] (Condition ConfVar)
-parseCondition file pos = runCabalParser file . parseConditionConfVar pos
+parseCondition :: Position -> [SectionArg Position] -> Either [PError] (Condition ConfVar)
+parseCondition pos = parserErrors . parseConditionConfVar pos
+
+parserErrors :: ParseResult src a -> Either [PError] a
+parserErrors p = case snd (runParseResult p) of
+  Right a -> Right a
+  Left (_, errors) -> Left [e | PErrorWithSource _ e <- toList errors]
 #else
 -- | Run a parser of Cabal-syntax. The result has the rendered errors.
 runCabalParser
@@ -73,11 +77,14 @@ runCabalParser
   -- ^ The file name for the error messages.
   -> ParseResult a
   -> Either [String] a
-runCabalParser file p = case snd (runParseResult p) of
-  Right a -> Right a
-  Left (_, errors) -> Left [showPError file e | e <- toList errors]
+runCabalParser file = first (map (showPError file)) . parserErrors
 
 -- | Parse the condition of an @if@ or @elif@ section.
-parseCondition :: FilePath -> Position -> [SectionArg Position] -> Either [String] (Condition ConfVar)
-parseCondition file _ = runCabalParser file . parseConditionConfVar
+parseCondition :: Position -> [SectionArg Position] -> Either [PError] (Condition ConfVar)
+parseCondition _ = parserErrors . parseConditionConfVar
+
+parserErrors :: ParseResult a -> Either [PError] a
+parserErrors p = case snd (runParseResult p) of
+  Right a -> Right a
+  Left (_, errors) -> Left (toList errors)
 #endif

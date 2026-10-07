@@ -16,6 +16,7 @@ module HaskellGha.Project
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Except
+import Data.Bifunctor
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.Char
@@ -40,6 +41,8 @@ import Distribution.Utils.Path qualified as Path
 import Distribution.Version
 import System.Directory
 import System.FilePath
+import Text.Parsec.Error
+import Text.Parsec.Pos
 
 import HaskellGha.Check
 import HaskellGha.Path
@@ -178,7 +181,19 @@ inProject dir path = normalise (dir </> path)
 -- | Parse @cabal.project@.
 parseProjectFile :: FilePath -> BS.ByteString -> Either [String] [Part]
 parseProjectFile file input = case readFields input of
-  Left e -> Left [file ++ ": " ++ show e]
+  Left e ->
+    let pos = errorPos e
+    in Left
+         [ parserError . PError (Position (sourceLine pos) (sourceColumn pos)) $
+             -- The words of the Show instance of ParseError.
+             showErrorMessages
+               "or"
+               "unknown parse error"
+               "expecting"
+               "unexpected"
+               "end of input"
+               (errorMessages e)
+         ]
   Right fields -> runCheck $ parts fields
   where
     parts :: [Field Position] -> Check [Part]
@@ -228,10 +243,16 @@ parseProjectFile file input = case readFields input of
         pure $ Conditional pos c yes [] : others
 
     condition :: Position -> [SectionArg Position] -> Check (Condition ConfVar)
-    condition pos = fromErrors . parseCondition file pos
+    condition pos = fromErrors . first (map parserError) . parseCondition pos
 
     at :: Position -> String -> String
     at pos msg = showPError file (PError pos msg)
+
+    -- A message of parsec starts with a line break and has a line for each
+    -- kind of message.
+    parserError :: PError -> String
+    parserError (PError pos msg) =
+      at pos (L.intercalate ", " . lines $ dropWhile (== '\n') msg)
 
     -- Split the value of a packages: field into its entries, as cabal does.
     -- An entry can continue on the next line, so the split runs on the joined

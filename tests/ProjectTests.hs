@@ -331,6 +331,24 @@ test_projectFileErrors = do
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       ]
   assertEqual "elif without if" ["PROJECT/cabal.project:2:1: elif without if"] elif
+  syntax <-
+    readErrors
+      [ ("cabal.project", "packages: a\n{\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  assertEqual
+    "syntax error"
+    ["PROJECT/cabal.project:2:1: expecting indentation of at least 1"]
+    syntax
+  unfinished <-
+    readErrors
+      [ ("cabal.project", "packages: a\nif impl(ghc\n  packages: b\n")
+      , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
+      ]
+  assertEqual
+    "unfinished condition"
+    ["PROJECT/cabal.project:2:9: unexpected end of input"]
+    unfinished
 
 test_decidedCondition :: Assertion
 test_decidedCondition = do
