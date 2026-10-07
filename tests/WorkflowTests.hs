@@ -93,7 +93,7 @@ test_comments = do
         , "    # The last lines."
         , "  # The end of the hooks."
         ]
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
   let rendered = T.lines $ renderWorkflow defaultOptions node
@@ -129,7 +129,7 @@ test_hlintPathOutside = do
     [ "conf.yml:3:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     , "conf.yml:3:16: hlint.path[1]: the path /abs is not in the repository. Give a path relative to the project directory."
     ]
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
@@ -148,7 +148,7 @@ test_hookStepId = do
     [ "conf.yml:3:9: hooks.after-setup[0].id: the build job already has a step with the id cache. Give the hook step another id."
     , "conf.yml:6:9: hooks.after-build[0].id: the build job already has a step with the id setup, and GitHub compares the ids without case. Give the hook step another id."
     ]
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hooks:\n  after-build:\n  - id: doctest\n    run: echo a\n"
@@ -208,7 +208,7 @@ test_controlCharacters =
 
 test_sdistNamePrefix :: Assertion
 test_sdistNamePrefix = do
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -231,7 +231,7 @@ test_sdistNamePrefix = do
 
 test_scriptQuoting :: Assertion
 test_scriptQuoting = do
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -272,7 +272,7 @@ test_hlintPaths = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hlint:\n  enabled: true\n  path: [src, 'a\"b\\c']\n"
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
   assertEqual
@@ -285,7 +285,7 @@ test_hlintPaths = do
 
 test_sdistOutside :: Assertion
 test_sdistOutside = do
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -319,7 +319,7 @@ test_sdistOutside = do
 
 test_importOutside :: Assertion
 test_importOutside = do
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   let changed =
         project
           { imports =
@@ -393,7 +393,7 @@ test_dependenciesAxis = do
     assertValid input = do
       (config, source) <-
         either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
-      project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+      project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
       either
         (assertFailure . unlines)
         (const (pure ()))
@@ -433,7 +433,7 @@ assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
-  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   assertEqual
     "errors"
     (Left expected)

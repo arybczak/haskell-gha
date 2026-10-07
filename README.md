@@ -116,7 +116,7 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 |---|---|---|
 | `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. If the workflow file exists and the tool did not generate it, the tool stops with an error and does not change the file. |
 | `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. It must be a relative path in the repository. |
-| `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. |
+| `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. If it has no `cabal.project`, no parent directory in the repository may have one, because cabal would use that file. |
 | `--output NAME` | `haskell-gha.yml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. It must not contain a comma, because the name is a part of the cache keys. |
 | `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
@@ -620,11 +620,6 @@ the actions to Node.js 24. These commits run the same code as the release
   an imported file lists. Such a package gets no `ghc-options` and no
   `tested-with` check. A local imported file must be in the repository, because
   CI has only the repository.
-- If the project directory has no `cabal.project`, the tool reads the packages
-  of the directory as the project. If a parent directory has a `cabal.project`,
-  cabal uses that file instead. With `sdist: false`, the workflow then builds
-  the parent project, but the tool read only the packages of the project
-  directory. Pass the parent directory to `--project-dir`.
 - The tool reads all branches of the conditional blocks in `cabal.project`, also
   a branch that no job selects. cabal reads only the branch that it selects, but
   the tool applies the rules for package locations and `import:` lines to each

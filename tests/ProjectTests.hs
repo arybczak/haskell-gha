@@ -1,6 +1,7 @@
 module ProjectTests (projectTests) where
 
 import Control.Monad
+import Data.Either
 import Data.List qualified as L
 import Distribution.Version
 import System.Directory
@@ -42,7 +43,44 @@ projectTests =
         "doctest sources in the package directory and a subdirectory"
         test_doctestRootAndSubdirectory
     , testCase "a missing project directory" test_missingDirectory
+    , testCase "a cabal.project in a parent directory" test_parentProject
     ]
+
+test_parentProject :: Assertion
+test_parentProject =
+  withSystemTempDirectory "haskell-gha-tests" $ \tmp -> do
+    let root = tmp </> "repo"
+        write :: FilePath -> String -> IO ()
+        write path contents = do
+          createDirectoryIfMissing True (takeDirectory (tmp </> path))
+          writeFile (tmp </> path) contents
+        parentError :: String -> FilePath -> String
+        parentError dir file =
+          "The project directory "
+            ++ show dir
+            ++ " has no cabal.project, so cabal uses "
+            ++ file
+            ++ " of a parent directory, but the tool reads only the packages of the project directory. Give the directory of "
+            ++ file
+            ++ " to --project-dir, or add a cabal.project to "
+            ++ show dir
+            ++ "."
+    write "cabal.project" "packages: repo/a\n"
+    write "repo/a/a.cabal" (cabal "a" "GHC ^>= 9.10" False)
+    assertBool "a file above the root" . isRight =<< readProject root "a"
+    write "repo/cabal.project" "packages: a\n"
+    write "repo/sub/cabal.project" "packages: inner\n"
+    write "repo/sub/inner/b.cabal" (cabal "b" "GHC ^>= 9.10" False)
+    assertEqual "the root" (Left [parentError "a" "cabal.project"]) =<< readProject root "a"
+    assertEqual
+      "the nearest parent"
+      (Left [parentError "sub/inner" "sub/cabal.project"])
+      =<< readProject root "sub/inner"
+    createDirectoryLink "sub/inner" (root </> "link")
+    assertEqual
+      "a symbolic link"
+      (Left [parentError "link" "sub/cabal.project"])
+      =<< readProject root "link"
 
 test_missingDirectory :: Assertion
 test_missingDirectory = do

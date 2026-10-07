@@ -135,12 +135,43 @@ readProject root dir = runExceptT $ do
     readParts :: Bool -> IO (Either [String] [Part])
     readParts = \case
       True -> parseProjectFile projectFile <$> BS.readFile (root </> projectFile)
-      -- The entry has no position in a file, so it is optional, and a project
-      -- without packages gets the error for an empty project.
       False ->
-        doesDirectoryExist (root </> dir) <&> \case
-          True -> Right [Packages False [PackageEntry {location = "", target = "./*.cabal"}]]
-          False -> Left ["The project directory " ++ show dir ++ " does not exist."]
+        doesDirectoryExist (root </> dir) >>= \case
+          True ->
+            parentProject <&> \case
+              -- The entry has no position in a file, so it is optional, and a
+              -- project without packages gets the error for an empty project.
+              Nothing ->
+                Right [Packages False [PackageEntry {location = "", target = "./*.cabal"}]]
+              Just file ->
+                Left
+                  [ "The project directory "
+                      ++ show dir
+                      ++ " has no cabal.project, so cabal uses "
+                      ++ file
+                      ++ " of a parent directory, but the tool reads only the packages of the project directory. Give the directory of "
+                      ++ file
+                      ++ " to --project-dir, or add a cabal.project to "
+                      ++ show dir
+                      ++ "."
+                  ]
+          False -> pure $ Left ["The project directory " ++ show dir ++ " does not exist."]
+
+    -- The nearest cabal.project above the project directory, up to the root.
+    -- cabal looks for it from the physical working directory, so the search
+    -- starts from the target of a symbolic link. A file above the root does not
+    -- count, because the runner has only the repository.
+    parentProject :: IO (Maybe FilePath)
+    parentProject = do
+      top <- canonicalizePath root
+      start <- canonicalizePath (root </> dir)
+      let parents =
+            takeWhile (\p -> splitDirectories top `L.isPrefixOf` splitDirectories p) $
+              L.unfoldr
+                (\p -> let q = takeDirectory p in if q == p then Nothing else Just (q, q))
+                start
+      fmap (normalise . (</> "cabal.project") . makeRelative top) . listToMaybe
+        <$> filterM (doesFileExist . (</> "cabal.project")) parents
 
     -- The .cabal files of each entry of packages:, relative to the project
     -- directory.

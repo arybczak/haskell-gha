@@ -283,6 +283,14 @@ reads them in CI. If `cabal.project` does not exist, the project is
 `packages: ./*.cabal`, as in cabal (`defaultImplicitProjectConfig` in
 `cabal-install/src/Distribution/Client/ProjectConfig.hs`).
 
+cabal uses the implicit project only if no parent directory has a
+`cabal.project`. It looks for the file from the physical working directory up
+to the root of the file system. The workflow would then build another project
+than the tool read, without any sign of the mistake. Thus a `cabal.project` in a
+parent directory up to the root of the repository is an error. The search starts
+from the target of a symbolic link, as in cabal. A file above the root does not
+count, because the runner has only the repository.
+
 An error of an entry of `packages:` gives the position of the entry, as for an
 `import:` line. The entry of the implicit project has no position, so a
 directory without a package gets the error for a project without packages.
