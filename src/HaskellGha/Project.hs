@@ -386,7 +386,6 @@ findPackages root projectDir required entry
         files -> Right files
       errors -> Left errors
 
-    -- Classify a match of the package location.
     classify :: FilePath -> IO LocationMatch
     classify path = do
       isDir <- doesDirectoryExist (dir </> path)
