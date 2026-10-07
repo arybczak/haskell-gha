@@ -34,6 +34,8 @@ jobs:
     timeout-minutes: 60
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: haskell-actions/run-fourmolu@v13
       with:
@@ -45,6 +47,8 @@ jobs:
     timeout-minutes: 60
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: haskell-actions/hlint-setup@c04631035af0a6787c85e33b3ea0128b8568b590
       with:
@@ -76,6 +80,8 @@ jobs:
           dependencies: oldest
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: haskell-actions/setup@v2
       id: setup

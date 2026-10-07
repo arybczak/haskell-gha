@@ -200,14 +200,21 @@ workflow opts source config project =
             <> "\""
 
     -- The fourmolu and HLint jobs do not fetch the submodules, because the
-    -- files of a submodule are not the code of the project.
+    -- files of a submodule are not the code of the project. The token does not
+    -- stay in the git config, because the code of a dependency, e.g. a Setup.hs
+    -- or Template Haskell, runs later in the job and could read it.
     checkoutStep :: Submodules -> Node
     checkoutStep submodules =
-      mapping $
-        uses "actions/checkout" "" config.actions.checkout : case submodules of
-          NoSubmodules -> []
-          TopSubmodules -> ["with" .= mapping ["submodules" .= True]]
-          RecursiveSubmodules -> ["with" .= mapping ["submodules" .= plain "recursive"]]
+      mapping
+        [ uses "actions/checkout" "" config.actions.checkout
+        , "with"
+            .= mapping
+              ( ("persist-credentials" .= False) : case submodules of
+                  NoSubmodules -> []
+                  TopSubmodules -> ["submodules" .= True]
+                  RecursiveSubmodules -> ["submodules" .= plain "recursive"]
+              )
+        ]
 
     -- The default repository, and the path of the action in the repository,
     -- e.g. /restore.

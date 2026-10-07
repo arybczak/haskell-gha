@@ -42,6 +42,8 @@ jobs:
     timeout-minutes: 90
     steps:
     - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
 
     - uses: haskell-actions/run-fourmolu@v12
       with:
@@ -57,6 +59,8 @@ jobs:
     timeout-minutes: 90
     steps:
     - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
 
     - uses: haskell-actions/hlint-setup@v2
       with:
@@ -104,6 +108,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
+        persist-credentials: false
         submodules: recursive
 
     - name: Install the system packages

@@ -41,6 +41,8 @@ jobs:
         - '9.12'
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: haskell-actions/setup@v2
       id: setup

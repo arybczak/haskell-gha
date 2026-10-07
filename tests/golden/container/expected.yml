@@ -47,6 +47,8 @@ jobs:
         - '9.12'
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - name: Install the system packages
       run: |

@@ -388,6 +388,10 @@ step starts in the root of the repository, because GitHub applies the run
 defaults only to `run` steps. A `working-directory` of a hook step is relative
 to the root of the repository.
 
+The checkout does not keep the `GITHUB_TOKEN` in the git config. A hook that
+runs a git command that needs the token, e.g. `git push`, must give the token
+itself.
+
 The steps of the build job have the ids `setup`, `versions`, `plan` and `cache`,
 and with doctest also `doctest` and `doctest-cache`. A hook step must not use
 these ids, also not with other upper and lower case letters, e.g. `Cache`,

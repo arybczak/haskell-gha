@@ -500,6 +500,12 @@ The fourmolu and HLint jobs do not fetch the Git submodules, because the
 files of a submodule are not the code of the project, e.g. a vendored C
 library.
 
+Each checkout sets `persist-credentials: false`. By default, `actions/checkout`
+leaves the token in the git config, and the code of a dependency, e.g. a
+`Setup.hs` or Template Haskell, runs later in the job and could read it. No
+generated step needs git after the checkout. The checkout fetches the submodules
+with the token before it removes it.
+
 The `after-setup` hooks come after the installation of GHC and cabal, and
 before the source tarballs and the build plan. Thus a hook can install a
 library that the build plan needs, and a file that a hook makes can be in a
