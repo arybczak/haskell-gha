@@ -301,6 +301,10 @@ hlint:
   version: '3.10'
 ```
 
+An unknown key is an error, and so is a key without a value, except `container`
+and `services`. A text value must be a YAML string, so quote a value that YAML
+reads as a number, e.g. `'3.10'`, which is otherwise the number 3.1.
+
 ### Workflow and runner
 
 | Key | Default | Meaning |
@@ -554,7 +558,7 @@ for each GHC version.
 | Key | Default | Meaning |
 |---|---|---|
 | `doctest.enabled` | `false` | Run doctest. |
-| `doctest.ghc` | all versions | The GHC versions to run doctest for. The range must include at least one matrix entry. A new GHC release often works with doctest only after some weeks. |
+| `doctest.ghc` | all versions | The GHC versions to run doctest for. The range must include at least one matrix entry, and each entry fully or not at all, as in a [condition](#packages-for-some-ghc-versions-only). A new GHC release often works with doctest only after some weeks. |
 | `doctest.version` | any version | The versions of the doctest package. |
 | `doctest.skip` | `[]` | The packages to skip. |
 | `doctest.options` | `[]` | Extra arguments for doctest. |
