@@ -3,14 +3,18 @@ module GoldenTests (goldenTests) where
 import Control.Monad
 import Data.ByteString qualified as BS
 import Data.List qualified as L
+import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Options.Applicative
 import System.Directory
 import System.Environment
+import System.Exit
 import System.FilePath
+import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import Yamlet
+import Yamlet.Syntax
 
 import HaskellGha.Command
 import HaskellGha.Command.Header
@@ -52,7 +56,23 @@ golden fixture = do
     Right (Just reparsed) -> assertEqual "reparsed workflow" (normalize node) (normalize reparsed)
     Right Nothing -> assertFailure "the workflow is empty"
     Left errors -> assertFailure $ foldMap ((++ "\n") . prettyError expectedFile) errors
+  forM_ (runScripts node) $ \script -> do
+    -- The unpack script turns on extglob, but bash -n does not run it.
+    (code, _, err) <- readProcessWithExitCode "bash" ["-n", "-O", "extglob"] (T.unpack script)
+    assertEqual ("bash -n:\n" ++ T.unpack script ++ "\n" ++ err) ExitSuccess code
   where
+    runScripts :: Node -> [T.Text]
+    runScripts n = case n.content of
+      MappingContent _ kvs ->
+        concat
+          [ case (k.content, v.content) of
+              (ScalarContent _ "run", ScalarContent _ script) -> [script]
+              _ -> runScripts v
+          | (k, v) <- kvs
+          ]
+      SequenceContent _ items -> concatMap runScripts items
+      _ -> []
+
     readArgs :: FilePath -> IO [String]
     readArgs path =
       doesFileExist path >>= \case
