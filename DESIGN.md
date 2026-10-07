@@ -268,9 +268,10 @@ if it matches no job of the matrix. The tool does not check this, because a
 check would have to repeat how GitHub matches the entries, and GitHub
 documents that rule. The README lists it as a limit.
 
-Each key of an `exclude` entry must be `ghc` or an axis of the `matrix`
-mapping, because GitHub rejects the workflow otherwise. An `include` entry can
-have any key, because GitHub adds a new key to the jobs as a variable.
+Each key of an `exclude` entry must be `ghc`, an axis of the `matrix` mapping,
+or `dependencies` with `dependencies: both`, because GitHub rejects the workflow
+otherwise. An `include` entry can have any key, because GitHub adds a new key to
+the jobs as a variable.
 
 The name of an axis must start with a letter or `_`, and contain only
 letters, digits, `_` and `-`. The job name refers to each axis as
@@ -347,10 +348,11 @@ tests them on the current runner images. A hard limit gives a clear error
 before CI runs. cabal has a similar limit, see [Decisions](#decisions).
 
 A matrix entry has a version range. A series entry `X.Y` has the range
-`>= X.Y.1 && < X.(Y+1)`, because the first release of a GHC series is
-`X.Y.1`. The tool uses this range for every decision about a matrix entry,
-i.e. the conditions of `cabal.project`, the `doctest.ghc` range, the 9.8
-limit of the semaphore and the `tested-with` range of each package.
+`>= X.Y.1 && < X.(Y+1)`, because the first release of a GHC series is `X.Y.1`.
+The tool uses this range for every decision about a matrix entry, i.e. the
+conditions of `cabal.project`, the `doctest.ghc` range, the 8.10 limit of the
+supported versions, the 9.8 limit of the semaphore, the 9.4 limit of the gold
+linker and the `tested-with` range of each package.
 
 A prerelease, e.g. `10.0.0.20260917`, is below the range of its series. A
 job that gets the prerelease then decides a condition such as
@@ -779,8 +781,8 @@ these rules:
   a number is single-quoted, because GitHub reads plain scalars with that
   schema.
 
-Each golden test also parses the output and compares the result with the
-tree that the tool wrote. The comparison ignores the positions and the
+Each golden test also parses the output and compares the result with the tree
+that the tool wrote. The comparison ignores the positions, the comments and the
 collection styles. Thus a wrong scalar style fails the test.
 
 The header comment belongs to the root mapping, and an empty line separates
@@ -792,9 +794,9 @@ entries: the top level, the jobs and the steps of each job. Before the tool
 renders the tree, it adds an empty line above each entry of these
 collections except the first one.
 
-A block scalar with the keep indicator, e.g. `|+`, keeps the empty lines at
-its end. It would take the empty line before the next item into its value.
-Thus the renderer writes such a value as a double-quoted scalar.
+A block scalar with the keep indicator, e.g. `|+`, keeps the empty lines at its
+end. It would take the empty line before the next item into its value. Thus the
+renderer drops the empty lines right after such a scalar.
 
 The syntax tree keeps each comment at a node, so the comments inside a
 copied value go to the workflow with the value. A comment around a value
@@ -835,9 +837,9 @@ The tool builds with GHC 9.6 and later. The packages that come with GHC are
 always permitted. Do not add another dependency, unless it removes a large
 amount of code.
 
-The packages that come with GHC have no upper bound, except `Cabal` and
-`Cabal-syntax`, whose API changes in each major release. Each other
-dependency has an upper bound below its next major version.
+The packages that come with GHC have no upper bound, except `base`, which has
+the usual `< 5`, and `Cabal` and `Cabal-syntax`, whose API changes in each major
+release. Each other dependency has an upper bound below its next major version.
 
 ## Code style
 
