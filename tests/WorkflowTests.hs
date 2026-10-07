@@ -8,6 +8,7 @@ import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Data.Time.Clock.POSIX
+import Distribution.Version
 import Options.Applicative
 import System.Directory
 import System.FilePath
@@ -22,6 +23,7 @@ import HaskellGha.Command.Options
 import HaskellGha.Config
 import HaskellGha.Project
 import HaskellGha.Workflow
+import HaskellGha.Workflow.Script
 
 workflowTests :: TestTree
 workflowTests =
@@ -37,6 +39,9 @@ workflowTests =
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
     , testCase "an import outside the repository" test_importOutside
     , testCase "sdist with a package name that starts with another" test_sdistNamePrefix
+    , testCase "a package directory with a space and a quote" test_scriptQuoting
+    , testCase "the semaphore protocol of each cabal version" test_semaphoreVersions
+    , testCase "several hlint paths" test_hlintPaths
     , testCase "a project directory outside the repository" test_projectDirOutside
     , testCase "a configuration file outside the repository" test_configOutside
     , testCase "an output file that GitHub does not read" test_outputPath
@@ -222,6 +227,60 @@ test_sdistNamePrefix = do
     [ T.unpack (T.strip l)
     | l <- T.lines (renderWorkflow defaultOptions node)
     , T.pack "tar -xzf" `T.isInfixOf` l
+    ]
+
+test_scriptQuoting :: Assertion
+test_scriptQuoting = do
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  p <- case project.packages of
+    [p] -> pure p
+    ps -> assertFailure ("packages: " ++ show ps)
+  let q = p {directory = "my pkg's", doctestArgs = [["A.hs"]]}
+      dir = T.pack "'my pkg'\\''s'"
+      linesWith :: T.Text -> T.Text -> [T.Text]
+      linesWith t = filter (T.isInfixOf t) . T.lines
+  assertEqual
+    "unpack"
+    [ T.pack "mkdir -p \"$RUNNER_TEMP\"/haskell-gha/" <> dir
+    , T.pack
+        "tar -xzf \"$RUNNER_TEMP\"/haskell-gha-sdist/example-+([0-9.]).tar.gz --strip-components=1 -C \"$RUNNER_TEMP\"/haskell-gha/"
+        <> dir
+    ]
+    (linesWith dir (unpackScript [q]))
+  assertEqual "check" [T.pack "check example " <> dir] (linesWith dir (checkScript [q]))
+  assertEqual
+    "doctest"
+    [T.pack "cd " <> dir, T.pack "\"$HOME\"/.local/bin/doctest A.hs"]
+    (T.lines (doctestScript [] q))
+
+test_semaphoreVersions :: Assertion
+test_semaphoreVersions = do
+  let script :: CabalVersion -> T.Text
+      script v = semaphoreScript 4 v []
+      both :: Int -> T.Text
+      both n = T.pack ("GHC and cabal use version " ++ show n)
+  assertBool
+    "cabal 3.16"
+    (both 1 `T.isInfixOf` script (CabalVersion (mkVersion [3, 16, 1, 0])))
+  assertBool
+    "cabal 3.18"
+    (both 2 `T.isInfixOf` script (CabalVersion (mkVersion [3, 18, 1, 0])))
+  assertBool "latest" (both 2 `T.isInfixOf` script CabalLatest)
+
+test_hlintPaths :: Assertion
+test_hlintPaths = do
+  (config, source) <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" $
+      BS8.pack "hlint:\n  enabled: true\n  path: [src, 'a\"b\\c']\n"
+  project <- readProject "." "tests/golden/single" >>= either (assertFailure . unlines) pure
+  node <-
+    either (assertFailure . unlines) pure (workflow defaultOptions source config project)
+  assertEqual
+    "path"
+    [T.pack "path: '[\"src\", \"a\\\"b\\\\c\"]'"]
+    [ T.strip l
+    | l <- T.lines (renderWorkflow defaultOptions node)
+    , T.pack "path: '[" `T.isInfixOf` l
     ]
 
 test_sdistOutside :: Assertion
