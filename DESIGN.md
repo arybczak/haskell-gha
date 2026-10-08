@@ -100,7 +100,7 @@ The cache keys also contain `runner.arch`. The tool supports only x86_64, but
 differs between the architectures. A doctest binary or a cabal store of another
 architecture does not run.
 
-The cache key starts with the name of the workflow file, e.g. `ci.yml`. The
+The cache key starts with the name of the workflow file, e.g. `ci.yaml`. The
 caches of a repository are shared by all its workflows, and the start of the key
 is also the restore key. Without the name, a job could restore the store of
 another workflow, e.g. of another project, and then save it again with the
@@ -377,7 +377,7 @@ it, the tool would reject every project with such a package.
 ## The generated workflow
 
 The expected output of the golden test
-[`single`](tests/golden/single/expected.yml) shows the workflow for one package
+[`single`](tests/golden/single/expected.yaml) shows the workflow for one package
 with the default configuration. The reasons for its parts follow.
 
 The fourmolu and HLint jobs come before the build job in the file. The build job
@@ -848,13 +848,13 @@ command line, and the expected workflow. If the environment variable
 file. The tests also check each `run` script of the output with `bash -n`, so
 they need `bash`.
 
-The repository also tests itself on GitHub. `.github/workflows/haskell-gha.yml`
-is the workflow for the tool, and `.github/workflows/haskell-gha-multi.yml` is
+The repository also tests itself on GitHub. `.github/workflows/haskell-gha.yaml`
+is the workflow for the tool, and `.github/workflows/haskell-gha-multi.yaml` is
 the workflow for `examples/multi/`, a project with a conditional block. The
 second workflow has the name `CI (multi)`, so the two workflows are easy to tell
 apart on GitHub.
 
-An `after-build` hook in `.github/haskell-gha.conf.yml` runs the tool with
+An `after-build` hook in `.github/haskell-gha.conf.yaml` runs the tool with
 `--check`, which covers both workflows. Thus a pull request with an outdated
 workflow fails. The hook runs in the checkout, but the tool was built in the
 copy of the source tarballs. The hook thus gets the binary with `cabal list-bin`

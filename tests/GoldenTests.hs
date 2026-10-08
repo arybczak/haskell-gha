@@ -23,7 +23,7 @@ import Utils
 
 -- | A test for each directory in @tests/golden@. The test runs the tool in the
 -- directory, with the arguments from the file @args@. If the directory contains
--- @haskell-gha.conf.yml@, the test uses it as the configuration.
+-- @haskell-gha.conf.yaml@, the test uses it as the configuration.
 goldenTests :: IO TestTree
 goldenTests = do
   fixtures <- L.sort <$> listDirectory goldenDir
@@ -36,10 +36,10 @@ goldenTests = do
     golden fixture = do
       let dir = goldenDir </> fixture
       args <- readArgs (dir </> "args")
-      hasConfig <- doesFileExist (dir </> "haskell-gha.conf.yml")
+      hasConfig <- doesFileExist (dir </> "haskell-gha.conf.yaml")
       let args' =
             if hasConfig && "--config" `notElem` args
-              then args ++ ["--config", "haskell-gha.conf.yml"]
+              then args ++ ["--config", "haskell-gha.conf.yaml"]
               else args
       opts <- case execParserPure defaultPrefs (optionsParser "TEST") ("--generate" : args') of
         Success (Generate opts) -> pure opts
@@ -47,7 +47,7 @@ goldenTests = do
       result <- generate dir opts
       node <- either (assertFailure . unlines) pure result
       let actual = renderWorkflow opts node
-          expectedFile = dir </> "expected.yml"
+          expectedFile = dir </> "expected.yaml"
       accept <- (== Just "1") <$> lookupEnv "HASKELL_GHA_ACCEPT"
       when accept $ BS.writeFile expectedFile (T.encodeUtf8 actual)
       expected <- T.decodeUtf8 <$> BS.readFile expectedFile

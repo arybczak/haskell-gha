@@ -625,7 +625,7 @@ data ConfigFile
 
 -- | The path of the default configuration file.
 defaultConfigPath :: FilePath
-defaultConfigPath = ".github/haskell-gha.conf.yml"
+defaultConfigPath = ".github/haskell-gha.conf.yaml"
 
 -- | The configuration file, for the errors of the checks after the decode.
 data ConfigSource = ConfigSource

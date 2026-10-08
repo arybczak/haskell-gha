@@ -1,6 +1,6 @@
 # haskell-gha
 
-[![CI](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yml/badge.svg?branch=master)](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yml)
+[![CI](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yaml/badge.svg?branch=master)](https://github.com/arybczak/haskell-gha/actions/workflows/haskell-gha.yaml)
 
 `haskell-gha` writes a GitHub Actions workflow for a Haskell cabal project. The
 workflow builds and tests the project on each GHC version from the `tested-with`
@@ -44,7 +44,7 @@ haskell-gha --generate
 ```
 
 The tool reads the project in the current directory and writes
-`.github/workflows/haskell-gha.yml`. Commit this file.
+`.github/workflows/haskell-gha.yaml`. Commit this file.
 
 After you change the `tested-with` field of a package, the packages of the
 project or the configuration, make the workflow again:
@@ -115,9 +115,9 @@ only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 | Option | Default | Meaning |
 |---|---|---|
 | `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. If the workflow file exists and the tool did not generate it, the tool stops with an error and does not change the file. |
-| `--config FILE` | `.github/haskell-gha.conf.yml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. It must be a relative path in the repository. |
+| `--config FILE` | `.github/haskell-gha.conf.yaml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. It must be a relative path in the repository. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. If it has no `cabal.project`, no parent directory in the repository may have one, because cabal would use that file. |
-| `--output NAME` | `haskell-gha.yml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. It must not contain a comma, because the name is a part of the cache keys. |
+| `--output NAME` | `haskell-gha.yaml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yaml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. It must not contain a comma, because the name is a part of the cache keys. |
 | `--check` | | Make sure that all generated workflows are up to date, and do not write them. If one is not up to date, exit with code 1. |
 | `-v`, `--version` | | Show the version of the tool and exit. |
 
@@ -651,7 +651,7 @@ the actions to Node.js 24. These commits run the same code as the release
 ### Caches
 
 Each workflow has its own caches of the cabal store. Their keys start with the
-name of the workflow file, e.g. `ci.yml`. Thus a renamed workflow file starts
+name of the workflow file, e.g. `ci.yaml`. Thus a renamed workflow file starts
 new caches. The doctest cache holds only the doctest binary, so all workflows
 share it.
 

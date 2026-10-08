@@ -51,7 +51,7 @@ defaultOptions =
   Options
     { config = DefaultConfigFile
     , projectDir = "."
-    , output = "haskell-gha.yml"
+    , output = "haskell-gha.yaml"
     }
 
 -- | The path of the workflow file, relative to the root of the repository.
@@ -167,7 +167,7 @@ options = do
                   ++ show name
                   ++ " contains a directory. GitHub reads only the files directly in "
                   ++ workflowDirectory
-                  ++ ", so give only the name of the file, e.g. ci.yml."
+                  ++ ", so give only the name of the file, e.g. ci.yaml."
           | ',' `elem` name ->
               readerError $
                 "The workflow file name "
