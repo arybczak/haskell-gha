@@ -295,7 +295,7 @@ apt: [libsodium-dev]
 dependencies: both
 fourmolu:
   enabled: true
-  version: '0.20.1.0'
+  version: '0.21.0.0'
 hlint:
   enabled: true
   version: '3.10'
@@ -575,7 +575,7 @@ reads the project's `fourmolu.yaml`.
 | Key | Default | Meaning |
 |---|---|---|
 | `fourmolu.enabled` | `false` | Add the fourmolu job. |
-| `fourmolu.version` | `0.20.1.0` | The fourmolu version. |
+| `fourmolu.version` | `0.21.0.0` | The fourmolu version. |
 | `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
 | `fourmolu.runs-on` | the value of `runs-on` | The runner of the fourmolu job, e.g. a smaller self-hosted runner than the build jobs need. |
 

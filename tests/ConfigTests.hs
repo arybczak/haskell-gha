@@ -407,7 +407,7 @@ test_errors = do
     "actions:\n  run-ormolu: v17\n"
   assertError
     "fourmolu version"
-    "fourmolu.version: expected a version, e.g. 0.20.1.0"
+    "fourmolu.version: expected a version, e.g. 0.21.0.0"
     "fourmolu:\n  version: latest\n"
   assertError
     "hlint path"

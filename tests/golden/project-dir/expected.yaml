@@ -41,7 +41,7 @@ jobs:
 
     - uses: haskell-actions/run-fourmolu@v13
       with:
-        version: '0.20.1.0'
+        version: '0.21.0.0'
         working-directory: sub
 
   hlint:

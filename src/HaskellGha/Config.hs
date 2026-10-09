@@ -366,7 +366,7 @@ defaultFourmolu :: Fourmolu
 defaultFourmolu =
   Fourmolu
     { enabled = False
-    , version = mkVersion [0, 20, 1, 0]
+    , version = mkVersion [0, 21, 0, 0]
     , patterns = []
     , runsOn = Optional Nothing
     }
@@ -385,10 +385,10 @@ defaultDoctest =
 ----------------------------------------
 -- Values
 
--- | A version, e.g. @0.20.1.0@. It must be a string, because YAML reads e.g.
+-- | A version, e.g. @0.21.0.0@. It must be a string, because YAML reads e.g.
 -- @3.10@ as the number 3.1.
 instance FromYaml Version where
-  parseYaml = withText $ \t -> maybe (fail "expected a version, e.g. 0.20.1.0") pure (simpleParsec (T.unpack t))
+  parseYaml = withText $ \t -> maybe (fail "expected a version, e.g. 0.21.0.0") pure (simpleParsec (T.unpack t))
 
 -- | A version range, e.g. @>=9.6 && <9.14@.
 instance FromYaml VersionRange where
