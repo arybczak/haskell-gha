@@ -1,10 +1,5 @@
 packages: .
 
-source-repository-package
-  type: git
-  location: https://github.com/arybczak/yamlet.git
-  tag: b362ecb59c8ad59eec3070a9edbe300b62241061
-
 if impl(ghc >= 10)
   allow-newer:
     , *:base
