@@ -1,0 +1,14 @@
+cabal-version: 3.0
+name:          readme
+version:       0
+tested-with:   GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12
+
+library
+  hs-source-dirs:   src
+  exposed-modules:  Readme
+  default-language: GHC2021
+
+test-suite test
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Main.hs

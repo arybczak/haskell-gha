@@ -1,6 +1,7 @@
 module HaskellGha.Test.Config (configTests) where
 
 import Control.Monad
+import Data.ByteString qualified as BS
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe
 import Data.Text qualified as T
@@ -26,6 +27,7 @@ configTests =
     , testCase "a broken file" test_brokenFile
     , testCase "an empty file gives the defaults" test_emptyFile
     , testCase "the example configuration" test_example
+    , testCase "the example configuration of the README" test_readmeExample
     , testCase "a section without enabled stays off" test_sectionWithoutEnabled
     , testCase "a null container and null services" test_nullContainer
     , testCase "recursive submodules" test_recursiveSubmodules
@@ -202,6 +204,18 @@ test_example = do
         }
     )
     config.actions
+
+-- The golden test readme makes a workflow from the example configuration of the
+-- README, so the example stays valid.
+test_readmeExample :: Assertion
+test_readmeExample = do
+  readme <- T.decodeUtf8 <$> BS.readFile "README.md"
+  config <-
+    T.decodeUtf8
+      <$> BS.readFile ("tests" </> "golden" </> "readme" </> "haskell-gha.conf.yaml")
+  assertBool
+    "README.md shows tests/golden/readme/haskell-gha.conf.yaml"
+    (("```yaml\n" <> config <> "```\n") `T.isInfixOf` readme)
 
 test_sectionWithoutEnabled :: Assertion
 test_sectionWithoutEnabled = do

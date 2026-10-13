@@ -1,8 +1,9 @@
 # haskell-gha design
 
 This document gives the reasons for the behavior of haskell-gha. The
-[README](README.md) describes the behavior for users. Before you change a rule,
-read its reason here.
+[README](README.md), the [guide](docs/guide.md) and the
+[configuration reference](docs/configuration.md) describe the behavior for
+users. Before you change a rule, read its reason here.
 
 haskell-gha replaces haskell-ci for projects that use only GitHub Actions.
 haskell-ci supports many backends, setup methods and old GHC versions, and its
@@ -308,7 +309,7 @@ version, because the tool cannot check the packages for such a job.
 An `include` entry without `ghc` can still add a job without a GHC version, if
 it matches no job of the matrix. The tool does not check this, because a check
 would have to repeat how GitHub matches the entries, and GitHub documents that
-rule. The README lists it as a limit.
+rule. The guide lists it as a known limit.
 
 Each key of an `exclude` entry must be `ghc`, an axis of the `matrix` mapping,
 or `dependencies` with `dependencies: both`, because GitHub rejects the workflow
@@ -403,7 +404,7 @@ linker and the `tested-with` range of each package.
 
 A prerelease, e.g. `10.0.0.20260917`, is below the range of its series. A job
 that gets the prerelease then decides a condition such as `impl(ghc >= 10.0.1)`
-differently from the tool. The README tells the user to write `impl(ghc >= 10)`
+differently from the tool. The guide tells the user to write `impl(ghc >= 10)`
 for a prerelease.
 
 If a range includes all of the entry, it is true for the entry. If it includes
@@ -652,7 +653,7 @@ A test on GitHub showed these facts:
   because the runner translates it.
 - After `actions/checkout`, `git` fails in the checkout with "detected dubious
   ownership", because the checkout belongs to the user of the host. The workflow
-  does not run `git` in the checkout, so it adds no step for this. The README
+  does not run `git` in the checkout, so it adds no step for this. The guide
   tells a user with a `git` hook what to do.
 
 ### Dependencies
@@ -713,7 +714,7 @@ generic setup:
 
 `allow-newer` makes an oldest job useless, because it ignores the bounds that
 the job tests. With `prefer-oldest`, cabal also tried very old releases, e.g.
-`unix-2.0`, and found no build plan. The README tells the user to exclude these
+`unix-2.0`, and found no build plan. The guide tells the user to exclude these
 jobs in `matrix`. The tool cannot do it, because it does not read `allow-newer`,
 and it copies `matrix` without changes.
 
@@ -761,7 +762,7 @@ without an error. Thus the tool gives the files of the exposed modules, e.g.
 
 A module can have no `.hs` or `.lhs` file in the package directory, e.g. a
 module that `hsc2hs` makes from a `.hsc` file. The tool then leaves the module
-out, because doctest would skip its name without an error anyway. The README
+out, because doctest would skip its name without an error anyway. The guide
 lists this as a known limit.
 
 ### Fourmolu
@@ -882,7 +883,7 @@ it, up to the nearest empty line, go to the workflow. A comment above an empty
 line describes the layout of the configuration, e.g. a section of it, and the
 workflow has its own layout.
 
-## Dependencies
+## Dependencies of the tool
 
 The tool builds with GHC 9.6 and later. The packages that come with GHC are
 always permitted. Do not add another dependency, unless it removes a large
@@ -909,6 +910,10 @@ command line, and the expected workflow. If the environment variable
 `HASKELL_GHA_ACCEPT=1` is set, the tests write the new output to the expected
 file. The tests also check each `run` script of the output with `bash -n`, so
 they need `bash`.
+
+The configuration of the golden test `readme` is the example of the README.
+Another test checks that the README shows exactly that file, so the example
+cannot become invalid.
 
 The repository also tests itself on GitHub. `.github/workflows/haskell-gha.yaml`
 is the workflow for the tool, and `.github/workflows/haskell-gha-multi.yaml` is
