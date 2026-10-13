@@ -1,4 +1,4 @@
-module YamlTests (yamlTests) where
+module HaskellGha.Test.Yaml (yamlTests) where
 
 import Data.Text qualified as T
 import Test.Tasty
@@ -6,8 +6,8 @@ import Test.Tasty.HUnit
 import Yamlet
 import Yamlet.Syntax
 
+import HaskellGha.Test.Helpers
 import HaskellGha.Yaml
-import Utils
 
 yamlTests :: TestTree
 yamlTests =

@@ -129,9 +129,9 @@ test-suite test
     type:           exitcode-stdio-1.0
     main-is:        Main.hs
 
-    other-modules:  ConfigTests
-                    GoldenTests
-                    ProjectTests
-                    Utils
-                    WorkflowTests
-                    YamlTests
+    other-modules:  HaskellGha.Test.Config
+                    HaskellGha.Test.Golden
+                    HaskellGha.Test.Helpers
+                    HaskellGha.Test.Project
+                    HaskellGha.Test.Workflow
+                    HaskellGha.Test.Yaml

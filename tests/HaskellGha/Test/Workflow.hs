@@ -1,4 +1,4 @@
-module WorkflowTests (workflowTests) where
+module HaskellGha.Test.Workflow (workflowTests) where
 
 import Control.Monad
 import Data.ByteString qualified as BS

@@ -1,4 +1,4 @@
-module ConfigTests (configTests) where
+module HaskellGha.Test.Config (configTests) where
 
 import Control.Monad
 import Data.List.NonEmpty qualified as NE
@@ -15,8 +15,8 @@ import Yamlet
 import Yamlet.Syntax
 
 import HaskellGha.Config
+import HaskellGha.Test.Helpers
 import HaskellGha.Yaml
-import Utils
 
 configTests :: TestTree
 configTests =

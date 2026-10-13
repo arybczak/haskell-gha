@@ -1,4 +1,4 @@
-module GoldenTests (goldenTests) where
+module HaskellGha.Test.Golden (goldenTests) where
 
 import Control.Monad
 import Data.ByteString qualified as BS
@@ -19,7 +19,7 @@ import Yamlet.Syntax
 import HaskellGha.Command
 import HaskellGha.Command.Header
 import HaskellGha.Command.Options
-import Utils
+import HaskellGha.Test.Helpers
 
 -- | A test for each directory in @tests/golden@. The test runs the tool in the
 -- directory, with the arguments from the file @args@. If the directory contains

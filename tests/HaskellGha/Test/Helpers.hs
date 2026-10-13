@@ -1,4 +1,4 @@
-module Utils (normalize) where
+module HaskellGha.Test.Helpers (normalize) where
 
 import Yamlet.Syntax
 

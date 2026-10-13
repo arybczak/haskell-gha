@@ -1,4 +1,4 @@
-module ProjectTests (projectTests) where
+module HaskellGha.Test.Project (projectTests) where
 
 import Control.Monad
 import Data.Either

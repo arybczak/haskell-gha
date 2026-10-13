@@ -2,11 +2,11 @@ module Main (main) where
 
 import Test.Tasty
 
-import ConfigTests
-import GoldenTests
-import ProjectTests
-import WorkflowTests
-import YamlTests
+import HaskellGha.Test.Config
+import HaskellGha.Test.Golden
+import HaskellGha.Test.Project
+import HaskellGha.Test.Workflow
+import HaskellGha.Test.Yaml
 
 main :: IO ()
 main = do
