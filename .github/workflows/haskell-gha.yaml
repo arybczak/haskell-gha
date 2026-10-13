@@ -179,8 +179,8 @@ jobs:
       id: cache
       with:
         path: ${{ steps.setup.outputs.cabal-store }}
-        key: haskell-gha.yaml-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-${{ steps.plan.outputs.hash }}
-        restore-keys: haskell-gha.yaml-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-
+        key: haskell-gha.yaml-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-${{ steps.plan.outputs.hash }}
+        restore-keys: haskell-gha.yaml-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ matrix.dependencies }}-
 
     - name: Build the dependencies
       working-directory: ${{ runner.temp }}/haskell-gha

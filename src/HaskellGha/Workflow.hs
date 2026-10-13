@@ -415,7 +415,9 @@ workflow opts source config project =
         cacheKey =
           T.intercalate
             "-"
-            [ "${{ runner.os }}"
+            [ "haskell-gha"
+            , cacheVersion
+            , "${{ runner.os }}"
             , "${{ runner.arch }}"
             , "${{ steps.versions.outputs.image }}"
             , "doctest"
@@ -581,6 +583,11 @@ workflow opts source config project =
               ]
         ]
 
+    -- A new value starts new caches. Change it when the tool makes the content
+    -- of an old cache wrong, e.g. when it installs GHC in another way.
+    cacheVersion :: T.Text
+    cacheVersion = "v1"
+
     -- A store from another image can link against system libraries that this
     -- image does not have. The prefix is also the restore key, so a job
     -- restores only a store of its own workflow with its own kind of
@@ -588,7 +595,7 @@ workflow opts source config project =
     -- dependencies of both.
     cachePrefix :: T.Text
     cachePrefix =
-      T.pack opts.output <> "-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
+      T.pack opts.output <> "-" <> cacheVersion <> "-${{ runner.os }}-${{ runner.arch }}-${{ steps.versions.outputs.image }}-ghc-${{ steps.setup.outputs.ghc-version }}-" <> case config.dependencies of
         DependenciesNewest -> "newest-"
         DependenciesOldest -> "oldest-"
         DependenciesBoth -> "${{ matrix.dependencies }}-"

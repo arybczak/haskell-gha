@@ -117,6 +117,19 @@ comma in the name is an error, because `actions/cache` does not accept a comma
 in a key. The name keeps its extension, so the two workflows `ci.yml` and
 `ci.yaml` do not share their caches.
 
+After the name, the cache key of the store has a cache version, e.g. `v1`. All
+workflows share the doctest cache, so its key has no name. It starts with
+`haskell-gha` and the cache version, so the key shows the tool that wrote it.
+
+A new release of haskell-gha changes the cache version when old caches no longer
+fit the jobs. A cache depends on the GHC installation, not only on the GHC
+version. doctest, for example, runs GHC from the path of its build and reads the
+package database of that GHC, and another build of the same version can differ.
+When the jobs started to install GHCup themselves, GHC moved, but the old
+doctest caches still matched their keys, and doctest failed because GHC was not
+at the path any more. Thus a change of the channel, the install method or the
+path of GHC needs a new cache version.
+
 The default `cabal-version` is `3.16.1.0`. cabal 3.18 uses only version 2 of
 the semaphore protocol: [cabal issue 12306][issue-12306]. The fix changes an API
 of cabal, so no 3.18 release will get it. A [maintainer][issue-12306-comment]
