@@ -6,9 +6,8 @@
 workflow builds and tests the project on each GHC version from the `tested-with`
 field of its packages.
 
-The workflow uses `haskell-actions/setup` to install GHC and cabal, it caches
-the cabal store, and it runs each GHC version in its own job. Only Linux is
-supported.
+The workflow installs GHC and cabal with GHCup, it caches the cabal store, and
+it runs each GHC version in its own job. Only Linux is supported.
 
 ## Contents
 
@@ -61,7 +60,7 @@ To change the defaults, write a configuration file. See
 The workflow has one build job for each GHC version. A build job has these
 steps:
 
-1. Install GHC and cabal with `haskell-actions/setup`.
+1. Install GHCup, and with it GHC and cabal. See [GHC versions](#ghc-versions).
 2. Unpack the source tarballs of the local packages into a separate directory.
    See [Source tarballs](#source-tarballs).
 3. Write the build settings to `cabal.project.local`, e.g. the number of
@@ -85,13 +84,11 @@ GHC, so each runs once, at the same time as the build jobs.
 [`haskell-ci`](https://github.com/haskell-CI/haskell-ci) for projects that use
 only GitHub Actions on Linux. It improves on `haskell-ci` in these points:
 
-- The jobs install GHC and cabal with `haskell-actions/setup`, not with a manual
-  installation of GHCup. They run on the runner image, or optionally in a job
-  container. `haskell-ci` always runs the jobs in a container.
+- The jobs run on the runner image, or optionally in a job container.
+  `haskell-ci` always runs the jobs in a container.
 - A new GHC release needs no new release of the tool. `haskell-ci` only accepts
   the GHC versions of its built-in list. `haskell-gha` gives the version to
-  `haskell-actions/setup`, and a series, e.g. `^>= 9.12`, gets the newest
-  release of that series.
+  GHCup, and a series, e.g. `^>= 9.12`, gets the newest release of that series.
 - The workflow uses the project's own `cabal.project` with its conditional
   blocks, and the tool checks the blocks against `tested-with`. `haskell-ci`
   writes its own `cabal.project` for each job.
@@ -174,13 +171,19 @@ field must be one of these two forms:
   version. A shorter version, e.g. `GHC == 9.10`, is an error, because no GHC
   release has it.
 - A major series, e.g. `GHC ^>= 9.10` or `GHC == 9.10.*`. The job uses the
-  newest release of the series that `haskell-actions/setup` knows. Before the
-  first release of a series, the job uses its newest prerelease. To build the
-  dependencies of a prerelease, see [GHC prereleases](#ghc-prereleases).
+  newest release of the series in GHCup. Before the first release of a series,
+  the job uses its newest prerelease. To build the dependencies of a
+  prerelease, see [GHC prereleases](#ghc-prereleases).
 
 A package can mix the two forms, e.g.
 `tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12`. An open range, e.g.
 `GHC >= 9.10`, is an error, because the list of jobs must be finite.
+
+The jobs install GHC and cabal from the vanilla channel of GHCup, which has
+only the builds of the GHC and cabal developers. If GHC fails to install from
+it, e.g. because the version is a prerelease, the job tries again with the
+prerelease channel too. The tool does not ask GHCup about the versions, so a
+version that GHCup does not know fails only in CI.
 
 The workflow matrix contains the versions of all local packages. All packages
 must write a series in the same form. If one package lists `GHC ^>= 9.10` and
@@ -396,7 +399,12 @@ The steps of the build job have the ids `setup`, `versions`, `plan` and `cache`,
 and with doctest also `doctest` and `doctest-cache`. A hook step must not use
 these ids, also not with other upper and lower case letters, e.g. `Cache`,
 because GitHub compares the ids without case. A hook can read the outputs of
-these steps, e.g. `${{ steps.setup.outputs.ghc-version }}`.
+these steps, e.g. `${{ steps.setup.outputs.ghc-version }}`. The step `setup`
+has the outputs `ghc-version`, `cabal-version` and `cabal-store`, the path of
+the cabal store.
+
+A hook can run `ghcup`, e.g. to install another tool. It uses the GHCup of the
+job, not the one of the runner image.
 
 With `sdist: true`, the workflow unpacks the source tarballs in the directory
 `haskell-gha` of the temporary directory of the runner. The `after-build` hooks
@@ -407,7 +415,7 @@ script finds it at `"$RUNNER_TEMP"/haskell-gha`.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `cabal-version` | `3.16.1.0` | The cabal version, or `latest`. The version must be 3.12 or later. |
+| `cabal-version` | `3.16.1.0` | The cabal release, with four parts, e.g. `3.16.1.0`. The version must be 3.12 or later. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add to `cabal.project.local`, e.g. package flags or constraints. See [Extra cabal.project.local text](#extra-cabalprojectlocal-text). |
 | `jobs` | `4` | The number of parallel jobs for cabal, as its `jobs` setting, and for GHC in the local packages. |
@@ -445,7 +453,6 @@ repository.
 | Key | Default | Meaning |
 |---|---|---|
 | `actions.checkout` | `v7` | The version of `actions/checkout`. |
-| `actions.setup` | `v2` | The version of `haskell-actions/setup`. |
 | `actions.cache` | `v6` | The version of `actions/cache/restore` and `actions/cache/save`. |
 | `actions.run-fourmolu` | `v13` | The version of `haskell-actions/run-fourmolu`. |
 | `actions.hlint-setup` | a commit, see [HLint](#hlint) | The version of `haskell-actions/hlint-setup`. |
@@ -469,10 +476,6 @@ runner with Ubuntu 24.04.
 The tool accepts only the Ubuntu images of `buildpack-deps`, because the
 workflow needs their tools, e.g. `git`, `curl` and `xz-utils`. The images also
 contain the libraries that GHC needs, e.g. `libgmp-dev`.
-
-`haskell-actions/setup` installs GHC and cabal in each job, because the
-container does not have the tools of the runner image. A job therefore takes
-some minutes longer.
 
 These points are different in a container:
 

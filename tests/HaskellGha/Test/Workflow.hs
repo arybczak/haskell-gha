@@ -265,8 +265,6 @@ test_semaphoreVersions = do
   assertBool
     "cabal 3.18"
     (both 2 `T.isInfixOf` script (CabalVersion (mkVersion [3, 18, 1, 0])))
-  assertBool "latest" (both 2 `T.isInfixOf` script CabalLatest)
-
 test_hlintPaths :: Assertion
 test_hlintPaths = do
   (config, source) <-
@@ -403,7 +401,7 @@ test_partialDoctestRange :: Assertion
 test_partialDoctestRange =
   assertErrors
     "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
-    [ "conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."
+    [ "conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that GHCup selects. Change the range, or write exact versions in tested-with."
     ]
 
 test_unusedRange :: Assertion

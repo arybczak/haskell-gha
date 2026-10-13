@@ -498,20 +498,11 @@ workflow opts source config project =
 
     setupStep :: Node
     setupStep =
-      mapping
-        [ uses "haskell-actions/setup" "" config.actions.setup
-        , "id" .= plain "setup"
-        , "with"
-            .= mapping
-              [ "ghc-version" .= plain "${{ matrix.ghc }}"
-              , "cabal-version" .= singleQuoted cabalVersion
-              ]
-        ]
-
-    cabalVersion :: T.Text
-    cabalVersion = case config.cabalVersion of
-      CabalLatest -> "latest"
-      CabalVersion v -> T.pack (prettyShow v)
+      step
+        False
+        "Install GHC and cabal"
+        ["id" .= plain "setup"]
+        (setupScript config.cabalVersion)
 
     -- An expression cannot read the environment variable ImageOS of the runner,
     -- so the step gives it to the cache key as an output. In a container, the

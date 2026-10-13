@@ -90,8 +90,8 @@ entriesFromRange package range = case asVersionIntervals range of
     entry i@(VersionInterval lower upper) = case (lower, upper) of
       (LowerBound v InclusiveBound, UpperBound w InclusiveBound)
         | v == w ->
-            -- haskell-actions/setup selects the newest release of the series
-            -- for such a version, e.g. 9.10.3 for 9.10.
+            -- GHCup selects the newest release of the series for such a
+            -- version, e.g. 9.10.3 for 9.10.
             if length (versionNumbers v) < 3
               then Left (shortVersion v)
               else Right (GhcExact v)
@@ -173,4 +173,4 @@ decideRange description range entry = case decide range entry of
       description
         ++ " includes only a part of the GHC versions of the matrix entry "
         ++ T.unpack (entryText entry)
-        ++ ", so the result depends on the minor version that haskell-actions/setup selects. Change the range, or write exact versions in tested-with."
+        ++ ", so the result depends on the minor version that GHCup selects. Change the range, or write exact versions in tested-with."

@@ -152,7 +152,6 @@ instance GenericYamlOptions Fourmolu where
 -- | The versions of the actions.
 data Actions = Actions
   { checkout :: ActionRef
-  , setup :: ActionRef
   , cache :: ActionRef
   -- ^ For both @actions/cache/restore@ and @actions/cache/save@.
   , runFourmolu :: ActionRef
@@ -190,21 +189,22 @@ instance FromYaml ActionRef where
       word :: T.Text -> Bool
       word w = not (T.null w) && not (T.any isSpace w)
 
--- | The cabal version for @haskell-actions/setup@.
-data CabalVersion
-  = CabalLatest
-  | CabalVersion Version
+-- | The cabal release for GHCup. A cabal release has four parts.
+newtype CabalVersion = CabalVersion Version
   deriving stock (Eq, Show)
 
 instance FromYaml CabalVersion where
-  parseYaml = withText $ \case
-    "latest" -> pure CabalLatest
-    t -> case simpleParsec (T.unpack t) of
-      Just v
-        | take 2 (versionNumbers v) < [3, 12] ->
-            fail "the tool supports only cabal 3.12 and later"
-        | otherwise -> pure $ CabalVersion v
-      Nothing -> fail "expected latest or a version"
+  parseYaml = withText $ \t -> case simpleParsec (T.unpack t) of
+    Just v
+      | length (versionNumbers v) /= 4 ->
+          fail expected
+      | take 2 (versionNumbers v) < [3, 12] ->
+          fail "the tool supports only cabal 3.12 and later"
+      | otherwise -> pure $ CabalVersion v
+    Nothing -> fail expected
+    where
+      expected :: String
+      expected = "expected a release with four parts, e.g. 3.16.1.0"
 
 -- | The image of the job container of the build jobs, e.g.
 -- @buildpack-deps:26.04@.
@@ -328,7 +328,6 @@ defaultConfig =
     , actions =
         Actions
           { checkout = ActionRef {repository = Nothing, ref = "v7"}
-          , setup = ActionRef {repository = Nothing, ref = "v2"}
           , cache = ActionRef {repository = Nothing, ref = "v6"}
           , runFourmolu = ActionRef {repository = Nothing, ref = "v13"}
           , -- The commits "Upgrade to node24". Each release still needs

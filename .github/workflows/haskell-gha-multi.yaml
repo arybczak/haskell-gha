@@ -50,11 +50,24 @@ jobs:
       with:
         persist-credentials: false
 
-    - uses: haskell-actions/setup@v2
+    - name: Install GHC and cabal
       id: setup
-      with:
-        ghc-version: ${{ matrix.ghc }}
-        cabal-version: '3.16.1.0'
+      run: |
+        mkdir -p "$RUNNER_TEMP"/.ghcup/bin
+        curl -fsSL -o "$RUNNER_TEMP"/.ghcup/bin/ghcup "https://downloads.haskell.org/ghcup/$(uname -m)-linux-ghcup"
+        chmod +x "$RUNNER_TEMP"/.ghcup/bin/ghcup
+        export GHCUP_INSTALL_BASE_PREFIX="$RUNNER_TEMP" PATH="$RUNNER_TEMP/.ghcup/bin:$PATH"
+        echo "GHCUP_INSTALL_BASE_PREFIX=$RUNNER_TEMP" >> "$GITHUB_ENV"
+        echo "$RUNNER_TEMP/.ghcup/bin" >> "$GITHUB_PATH"
+        if ! ghcup -s vanilla install ghc '${{ matrix.ghc }}' --set; then
+          echo 'The installation from the vanilla channel failed, so the step tries again with the prerelease channel.'
+          ghcup -s '["vanilla","prereleases"]' install ghc '${{ matrix.ghc }}' --set
+        fi
+        ghcup -s vanilla install cabal 3.16.1.0 --set
+        cabal update
+        echo "ghc-version=$(ghc --numeric-version)" >> "$GITHUB_OUTPUT"
+        echo "cabal-version=$(cabal --numeric-version)" >> "$GITHUB_OUTPUT"
+        echo "cabal-store=$(cabal path -z --store-dir)" >> "$GITHUB_OUTPUT"
 
     - name: Show the versions
       id: versions

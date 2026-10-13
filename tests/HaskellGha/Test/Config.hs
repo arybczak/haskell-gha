@@ -27,7 +27,6 @@ configTests =
     , testCase "an empty file gives the defaults" test_emptyFile
     , testCase "the example configuration" test_example
     , testCase "a section without enabled stays off" test_sectionWithoutEnabled
-    , testCase "cabal-version latest" test_latest
     , testCase "a null container and null services" test_nullContainer
     , testCase "recursive submodules" test_recursiveSubmodules
     , testCase "a folded ghc-options value" test_foldedGhcOptions
@@ -129,8 +128,8 @@ test_example = do
         , "actions:"
         , "  checkout: v8"
         , "  cache: runs-on/cache@v4"
-        , "  setup: 0123abc"
         , "  run-fourmolu: v12"
+        , "  hlint-setup: 0123abc"
         , "  hlint-run: v2"
         ]
   assertEqual "name" "Tests" config.name.value
@@ -196,10 +195,9 @@ test_example = do
     "actions"
     ( Actions
         { checkout = ActionRef {repository = Nothing, ref = "v8"}
-        , setup = ActionRef {repository = Nothing, ref = "0123abc"}
         , cache = ActionRef {repository = Just "runs-on/cache", ref = "v4"}
         , runFourmolu = ActionRef {repository = Nothing, ref = "v12"}
-        , hlintSetup = defaultConfig.actions.hlintSetup
+        , hlintSetup = ActionRef {repository = Nothing, ref = "0123abc"}
         , hlintRun = ActionRef {repository = Nothing, ref = "v2"}
         }
     )
@@ -225,11 +223,6 @@ test_nullContainer = do
   config <- parseOk "container: null\nservices: null\n"
   assertEqual "container" Nothing config.container
   assertBool "services" (isNothing config.services)
-
-test_latest :: Assertion
-test_latest = do
-  config <- parseOk "cabal-version: latest\n"
-  assertEqual "cabal-version" CabalLatest config.cabalVersion
 
 test_errors :: Assertion
 test_errors = do
@@ -306,10 +299,6 @@ test_errors = do
     "runs-on[1]: expected a string, but got an integer, quote the value, e.g. '1'"
     "runs-on: [self-hosted, 1]\n"
   assertError
-    "old cabal"
-    "cabal-version: the tool supports only cabal 3.12 and later"
-    "cabal-version: '3.10'\n"
-  assertError
     "unquoted number"
     "hlint.version: expected a string, but got a floating-point number, quote the value, e.g. '3.10'"
     "hlint:\n  version: 3.10\n"
@@ -318,13 +307,21 @@ test_errors = do
     "apt[0]: expected a string, but got a boolean, quote the value, e.g. 'true'"
     "apt: [true]\n"
   assertError
-    "old cabal full"
+    "old cabal"
     "cabal-version: the tool supports only cabal 3.12 and later"
     "cabal-version: 3.10.3.0\n"
   assertError
-    "cabal version"
-    "cabal-version: expected latest or a version"
-    "cabal-version: newest\n"
+    "cabal latest"
+    cabalError
+    "cabal-version: latest\n"
+  assertError
+    "cabal series"
+    cabalError
+    "cabal-version: '3.16'\n"
+  assertError
+    "cabal version with three parts"
+    cabalError
+    "cabal-version: 3.16.1\n"
   assertError
     "ghc axis"
     "matrix: the tool makes the ghc axis, so the matrix must not contain it"
@@ -428,23 +425,23 @@ test_errors = do
   assertError
     "action ref"
     actionError
-    "actions:\n  setup: 'v 2'\n"
+    "actions:\n  checkout: 'v 2'\n"
   assertError
     "action without owner"
     actionError
-    "actions:\n  setup: setup@v2\n"
+    "actions:\n  checkout: checkout@v2\n"
   assertError
     "action with a path"
     actionError
-    "actions:\n  setup: a/b/c@v2\n"
+    "actions:\n  checkout: a/b/c@v2\n"
   assertError
     "action without ref"
     actionError
-    "actions:\n  setup: a/b@\n"
+    "actions:\n  checkout: a/b@\n"
   assertError
     "action with two refs"
     actionError
-    "actions:\n  setup: a/b@v1@v2\n"
+    "actions:\n  checkout: a/b@v1@v2\n"
   assertError
     "ghc-options lines"
     "ghc-options: the value must be one line"
@@ -479,9 +476,13 @@ test_errors = do
         ++ show image
         ++ ", expected one of: buildpack-deps:22.04, buildpack-deps:24.04, buildpack-deps:26.04"
 
+    cabalError :: String
+    cabalError =
+      "cabal-version: expected a release with four parts, e.g. 3.16.1.0"
+
     actionError :: String
     actionError =
-      "actions.setup: expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
+      "actions.checkout: expected a Git ref, e.g. v7, or a repository with a Git ref, e.g. runs-on/cache@v4"
 
 test_locations :: Assertion
 test_locations = do

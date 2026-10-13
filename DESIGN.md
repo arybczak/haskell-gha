@@ -14,32 +14,37 @@ hand-written workflow of ghc-tags, which has about 50 lines.
 
 The facts below come from the source code of each tool.
 
-`haskell-actions/setup` resolves a GHC or cabal version with its bundled
-`versions.json` (the `resolve` function in `src/opts.ts`). `latest` becomes the
-first entry of the list. A short form such as `9.10` becomes the newest entry
-that starts with `9.10.`. Any other version goes to GHCup unchanged, also a full
-version that the list does not contain. Thus a new GHC release works with its
-full version without a new release of the action or of haskell-gha.
+The facts about GHCup come from tests with GHCup 0.2.6.2 on 2026-10-13. GHCup
+resolves a short form such as `9.12` to the newest version of the series in its
+channels, e.g. `9.12.4`, for GHC and for cabal. A version that the channels
+lack fails before any download, with the error `GHCup-00010`. Its exit code, 3,
+is the same as of a failed download.
 
-A short form gives the newest version that the action knows. This version can be
-older than the newest version in GHCup. If the list has no entry for a short
-form, e.g. a new major series, the action gives the short form to GHCup
-unchanged. If GHCup then fails, the user must write the exact version until a
-release of the action lists the series.
+The vanilla channel has a bindist of each GHC series from 8.10 to 9.14 for
+Ubuntu 24.04 and 26.04. GHCup picks the bindist for the newest Ubuntu release
+up to the one of the job, e.g. the bindist for Ubuntu 24.04 on 26.04. For 8.10
+and 9.0, it picks the Fedora 27 bindist. The option `--platform` of GHCup
+showed this, e.g. `x86_64-ubuntu26.04-linux`.
 
-The action pins the GHCup version in `versions.json`. The workflow refers to the
-moving tag `v2`, so a new action release also gives a new GHCup. The input
-`cabal-update` is true by default, so the action runs `cabal update`. The
-workflow needs this, because its first `cabal build` needs the package index.
+The prerelease channel also has prereleases of the next release of a series.
+With both channels, `9.14` gave `9.14.1.20260916`, a prerelease of 9.14.2, and
+not `9.14.1`.
 
-The action calls `sudo apt-get` only for GHC older than 8.3 and for GHC head.
-Both are out of scope. Thus the action also works in a job container, which has
-no `sudo`.
+The runner images of GitHub install GHCup in `/usr/local/.ghcup`, and they set
+`GHCUP_INSTALL_BASE_PREFIX=/usr/local` in `/etc/environment`
+(`images/ubuntu/scripts/build/install-haskell.sh` in `actions/runner-images`).
+A GHCup that a job downloads then also uses that directory, unless the job
+sets the variable.
+
+`cabal path` reads the project in the current directory, unless it gets
+`--ignore-project`. For a project with a `source-repository-package`, it then
+clones the repository.
 
 cabal decides `if impl(ghc ...)` blocks in `cabal.project` with the configured
 compiler, before it reads the local packages (`rebuildProjectConfig` in
 `cabal-install/src/Distribution/Client/ProjectPlanning.hs`). Thus a `packages:`
-line in such a block works in CI, because the action selects the GHC version.
+line in such a block works in CI, because the setup step selects the GHC
+version.
 
 ## Decisions
 
@@ -65,14 +70,15 @@ The tool supports only Linux. Three rules keep macOS support easy to add later:
 
 - The workflow sets `defaults.run.shell: bash`.
 - The cache key contains `runner.os`.
-- The paths of GHC, cabal and the cabal store come from the outputs of
-  `haskell-actions/setup`. The other paths are in `$HOME` or `$RUNNER_TEMP`,
-  which macOS runners also have.
+- The path of the cabal store comes from `cabal path`. The other paths, also
+  the one of GHCup, are in `$HOME` or `$RUNNER_TEMP`, which macOS runners also
+  have.
 
 These parts of the tool work only on Linux:
 
 - The build plan step uses `sha256sum`. macOS has `shasum -a 256` instead.
 - The `apt` step uses `apt-get`.
+- The setup step downloads the Linux build of GHCup.
 - The project reader decides `os(...)` and `arch(...)` for Linux on x86_64. The
   `macos-latest` runner is macOS on AArch64.
 - Service containers need a Linux runner.
@@ -111,20 +117,27 @@ comma in the name is an error, because `actions/cache` does not accept a comma
 in a key. The name keeps its extension, so the two workflows `ci.yml` and
 `ci.yaml` do not share their caches.
 
-The default `cabal-version` is `3.16.1.0`. In October 2026, the action selects
-cabal `3.18.1.0` for `latest`, and that version uses only version 2 of the
-semaphore protocol: [cabal issue 12306][issue-12306]. No released GHC uses
-version 2 yet, so with cabal 3.18 no job would use the semaphore. When GHC
-9.10.4, 9.12.5 and 9.14.2 are released with version 2, change the default to
-`latest`. Then a new cabal release needs no new release of haskell-gha.
+The default `cabal-version` is `3.16.1.0`. cabal 3.18 uses only version 2 of
+the semaphore protocol: [cabal issue 12306][issue-12306]. The fix changes an API
+of cabal, so no 3.18 release will get it. A [maintainer][issue-12306-comment]
+said that it could go into cabal 3.20 at the earliest, after GHC 10.0 is out,
+if two people review it. No released GHC uses version 2 yet, so with cabal 3.18
+no job would use the semaphore. When GHC 9.10.4, 9.12.5 and 9.14.2 are released
+with version 2, change the default to a 3.18 release.
 
 [issue-12306]: https://github.com/haskell/cabal/issues/12306
+[issue-12306-comment]: https://github.com/haskell/cabal/issues/12306#issuecomment-5529455569
+
+`cabal-version` is an exact release with four parts, e.g. `3.16.1.0`. It cannot
+be a series, `latest` or another tag of GHCup, so the cabal of a job changes
+only with the configuration or a new release of haskell-gha. A series makes
+sense for GHC, because `tested-with` lists the series that a package supports.
+Nothing gives such a range for cabal.
 
 A `cabal-version` older than 3.12 is always an error. The `semaphore` field
 needs cabal 3.12, but only the jobs for GHC 9.8 and later use it. One limit for
 all jobs is simpler than a limit for each GHC version. Also, nobody tests older
-cabal versions with the tool. The tool compares only the first two parts of the
-version, so `3.10` and `3.10.3.0` are both errors.
+cabal versions with the tool.
 
 The versions of the actions are keys of the configuration, with the current
 major versions as defaults. Thus a user can take a new major version of an
@@ -132,6 +145,27 @@ action without a new release of haskell-gha. `actions.cache` is one key for
 `actions/cache/restore` and `actions/cache/save`, because both come from one
 repository. A value is any Git ref without spaces, so a user can also pin an
 action to a commit SHA.
+
+The setup step installs GHCup itself, not with `haskell-actions/setup`. The
+action resolves a short form such as `9.12` with its bundled list of versions.
+The list lags behind GHCup, and a new series needs a new release of the action.
+GHCup resolves a short form itself, so the step gives it the versions
+unchanged. The step downloads the newest GHCup in each job, so a broken GHCup
+release breaks the jobs until a fix. The moving tag `v2` of the action had the
+same risk.
+
+The step installs from the vanilla channel, because the default channel of
+GHCup gets a new release later. It adds the prerelease channel only after a
+failure. With both channels at once, a released series can get a
+prerelease of its next release, see
+[Facts about other tools](#facts-about-other-tools). The exit code of GHCup
+does not tell an unknown version from a failed download, so the step tries
+again after any failure. For a version in the vanilla channel, the second try
+gives the same version, because the vanilla channel comes first.
+
+GHCup lives in `$RUNNER_TEMP`, also for the later steps. Thus a job on the
+runner image and a job in a container use the same layout, and a hook that runs
+`ghcup` uses the GHCup of the job.
 
 A value can also name another repository, e.g. `runs-on/cache@v4`. The runners
 of RunsOn keep their cache in S3 with `runs-on/cache`, a fork of `actions/cache`
@@ -333,7 +367,7 @@ other directory. A package path through a link and `..` has no known use.
 The reader splits the `tested-with` range of each package into intervals with
 `asVersionIntervals`. Each interval must be an exact version or a major series,
 because the matrix needs a finite list. An exact version must have three parts.
-For `== 9.10`, the action selects the newest release of the series, but the tool
+For `== 9.10`, GHCup selects the newest release of the series, but the tool
 would decide the conditions for 9.10.0.
 
 A GHC version older than 8.10 is an error. The bindists of old versions link
@@ -355,7 +389,7 @@ for a prerelease.
 
 If a range includes all of the entry, it is true for the entry. If it includes
 none of it, it is false. If it includes only a part of it, the tool stops with
-an error. The result then depends on the minor version that the action selects.
+an error. The result then depends on the minor version that GHCup selects.
 
 Thus `^>= 9.10` in one package and `== 9.10.3` in another package give two
 entries, `9.10` and `9.10.3`. The second package supports only a part of the
@@ -400,11 +434,11 @@ Without `timeout-minutes`, GitHub stops a job only after six hours, so a test
 that hangs uses up the runner minutes. A build usually takes way less than an
 hour, so the default of 60 minutes leaves room for a build without a cache.
 
-The job `name` cannot show the version that the action selects for a series
-entry, because GitHub evaluates the job name before the steps run. Thus the step
+The job `name` cannot show the version that GHCup selects for a series entry,
+because GitHub evaluates the job name before the steps run. Thus the step
 `Show the versions` prints the versions in the log and in the job summary. The
-cache key uses the selected version, from the `ghc-version` output of the
-action. Thus a new minor release starts a new cache.
+cache key uses the selected version, from the `ghc-version` output of the setup
+step. Thus a new minor release starts a new cache.
 
 An expression cannot read an environment variable of the runner. Thus the step
 `Show the versions` writes `ImageOS` to its output `image`, and the cache key
@@ -455,8 +489,7 @@ sequentially, and `-Werror` makes the warning an error. cabal 3.18 and later use
 only version 2, and older cabal only version 1. The semaphore step therefore
 uses the semaphore only if GHC and cabal use the same version, and otherwise
 gives each local package `ghc-options: -j<N>`, like the step for older GHC
-versions. The tool knows the cabal version when it makes the workflow, and
-`latest` is 3.18 or later.
+versions. The tool knows the cabal version when it makes the workflow.
 
 GHC 9.14.1.20260916, 9.14.2-rc2 and 10.0.0.20260917 show the entry
 `("Semaphore version","2")` in `ghc --info`. GHC 9.14.1 and older have no such
@@ -631,8 +664,8 @@ puts its fixes in a block `if impl(ghc >= X.Y)` of `cabal.project`, e.g. a
 `allow-newer`. The fixes then also work for a local build. In a test with cabal
 3.18.1.0, cabal accepted a `repository` stanza and a `source-repository-package`
 in such a block. If the condition was false, cabal ignored both. In a CI test
-with head.hackage in such a block, the `cabal update` of `haskell-actions/setup`
-in the root of the repository also updated head.hackage. For a project in a
+with head.hackage in such a block, the `cabal update` of the setup step in the
+root of the repository also updated head.hackage. For a project in a
 subdirectory, that update does not read its `cabal.project`. The README does not
 mention this case, because it is rare. cabal then warns that the package list is
 missing, and it tells the user to run `cabal update`. An `after-setup` hook can

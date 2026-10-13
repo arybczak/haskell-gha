@@ -10,6 +10,7 @@ module HaskellGha.Workflow.Script
 
     -- * Scripts
   , aptScript
+  , setupScript
   , configureScript
   , parallelScript
   , semaphoreScript
@@ -20,6 +21,7 @@ module HaskellGha.Workflow.Script
 import Data.Char
 import Data.List qualified as L
 import Data.Text qualified as T
+import Distribution.Pretty
 import Distribution.Version
 
 import HaskellGha.Config
@@ -98,6 +100,33 @@ aptScript container packages =
     sudo :: T.Text
     sudo = maybe "sudo " (const "") container
 
+-- | Install GHCup, and with it GHC and cabal. The runner images set
+-- GHCUP_INSTALL_BASE_PREFIX to their own GHCup, so the script sets it to a
+-- directory of the job, also for the later steps. A GHC version that the
+-- vanilla channel lacks fails with the same exit code as a failed download, so
+-- the script tries the prerelease channel after any failure. cabal path reads
+-- the project unless it ignores it, and then it can clone a
+-- source-repository-package.
+setupScript :: CabalVersion -> T.Text
+setupScript (CabalVersion cabal) =
+  T.unlines
+    [ "mkdir -p \"$RUNNER_TEMP\"/.ghcup/bin"
+    , "curl -fsSL -o \"$RUNNER_TEMP\"/.ghcup/bin/ghcup \"https://downloads.haskell.org/ghcup/$(uname -m)-linux-ghcup\""
+    , "chmod +x \"$RUNNER_TEMP\"/.ghcup/bin/ghcup"
+    , "export GHCUP_INSTALL_BASE_PREFIX=\"$RUNNER_TEMP\" PATH=\"$RUNNER_TEMP/.ghcup/bin:$PATH\""
+    , "echo \"GHCUP_INSTALL_BASE_PREFIX=$RUNNER_TEMP\" >> \"$GITHUB_ENV\""
+    , "echo \"$RUNNER_TEMP/.ghcup/bin\" >> \"$GITHUB_PATH\""
+    , "if ! ghcup -s vanilla install ghc '${{ matrix.ghc }}' --set; then"
+    , "  echo 'The installation from the vanilla channel failed, so the step tries again with the prerelease channel.'"
+    , "  ghcup -s '[\"vanilla\",\"prereleases\"]' install ghc '${{ matrix.ghc }}' --set"
+    , "fi"
+    , "ghcup -s vanilla install cabal " <> T.pack (prettyShow cabal) <> " --set"
+    , "cabal update"
+    , "echo \"ghc-version=$(ghc --numeric-version)\" >> \"$GITHUB_OUTPUT\""
+    , "echo \"cabal-version=$(cabal --numeric-version)\" >> \"$GITHUB_OUTPUT\""
+    , "echo \"cabal-store=$(cabal path -z --store-dir)\" >> \"$GITHUB_OUTPUT\""
+    ]
+
 -- | Write the settings of the configuration to @cabal.project.local@. The file
 -- holds the settings of one developer, so a committed one is an error. The tool
 -- cannot tell it from an uncommitted one, so the job checks the checkout.
@@ -156,7 +185,7 @@ semaphoreScript
   -> CabalVersion
   -> [Package]
   -> T.Text
-semaphoreScript jobs cabalVersion pkgs =
+semaphoreScript jobs (CabalVersion cabal) pkgs =
   T.concat
     [ "if ghc --info | grep -F '(\"Semaphore version\",\"2\")' > /dev/null; then\n"
     , branch 2
@@ -191,11 +220,9 @@ semaphoreScript jobs cabalVersion pkgs =
 
     -- cabal 3.18 and later use only version 2, older versions only version 1.
     cabalV :: Int
-    cabalV = case cabalVersion of
-      CabalLatest -> 2
-      CabalVersion v
-        | v >= mkVersion [3, 18] -> 2
-        | otherwise -> 1
+    cabalV
+      | cabal >= mkVersion [3, 18] = 2
+      | otherwise = 1
 
 -- | Run cabal check for each package. cabal check works on the package in the
 -- current directory, and its output does not name the package. The step runs
