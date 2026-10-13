@@ -23,7 +23,7 @@ import Distribution.Version
 data GhcEntry
   = -- | An exact version, e.g. @9.10.3@.
     GhcExact Version
-  | -- | A major series, e.g. @9.10@. The action selects its newest release.
+  | -- | A major series, e.g. @9.10@. GHCup selects its newest release.
     GhcSeries Int Int
   deriving stock (Eq, Show)
 
@@ -36,9 +36,9 @@ instance Ord GhcEntry where
         GhcSeries x y -> (mkVersion [x, y], False)
         GhcExact v -> (v, True)
 
--- | The versions that the action can select for the entry. The first release of
--- a GHC series is X.Y.1, so a condition such as @impl(ghc >= 9.10.1)@ includes
--- the whole series.
+-- | The versions that GHCup can select for the entry. The first release of a
+-- GHC series is X.Y.1, so a condition such as @impl(ghc >= 9.10.1)@ includes the
+-- whole series.
 entryRange :: GhcEntry -> VersionRange
 entryRange = \case
   GhcExact v -> thisVersion v
