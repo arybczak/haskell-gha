@@ -9,10 +9,12 @@ module HaskellGha.Path
 
     -- * Text
   , leadsAbove
+  , isUrl
   ) where
 
 import Control.Exception
 import Data.Foldable
+import Data.List qualified as L
 import System.Directory
 import System.FilePath
 
@@ -33,6 +35,11 @@ leadsAbove = any (< 0) . scanl (+) 0 . map depth . splitDirectories
       ".." -> -1
       "." -> 0
       _ -> 1
+
+-- | Whether a location in @cabal.project@, e.g. of an @import:@ line, is a URL
+-- and not a path.
+isUrl :: String -> Bool
+isUrl = L.isInfixOf "://"
 
 -- | Why a path, relative to the root of the repository, does not work on the
 -- runner, if it does not. The path follows each symbolic link, also a broken

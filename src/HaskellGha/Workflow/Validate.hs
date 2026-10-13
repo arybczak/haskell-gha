@@ -89,7 +89,7 @@ validateWorkflow opts source config project stepIds = do
     -- does not contain it.
     checkImport :: Import -> Check ()
     checkImport i
-      | "://" `L.isInfixOf` i.target = pure ()
+      | isUrl i.target = pure ()
       | leadsOut (opts.projectDir </> i.target) =
           failure $
             i.location

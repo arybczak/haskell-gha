@@ -142,7 +142,7 @@ generate root opts = runExceptT $ do
           root
           [ (i.location ++ "the imported file " ++ i.target, opts.projectDir </> i.target)
           | i <- project.imports
-          , not ("://" `L.isInfixOf` i.target)
+          , not (isUrl i.target)
           ]
       pure . runCheck $
         traverse_ failure (sourceErrors source (catMaybes hlint)) *> fromErrors imports

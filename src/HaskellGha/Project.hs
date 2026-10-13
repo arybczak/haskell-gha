@@ -352,7 +352,7 @@ findPackages
   -> PackageEntry
   -> IO (Either [String] [FilePath])
 findPackages root projectDir required entry
-  | "://" `L.isInfixOf` t =
+  | isUrl t =
       pure $
         Left
           [ at $
