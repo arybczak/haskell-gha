@@ -60,10 +60,14 @@ jobs:
         export GHCUP_INSTALL_BASE_PREFIX="$RUNNER_TEMP" PATH="$RUNNER_TEMP/.ghcup/bin:$PATH"
         echo "GHCUP_INSTALL_BASE_PREFIX=$RUNNER_TEMP" >> "$GITHUB_ENV"
         echo "$RUNNER_TEMP/.ghcup/bin" >> "$GITHUB_PATH"
-        if ! ghcup -s vanilla install ghc '${{ matrix.ghc }}' --set; then
-          echo 'The installation from the vanilla channel failed, so the step tries again with the prerelease channel.'
-          ghcup -s '["vanilla","prereleases"]' install ghc '${{ matrix.ghc }}' --set
+        versions=$(ghcup -s vanilla list -t ghc -r)
+        if grep -qF -e 'ghc ${{ matrix.ghc }} ' -e 'ghc ${{ matrix.ghc }}.' <<< "$versions"; then
+          channel=vanilla
+        else
+          echo 'The vanilla channel of GHCup has no GHC ${{ matrix.ghc }}, so the step uses the prerelease channel.'
+          channel=prereleases
         fi
+        ghcup -s "$channel" install ghc '${{ matrix.ghc }}' --set
         ghcup -s vanilla install cabal 3.16.1.0 --set
         cabal update
         echo "ghc-version=$(ghc --numeric-version)" >> "$GITHUB_OUTPUT"

@@ -18,7 +18,10 @@ The facts about GHCup come from tests with GHCup 0.2.6.2 on 2026-10-13. GHCup
 resolves a short form such as `9.12` to the newest version of the series in its
 channels, e.g. `9.12.4`, for GHC and for cabal. A version that the channels
 lack fails before any download, with the error `GHCup-00010`. Its exit code, 3,
-is the same as of a failed download.
+is the same as of a failed download. With `--set`, the error is `GHCup-07140`
+for both, and only its text names the original error. `ghcup list -r` prints
+one line for each version, e.g. `ghc 9.12.4 base-4.21.2.0 2026-03-26`, and only
+the versions for the current platform.
 
 The vanilla channel has a bindist of each GHC series from 8.10 to 9.14 for
 Ubuntu 24.04 and 26.04. GHCup picks the bindist for the newest Ubuntu release
@@ -168,13 +171,16 @@ release breaks the jobs until a fix. The moving tag `v2` of the action had the
 same risk.
 
 The step installs from the vanilla channel, because the default channel of
-GHCup gets a new release later. It adds the prerelease channel only after a
-failure. With both channels at once, a released series can get a
-prerelease of its next release, see
-[Facts about other tools](#facts-about-other-tools). The exit code of GHCup
-does not tell an unknown version from a failed download, so the step tries
-again after any failure. For a version in the vanilla channel, the second try
-gives the same version, because the vanilla channel comes first.
+GHCup gets a new release later. If the vanilla channel has no version of the
+matrix entry, e.g. before the first release of a series, the step installs
+from the prerelease channel alone. With both channels at once, a released
+series can get a prerelease of its next release, see
+[Facts about other tools](#facts-about-other-tools). The step asks the vanilla
+channel with `ghcup list -r` before the installation and does not retry after
+a failure. The exit code of GHCup does not tell an unknown version from a
+failed download, and with `--set` the error code `GHCup-07140` wraps both. A
+retry with the prerelease channel after a failed download could then install a
+prerelease for a released series.
 
 GHCup lives in `$RUNNER_TEMP`, also for the later steps. Thus a job on the
 runner image and a job in a container use the same layout, and a hook that runs

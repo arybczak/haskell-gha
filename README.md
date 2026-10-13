@@ -180,10 +180,10 @@ A package can mix the two forms, e.g.
 `GHC >= 9.10`, is an error, because the list of jobs must be finite.
 
 The jobs install GHC and cabal from the vanilla channel of GHCup, which has
-only the builds of the GHC and cabal developers. If GHC fails to install from
-it, e.g. because the version is a prerelease, the job tries again with the
-prerelease channel too. The tool does not ask GHCup about the versions, so a
-version that GHCup does not know fails only in CI.
+only the builds of the GHC and cabal developers. If the vanilla channel has no
+release of the GHC version, e.g. before the first release of a series, the job
+installs GHC from the prerelease channel. The tool does not ask GHCup about the
+versions, so a version that GHCup does not know fails only in CI.
 
 The workflow matrix contains the versions of all local packages. All packages
 must write a series in the same form. If one package lists `GHC ^>= 9.10` and

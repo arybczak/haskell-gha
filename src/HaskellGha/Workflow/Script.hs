@@ -101,11 +101,14 @@ aptScript container packages =
 
 -- | Install GHCup, and with it GHC and cabal. The runner images set
 -- GHCUP_INSTALL_BASE_PREFIX to their own GHCup, so the script sets it to a
--- directory of the job, also for the later steps. A GHC version that the
--- vanilla channel lacks fails with the same exit code as a failed download, so
--- the script tries the prerelease channel after any failure. cabal path reads
--- the project unless it ignores it, and then it can clone a
--- source-repository-package.
+-- directory of the job, also for the later steps. The script asks the vanilla
+-- channel whether it has the GHC version before it installs it, because GHCup
+-- reports a missing version and a failed download with the same exit code. With
+-- both channels at once, GHCup picks the newest version of a series, which can
+-- be a prerelease of its next release. A line of ghcup list -r starts with
+-- "ghc <version> ", so the two patterns match the exact version and a version
+-- of the series. cabal path reads the project unless it ignores it, and then
+-- it can clone a source-repository-package.
 setupScript :: CabalVersion -> T.Text
 setupScript (CabalVersion cabal) =
   T.unlines
@@ -115,10 +118,14 @@ setupScript (CabalVersion cabal) =
     , "export GHCUP_INSTALL_BASE_PREFIX=\"$RUNNER_TEMP\" PATH=\"$RUNNER_TEMP/.ghcup/bin:$PATH\""
     , "echo \"GHCUP_INSTALL_BASE_PREFIX=$RUNNER_TEMP\" >> \"$GITHUB_ENV\""
     , "echo \"$RUNNER_TEMP/.ghcup/bin\" >> \"$GITHUB_PATH\""
-    , "if ! ghcup -s vanilla install ghc '${{ matrix.ghc }}' --set; then"
-    , "  echo 'The installation from the vanilla channel failed, so the step tries again with the prerelease channel.'"
-    , "  ghcup -s '[\"vanilla\",\"prereleases\"]' install ghc '${{ matrix.ghc }}' --set"
+    , "versions=$(ghcup -s vanilla list -t ghc -r)"
+    , "if grep -qF -e 'ghc ${{ matrix.ghc }} ' -e 'ghc ${{ matrix.ghc }}.' <<< \"$versions\"; then"
+    , "  channel=vanilla"
+    , "else"
+    , "  echo 'The vanilla channel of GHCup has no GHC ${{ matrix.ghc }}, so the step uses the prerelease channel.'"
+    , "  channel=prereleases"
     , "fi"
+    , "ghcup -s \"$channel\" install ghc '${{ matrix.ghc }}' --set"
     , "ghcup -s vanilla install cabal " <> T.pack (prettyShow cabal) <> " --set"
     , "cabal update"
     , "echo \"ghc-version=$(ghc --numeric-version)\" >> \"$GITHUB_OUTPUT\""
