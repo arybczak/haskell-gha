@@ -100,7 +100,7 @@ jobs:
         tests: True
         benchmarks: True
 
-        package old
+        program-options
           ghc-options: -Werror
         EOF
 
@@ -108,7 +108,7 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
-        package old
+        program-options
           ghc-options: -j4
         EOF
 

@@ -483,10 +483,25 @@ with the same packages.
 The configuration step writes all its configuration to `cabal.project.local`, so
 a developer can run the same `cabal` commands locally. The default `ghc-options`
 are `-Werror`, and they apply only to the local packages, so the warnings of a
-dependency do not fail the build. A `package` stanza also applies to a package
-from Hackage, e.g. to a local package that the project leaves out for a GHC
-version and that another package depends on. Thus a job gets the stanzas only of
-the packages in its project.
+dependency do not fail the build.
+
+The step writes the `ghc-options` in a `program-options` stanza, which applies
+only to the local packages. A test on 2026-10-13 with cabal 3.12.1.0, 3.16.1.0
+and 3.18.2.0 showed that cabal applies it to a package of `packages:`, but not
+to a `source-repository-package` or a package from a repository. A `package *`
+stanza also applies to the dependencies, and a `ghc-options` field outside a
+stanza does nothing: cabal 3.16 warns that it does not know the field, and cabal
+3.18 ignores it. A stanza for each local package also works, but each group of
+matrix entries with other packages then needs its own step. Such a stanza also
+applies to a package from Hackage with the same name, e.g. to a local package
+that the project leaves out for a GHC version and that another package depends
+on.
+
+In the same test, cabal merged several `program-options` stanzas, also with a
+`package` stanza for the same package. The options of a `package` stanza came
+after the `program-options`, in either order in the file. Thus the `-j<N>`
+stanza adds to the `ghc-options` of the configuration, and a `package` stanza in
+`cabal-project-local` can override them for one package, e.g. with `-Wwarn`.
 
 A committed `cabal.project.local` is an error, because each developer needs the
 file for their own settings. Without git, the tool cannot tell a committed file
@@ -511,9 +526,6 @@ runs, so the tool cannot decide from the matrix which version GHC uses. The step
 asks GHC with `ghc --info` instead. A flag `-Wwarn=semaphore-open-failure` is
 not a fix, because GHC still compiles sequentially, and an unknown warning flag
 makes GHC warn once for each module and each configure step.
-
-cabal merges two `package` stanzas for the same package, so the `-j<N>` stanzas
-can come after the stanza with the `ghc-options` of the configuration.
 
 The text of `cabal-project-local` comes at the end of the configuration step, so
 it can add to the stanzas of that step. The step comes before the build plan, so

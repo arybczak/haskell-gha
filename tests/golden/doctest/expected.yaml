@@ -100,13 +100,7 @@ jobs:
         benchmarks: True
         write-ghc-environment-files: always
 
-        package a
-          ghc-options: -Werror
-
-        package b
-          ghc-options: -Werror
-
-        package c
+        program-options
           ghc-options: -Werror
         EOF
 
@@ -115,13 +109,7 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
-        package a
-          ghc-options: -j4
-
-        package b
-          ghc-options: -j4
-
-        package c
+        program-options
           ghc-options: -j4
         EOF
 
@@ -132,13 +120,7 @@ jobs:
         if ghc --info | grep -F '("Semaphore version","2")' > /dev/null; then
         echo 'GHC uses version 2 of the semaphore protocol and cabal version 1, so GHC uses -j4.'
         cat >> cabal.project.local <<'EOF'
-        package a
-          ghc-options: -j4
-
-        package b
-          ghc-options: -j4
-
-        package c
+        program-options
           ghc-options: -j4
         EOF
         else

@@ -132,7 +132,7 @@ jobs:
         tests: True
         benchmarks: True
 
-        package haskell-gha
+        program-options
           ghc-options: -Werror
         EOF
 
@@ -147,7 +147,7 @@ jobs:
       working-directory: ${{ runner.temp }}/haskell-gha
       run: |
         cat >> cabal.project.local <<'EOF'
-        package haskell-gha
+        program-options
           ghc-options: -j4
         EOF
 
@@ -158,7 +158,7 @@ jobs:
         if ghc --info | grep -F '("Semaphore version","2")' > /dev/null; then
         echo 'GHC uses version 2 of the semaphore protocol and cabal version 1, so GHC uses -j4.'
         cat >> cabal.project.local <<'EOF'
-        package haskell-gha
+        program-options
           ghc-options: -j4
         EOF
         else

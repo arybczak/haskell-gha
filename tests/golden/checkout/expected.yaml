@@ -82,7 +82,7 @@ jobs:
         tests: True
         benchmarks: True
 
-        package checkout
+        program-options
           ghc-options: -Werror
         EOF
 
@@ -91,7 +91,7 @@ jobs:
         if ghc --info | grep -F '("Semaphore version","2")' > /dev/null; then
         echo 'GHC uses version 2 of the semaphore protocol and cabal version 1, so GHC uses -j4.'
         cat >> cabal.project.local <<'EOF'
-        package checkout
+        program-options
           ghc-options: -j4
         EOF
         else

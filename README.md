@@ -428,9 +428,11 @@ script finds it at `"$RUNNER_TEMP"/haskell-gha`.
 
 The workflow writes the text of `cabal-project-local` to `cabal.project.local`
 before it makes the build plan, so the cache of each job contains the
-dependencies that the text adds. The text comes after the `ghc-options` stanzas,
-so it can add more options. A line of the text must not be `EOF`. You can use
-GitHub expressions in the text.
+dependencies that the text adds. The `ghc-options` go to a `program-options`
+stanza, which cabal applies to all local packages. The text can add another
+`program-options` stanza, and cabal merges them. A `package` stanza in the text
+overrides the options for one package, e.g. `ghc-options: -Wwarn`. A line of the
+text must not be `EOF`. You can use GitHub expressions in the text.
 
 A `cabal.project.local` in the repository makes the job fail. The file holds the
 settings of one developer, and a committed file leaves the other developers no
@@ -620,9 +622,8 @@ the actions to Node.js 24. These commits run the same code as the release
 
 - The tool does not read the files of `import:` lines in `cabal.project`. cabal
   reads the imported files in CI, but the tool does not see a package that only
-  an imported file lists. Such a package gets no `ghc-options` and no
-  `tested-with` check. A local imported file must be in the repository, because
-  CI has only the repository.
+  an imported file lists. Such a package gets no `tested-with` check. A local
+  imported file must be in the repository, because CI has only the repository.
 - The tool reads all branches of the conditional blocks in `cabal.project`, also
   a branch that no job selects. cabal reads only the branch that it selects, but
   the tool applies the rules for package locations and `import:` lines to each

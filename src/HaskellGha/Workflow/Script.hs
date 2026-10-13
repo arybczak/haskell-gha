@@ -19,7 +19,6 @@ module HaskellGha.Workflow.Script
   ) where
 
 import Data.Char
-import Data.List qualified as L
 import Data.Text qualified as T
 import Distribution.Pretty
 import Distribution.Version
@@ -134,10 +133,8 @@ configureScript
   :: Config
   -> Bool
   -- ^ Whether doctest runs, so it needs the GHC environment files.
-  -> [Package]
-  -- ^ The packages that get the @ghc-options@ of the configuration.
   -> T.Text
-configureScript config doctest pkgs =
+configureScript config doctest =
   T.unlines
     [ "if [ -f cabal.project.local ]; then"
     , "  echo '::error::The repository contains cabal.project.local, which holds the settings of one developer. Move the settings to cabal.project or to the key cabal-project-local of the configuration of haskell-gha, and remove the file from the repository.'"
@@ -154,24 +151,20 @@ configureScript config doctest pkgs =
         , ["benchmarks: True" | config.benchmarks]
         , ["write-ghc-environment-files: always" | doctest]
         , concat
-            [ "" : stanza p ("ghc-options: " <> config.ghcOptions.value)
+            [ "" : programOptions config.ghcOptions.value
             | not (T.null config.ghcOptions.value)
-            , p <- pkgs
             ]
         , case T.lines (T.dropWhileEnd isSpace config.cabalProjectLocal.value) of
             [] -> []
             ls -> "" : ls
         ]
 
--- | Make GHC compile the modules of the packages in parallel.
+-- | Make GHC compile the modules of the local packages in parallel.
 parallelScript
   :: Int
   -- ^ The number of parallel jobs.
-  -> [Package]
   -> T.Text
-parallelScript jobs pkgs =
-  heredoc . L.intercalate [""] $
-    [stanza p ("ghc-options: -j" <> tshow jobs) | p <- pkgs]
+parallelScript jobs = heredoc (programOptions ("-j" <> tshow jobs))
 
 -- | Enable the GHC job semaphore, or parallel module builds if GHC and cabal
 -- use different versions of the semaphore protocol. With different versions,
@@ -183,9 +176,8 @@ semaphoreScript
   :: Int
   -- ^ The number of parallel jobs.
   -> CabalVersion
-  -> [Package]
   -> T.Text
-semaphoreScript jobs (CabalVersion cabal) pkgs =
+semaphoreScript jobs (CabalVersion cabal) =
   T.concat
     [ "if ghc --info | grep -F '(\"Semaphore version\",\"2\")' > /dev/null; then\n"
     , branch 2
@@ -213,7 +205,7 @@ semaphoreScript jobs (CabalVersion cabal) pkgs =
                 <> tshow jobs
                 <> "."
             )
-            <> parallelScript jobs pkgs
+            <> parallelScript jobs
 
     echo :: T.Text -> T.Text
     echo msg = "echo '" <> msg <> "'\n"
@@ -261,9 +253,12 @@ doctestScript options p =
 ----------------------------------------
 -- Helpers
 
--- | A package stanza of @cabal.project.local@ with one field.
-stanza :: Package -> T.Text -> [T.Text]
-stanza p line = ["package " <> T.pack p.name, "  " <> line]
+-- | GHC options for the local packages. cabal applies the program-options
+-- stanza only to them, not to a package from Hackage or from a
+-- source-repository-package. cabal merges several such stanzas, and the
+-- ghc-options of a package stanza come after them.
+programOptions :: T.Text -> [T.Text]
+programOptions options = ["program-options", "  ghc-options: " <> options]
 
 -- | Add lines to @cabal.project.local@.
 heredoc :: [T.Text] -> T.Text
