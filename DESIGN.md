@@ -695,12 +695,10 @@ puts its fixes in a block `if impl(ghc >= X.Y)` of `cabal.project`, e.g. a
 `allow-newer`. The fixes then also work for a local build. In a test with cabal
 3.18.1.0, cabal accepted a `repository` stanza and a `source-repository-package`
 in such a block. If the condition was false, cabal ignored both. In a CI test
-with head.hackage in such a block, the `cabal update` of the setup step in the
-root of the repository also updated head.hackage. For a project in a
-subdirectory, that update does not read its `cabal.project`. The README does not
-mention this case, because it is rare. cabal then warns that the package list is
-missing, and it tells the user to run `cabal update`. An `after-setup` hook can
-do that.
+with head.hackage in such a block, the `cabal update` of the setup step also
+updated head.hackage. The step runs in the project directory after it installs
+GHC, so the update reads the blocks of the project's `cabal.project`, also for a
+project in a subdirectory.
 
 An earlier version of the tool had a key `head-hackage` with a step that added
 head.hackage. Two tests with GHC 10.0.0.20260917 showed the problems of a
