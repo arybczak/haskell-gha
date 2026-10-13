@@ -256,7 +256,7 @@ test_scriptQuoting = do
 test_semaphoreVersions :: Assertion
 test_semaphoreVersions = do
   let script :: CabalVersion -> T.Text
-      script v = semaphoreScript 4 v
+      script = semaphoreScript 4
       both :: Int -> T.Text
       both n = T.pack ("GHC and cabal use version " ++ show n)
   assertBool
