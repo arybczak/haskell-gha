@@ -46,8 +46,8 @@ haskell-gha --generate
 ```
 
 The tool writes `.github/workflows/haskell-gha.yaml`. Commit this file. After a
-change to `tested-with`, to the packages of the project or to the configuration,
-make the workflow again:
+change to `tested-with`, to the packages of the project or to the configuration
+file of haskell-gha, see [Example](#example), make the workflow again:
 
 ```
 haskell-gha

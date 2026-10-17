@@ -1,7 +1,8 @@
 # Guide
 
 This guide describes how to use the tool and what the workflow does. For the
-keys of the configuration file, see [Configuration](configuration.md).
+keys of the configuration file of haskell-gha, `.github/haskell-gha.conf.yaml`,
+see [Configuration](configuration.md).
 
 - [What the workflow does](#what-the-workflow-does)
 - [Command line](#command-line)
@@ -89,9 +90,9 @@ again and commit the files.
 
 To make a second workflow, e.g. one that tests only the lower bounds of the
 dependencies, run `--generate` with its own `--config` and `--output`. Give it
-its own `name` in the configuration, so that the two workflows are easy to tell
-apart on GitHub. After that, `haskell-gha` without options makes both workflows
-again.
+its own `name` in its configuration file, so that the two workflows are easy to
+tell apart on GitHub. After that, `haskell-gha` without options makes both
+workflows again.
 
 ## GHC versions
 
@@ -186,9 +187,9 @@ conditional block of `cabal.project`. The block then applies only to that GHC
 version, and it also works for a local build.
 
 head.hackage is a package repository with patched versions of many packages for
-GHC prereleases. For example, this block allows newer versions of three
-libraries that come with GHC 10, and it uses head.hackage, with the stanza from
-the README of head.hackage:
+GHC prereleases. For example, this block in `cabal.project` allows newer
+versions of three libraries that come with GHC 10, and it uses head.hackage,
+with the stanza from the README of head.hackage:
 
 ```
 if impl(ghc >= 10)
@@ -219,7 +220,8 @@ takes the first release `X.Y.1` as the start of each series.
 
 The `allow-newer` also applies to the oldest jobs. With `prefer-oldest`, cabal
 then also tries very old releases and often finds no build plan. With
-`dependencies: both`, exclude the oldest job of the prerelease:
+`dependencies: both`, exclude the oldest job of the prerelease in the
+configuration file of haskell-gha:
 
 ```yaml
 dependencies: both
@@ -247,7 +249,8 @@ cabal can build an older version of such a library from Hackage.
 With `dependencies: both`, the matrix gets the axis `dependencies` with the
 values `newest` and `oldest`. Each GHC version gets a job for each value, and
 the job name shows the value. The two kinds of jobs have separate caches. All
-other steps are the same for both kinds. To remove an oldest job, use `exclude`:
+other steps are the same for both kinds. To remove an oldest job, use
+`matrix.exclude` in the configuration file of haskell-gha:
 
 ```yaml
 dependencies: both
@@ -342,7 +345,7 @@ workflow that runs more often, delete its caches on GitHub.
 version that was never released. The tool does not ask GHCup about the versions,
 so such a version fails only in CI. Fix the version in `tested-with`.
 
-**The configuration step fails, because the repository contains
+**The step "Configure the project" fails, because the repository contains
 `cabal.project.local`.** Move the settings of the file to `cabal.project`, or to
 the key `cabal-project-local` if only CI needs them. Then remove the file from
 the repository. See
