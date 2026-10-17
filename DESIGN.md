@@ -110,6 +110,27 @@ The cache keys also contain `runner.arch`. The tool supports only x86_64, but
 differs between the architectures. A doctest binary or a cabal store of another
 architecture does not run.
 
+An ARM runner, e.g. `ubuntu-24.04-arm`, gets the right GHCup build, because the
+setup step names it with `uname -m`. A check on 2026-10-17 found these limits on
+such a runner:
+
+- `run-fourmolu` v13 always downloads the x86_64 build of fourmolu, and the
+  pinned `hlint-setup` fails on any architecture other than x86_64.
+  `fourmolu.runs-on` and `hlint.runs-on` can keep these jobs on x86_64.
+- GHCup has AArch64 builds of each GHC release from 8.10.1 on. GHC before 9.2
+  has no native code generator for AArch64, so 8.10 and 9.0 need LLVM on the
+  runner.
+- The project reader decides `arch(...)` for x86_64.
+
+The reader runs when the tool writes the workflow, so `uname -m` there gives the
+machine of the developer, not the runner. Developers on different machines would
+write different workflows, and `--check` would fail on one of them. `runs-on`
+does not name the architecture either, e.g. a self-hosted label or a runner
+group. A key `arch` would give it to the reader. The key waits for full ARM
+support, because alone it hides the limits above. The setup step must then
+compare the key with `uname -m`, or a wrong key builds the wrong packages
+without an error.
+
 The cache key starts with the name of the workflow file, e.g. `ci.yaml`. The
 caches of a repository are shared by all its workflows, and the start of the key
 is also the restore key. Without the name, a job could restore the store of
