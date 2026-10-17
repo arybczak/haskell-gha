@@ -35,10 +35,11 @@ validateWorkflow
   -> Check ()
 validateWorkflow opts source config project stepIds = do
   checkOs
+  checkRange (map (.ghc) project.matrix) config.ghc
   traverse_ checkGhcValue (combinationValues "ghc" combinations)
   checkDependencies
   when config.doctest.enabled $ do
-    checkRange config.doctest.ghc
+    checkRange entries config.doctest.ghc
     traverse_ checkSkip config.doctest.skip
   traverse_ checkImport project.imports
   when config.sdist $
@@ -47,11 +48,12 @@ validateWorkflow opts source config project stepIds = do
     traverse_ checkHLintPath config.hlint.path
   traverse_ checkHookId (config.hooks.afterSetup ++ config.hooks.afterBuild)
   where
+    -- The entries of the workflow.
     entries :: [GhcEntry]
-    entries = map (.ghc) project.matrix
+    entries = map (.ghc) (selectGhc config.ghc.value project).matrix
 
-    axisText :: String
-    axisText = L.intercalate ", " (map (T.unpack . entryText) entries)
+    axisText :: [GhcEntry] -> String
+    axisText es = L.intercalate ", " (map (T.unpack . entryText) es)
 
     combinations :: [[(T.Text, Located T.Text)]]
     combinations = config.matrix.value.include ++ config.matrix.value.exclude
@@ -149,16 +151,16 @@ validateWorkflow opts source config project stepIds = do
 
     -- A range that includes no matrix entry turns its feature off without any
     -- sign in the workflow, e.g. ==10.0 for the series 10.0.
-    checkRange :: Located VersionRange -> Check ()
-    checkRange r = do
+    checkRange :: [GhcEntry] -> Located VersionRange -> Check ()
+    checkRange es r = do
       traverse_
         (either (failureAt r.offset) (const (pure ())) . decideRange name r.value)
-        entries
-      when (all (\e -> decide r.value e == Excluded) entries)
+        es
+      when (all (\e -> decide r.value e == Excluded) es)
         $ failureAt r.offset
         $ name
           ++ " includes no GHC version of the matrix, which contains only "
-          ++ axisText
+          ++ axisText es
       where
         name :: String
         name = "the range " ++ prettyShow r.value
@@ -208,4 +210,4 @@ validateWorkflow opts source config project stepIds = do
             "GHC "
               ++ T.unpack v.value
               ++ " is not in the ghc axis, which contains only "
-              ++ axisText
+              ++ axisText entries

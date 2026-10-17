@@ -8,6 +8,7 @@ module HaskellGha.Project
   , Package (..)
   , MatrixEntry (..)
   , Import (..)
+  , selectGhc
 
     -- * Reading
   , readProject
@@ -80,6 +81,11 @@ data Project = Project
   -- ^ In all conditional blocks.
   }
   deriving stock (Eq, Show)
+
+-- | Keep the matrix entries that a range includes completely.
+selectGhc :: VersionRange -> Project -> Project
+selectGhc range project =
+  project {matrix = [e | e <- project.matrix, decide range e.ghc == Included]}
 
 -- | An @import:@ line of @cabal.project@.
 data Import = Import

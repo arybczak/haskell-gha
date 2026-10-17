@@ -474,6 +474,15 @@ to add. The condition of the block is the `tested-with` range of the package.
 The `packages:` line gives the directory of the package, because the original
 entry can be a glob that also matches other packages.
 
+The key `ghc` narrows the matrix to a range, e.g. a macOS workflow to the
+newest version. `tested-with` stays the only list of the supported versions,
+because the range can only remove entries. `matrix.exclude` could also remove
+them, but it needs an entry for each version, and a new version in `tested-with`
+then joins the macOS workflow until the user excludes it too. The range follows
+the rules of `doctest.ghc`: it must decide each entry fully, and it must include
+at least one. The checks of the other keys, e.g. of `doctest.ghc`, use the
+narrowed matrix.
+
 A package can list an entry in `tested-with` that the project does not include
 it for. This is an error, because no job then tests the package with that
 version. A package that no job builds is exempt, e.g. a package only for

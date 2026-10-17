@@ -34,6 +34,7 @@ workflowTests =
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "a range that includes no matrix entry" test_unusedRange
     , testCase "the Linux-only keys in a macOS workflow" test_macosKeys
+    , testCase "a range of the GHC versions" test_ghcRange
     , testCase "an unknown package in doctest.skip" test_unknownSkip
     , testCase "the errors of independent checks are collected" test_independentChecks
     , testCase "the command line in the header" test_headerCommandLine
@@ -436,6 +437,30 @@ test_unknownSkip =
   assertErrors
     "doctest:\n  enabled: true\n  skip: [other]\n"
     ["conf.yml:3:10: doctest.skip[0]: the project has no local package other"]
+
+test_ghcRange :: Assertion
+test_ghcRange = do
+  assertErrors
+    "ghc: '>=9.10.2'\n"
+    [ "conf.yml:1:6: ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that GHCup selects. Change the range, or write exact versions in tested-with."
+    ]
+  assertErrors
+    "ghc: '>=9.14'\n"
+    [ "conf.yml:1:6: ghc: the range >=9.14 includes no GHC version of the matrix, which contains only 9.6.7, 9.10, 9.12"
+    ]
+  assertErrors
+    "ghc: '>=9.10'\nmatrix:\n  exclude:\n    - ghc: '9.6.7'\n"
+    [ "conf.yml:4:12: matrix.exclude[0].ghc: GHC 9.6.7 is not in the ghc axis, which contains only 9.10, 9.12"
+    ]
+  (config, source) <-
+    either (assertFailure . unlines) pure . parseConfig "conf.yml" $
+      BS8.pack "ghc: '>=9.10'\n"
+  project <- singleProject
+  node <-
+    either (assertFailure . unlines) pure (workflow defaultOptions source config project)
+  assertBool "matrix" $
+    map T.pack ["        ghc:", "        - '9.10'", "        - '9.12'", "    steps:"]
+      `L.isInfixOf` T.lines (renderWorkflow defaultOptions node)
 
 -- | The project of the golden test @single@.
 singleProject :: IO Project

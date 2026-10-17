@@ -29,9 +29,12 @@ import HaskellGha.Yaml
 
 -- | Make the workflow.
 workflow :: Options -> ConfigSource -> Config -> Project -> Either [String] Node
-workflow opts source config project =
-  runCheck $ validateWorkflow opts source config project stepIds $> root
+workflow opts source config fullProject =
+  runCheck $ validateWorkflow opts source config fullProject stepIds $> root
   where
+    project :: Project
+    project = selectGhc config.ghc.value fullProject
+
     stepIds :: [T.Text]
     stepIds = [i.value | s <- setupSteps ++ buildSteps ++ testSteps, Just i <- [stringField "id" s]]
 

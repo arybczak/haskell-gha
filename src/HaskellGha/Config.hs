@@ -77,6 +77,8 @@ data Config = Config
   , timeoutMinutes :: Positive
   , branches :: Commented (NE.NonEmpty (Commented T.Text))
   , submodules :: Submodules
+  , ghc :: Located VersionRange
+  -- ^ The GHC versions of tested-with that the matrix keeps.
   , matrix :: Commented Matrix
   , apt :: [T.Text]
   , services :: Maybe (Commented MappingNode)
@@ -334,6 +336,7 @@ defaultConfig =
       timeoutMinutes = Positive 60
     , branches = bare (bare "master" NE.:| [bare "main"])
     , submodules = NoSubmodules
+    , ghc = Located anyVersion noOffset
     , matrix =
         bare
           Matrix

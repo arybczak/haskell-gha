@@ -29,6 +29,7 @@ reads as a number, e.g. `'3.10'`, which is otherwise the number 3.1.
 | `container` | none | The image of a job container for the build jobs: `buildpack-deps:22.04`, `buildpack-deps:24.04` or `buildpack-deps:26.04`. See [Container](guide.md#container). |
 | `timeout-minutes` | `60` | The time limit of each job, in minutes. |
 | `submodules` | `false` | Fetch the Git submodules in the build jobs: `true`, `false` or `recursive`. `recursive` also fetches the submodules of each submodule. The fourmolu and HLint jobs do not fetch them. |
+| `ghc` | all versions | The GHC versions of `tested-with` that the workflow tests, as a version range, e.g. `'>= 9.14'`. The range only removes versions, so a version outside `tested-with` gets no job. Leave the key out in the main workflow, so that it tests all versions of `tested-with`, and use it in a second workflow, e.g. for [macOS](guide.md#macos). The range must include at least one matrix entry, and each entry fully or not at all, as in a [condition](guide.md#packages-for-some-ghc-versions-only). |
 | `matrix` | none | Extra matrix axes, and `include` and `exclude`. The tool copies them next to the `ghc` axis. |
 | `apt` | `[]` | Ubuntu packages to install. |
 | `services` | none | Service containers, as in GitHub Actions. |

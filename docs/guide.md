@@ -332,8 +332,11 @@ and HLint jobs do not depend on the operating system, so `fourmolu` and `hlint`
 are also an error. Keep them in the Linux workflow.
 
 If the tests need a service, e.g. a database, an `after-setup` hook can install
-and start it, e.g. with `brew`. To test fewer GHC versions on macOS, leave out
-the others with `matrix.exclude`, e.g. `- ghc: '9.6'`.
+and start it, e.g. with `brew`. A macOS job is slower than a Linux job, so the
+macOS workflow can test fewer GHC versions, e.g. 9.14 and later with
+`ghc: '>= 9.14'`. With an open range, a new version in `tested-with` also joins
+the macOS workflow. The Linux workflow leaves out `ghc`, so it tests all
+versions of `tested-with`.
 
 The first step after the checkout makes sure that the runner has the operating
 system of the workflow. The tool cannot tell it from `runs-on`, e.g. from a
