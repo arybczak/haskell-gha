@@ -124,7 +124,7 @@ generate root opts = runExceptT $ do
       , ("The project directory " ++ opts.projectDir, opts.projectDir)
       ]
   (config, source) <- ExceptT $ readConfig root opts.config
-  project <- ExceptT $ readProject root opts.projectDir
+  project <- ExceptT $ readProject (platform config.os) root opts.projectDir
   node <- except $ workflow opts source config project
   ExceptT $ runnerPaths config source project
   pure node

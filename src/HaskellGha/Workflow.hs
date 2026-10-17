@@ -105,7 +105,7 @@ workflow opts source config project =
       mappingConcat
         [
           [ "name" .= jobName
-          , runsOn (Just config.runsOn)
+          , runsOn (Just (runner config))
           ]
         , ["container" .= plain c.image | Just c <- [config.container]]
         , [timeout]
@@ -125,7 +125,7 @@ workflow opts source config project =
     runsOn :: Maybe (Commented RunsOn) -> (Node, Node)
     runsOn = \case
       Just r -> "runs-on" .= copied r
-      Nothing -> "runs-on" .= config.runsOn.value
+      Nothing -> "runs-on" .= (.value) (runner config)
 
     timeout :: (Node, Node)
     timeout = "timeout-minutes" .= config.timeoutMinutes.value
@@ -271,6 +271,7 @@ workflow opts source config project =
     setupSteps =
       concat
         [ [checkoutStep config.submodules]
+        , [osStep]
         , [ runStep "Install the system packages" Nothing (aptScript config.container config.apt)
           | not (null config.apt)
           ]
@@ -491,8 +492,17 @@ workflow opts source config project =
       step config.sdist "Make the build plan" ["id" .= plain "plan"] $
         T.unlines
           [ "cabal build all --dry-run"
-          , "echo \"hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)\" >> \"$GITHUB_OUTPUT\""
+          , "echo \"hash=$("
+              <> sha256
+              <> " dist-newstyle/cache/plan.json | cut -d ' ' -f 1)\" >> \"$GITHUB_OUTPUT\""
           ]
+      where
+        -- macOS has no sha256sum. shasum comes with Perl, which a container
+        -- image does not need to have.
+        sha256 :: T.Text
+        sha256 = case config.os of
+          OsLinux -> "sha256sum"
+          OsMacos -> "shasum -a 256"
 
     condition :: [GhcEntry] -> T.Text
     condition es =
@@ -500,13 +510,22 @@ workflow opts source config project =
         <> T.intercalate "," ["\"" <> entryText e <> "\"" | e <- es]
         <> "]'), matrix.ghc)"
 
+    -- The step comes after the checkout, because the run steps start in the
+    -- project directory.
+    osStep :: Node
+    osStep =
+      runStep
+        "Make sure that the runner has the OS of the workflow"
+        Nothing
+        (osScript config.os)
+
     setupStep :: Node
     setupStep =
       step
         False
         "Install GHC and cabal"
         ["id" .= plain "setup"]
-        (setupScript config.cabalVersion)
+        (setupScript config.os config.cabalVersion)
 
     -- An expression cannot read the environment variable ImageOS of the runner,
     -- so the step gives it to the cache key as an output. In a container, the
@@ -567,7 +586,9 @@ workflow opts source config project =
     -- The hsc2hs of GHC 9.4 and older links with gold also if the runner has no
     -- gold, and Ubuntu 25.10 and later do not install gold by default.
     goldEntries :: [GhcEntry]
-    goldEntries = [e | e <- entries, decide (earlierVersion (mkVersion [9, 5])) e == Included]
+    goldEntries = case config.os of
+      OsLinux -> [e | e <- entries, decide (earlierVersion (mkVersion [9, 5])) e == Included]
+      OsMacos -> []
 
     testEntries :: [GhcEntry]
     testEntries = [e.ghc | e <- project.matrix, any (.hasTestSuite) e.packages]

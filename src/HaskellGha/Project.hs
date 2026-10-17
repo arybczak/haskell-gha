@@ -108,12 +108,14 @@ data Part
 
 -- | Read the project in a directory.
 readProject
-  :: FilePath
+  :: Platform
+  -- ^ The platform of the build jobs, for the conditions os(...) and arch(...).
+  -> FilePath
   -- ^ The root of the repository.
   -> FilePath
   -- ^ The project directory, relative to the root.
   -> IO (Either [String] Project)
-readProject root dir = runExceptT $ do
+readProject jobPlatform root dir = runExceptT $ do
   exists <- lift $ doesFileExist (root </> projectFile)
   ExceptT . linkErrors root $ [("The project file " ++ projectFile, projectFile) | exists]
   parts <- ExceptT $ readParts exists
@@ -127,7 +129,8 @@ readProject root dir = runExceptT $ do
     ExceptT $
       runCheck . traverse fromErrors
         <$> forM cabalFiles (\f -> readPackage root (inProject dir f) f)
-  except . runCheck $ projectFrom exists dir packages (byToken found packages) parts
+  except . runCheck $
+    projectFrom jobPlatform exists dir packages (byToken found packages) parts
   where
     projectFile :: FilePath
     projectFile = inProject dir "cabal.project"
@@ -550,7 +553,9 @@ readPackage root path relative = do
 
 -- | Make the project from its packages and parts.
 projectFrom
-  :: Bool
+  :: Platform
+  -- ^ The platform of the build jobs.
+  -> Bool
   -- ^ Whether @cabal.project@ exists.
   -> FilePath
   -> [Package]
@@ -558,7 +563,7 @@ projectFrom
   -- ^ The packages of an entry of @packages:@.
   -> [Part]
   -> Check Project
-projectFrom exists dir packages byToken parts = do
+projectFrom (Platform jobArch jobOS) exists dir packages byToken parts = do
   entries <- traverse (\p -> fromErrors $ entriesFromRange p.name p.ghcRange) packages
   let axis = L.sort (L.nub (concat entries))
   matrix <- dedupe (traverse matrixEntry axis)
@@ -661,8 +666,8 @@ projectFrom exists dir packages byToken parts = do
         fromEither $
           decideRange (location pos ++ "the condition impl(ghc " ++ prettyShow r ++ ")") r entry
       Var (Impl _ _) -> pure False
-      Var (OS os) -> pure (os == Linux)
-      Var (Arch arch) -> pure (arch == X86_64)
+      Var (OS os) -> pure (os == jobOS)
+      Var (Arch arch) -> pure (arch == jobArch)
       Var (PackageFlag f) ->
         failure $
           location pos

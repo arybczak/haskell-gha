@@ -3,6 +3,7 @@ module HaskellGha.Test.Project (projectTests) where
 import Control.Monad
 import Data.Either
 import Data.List qualified as L
+import Distribution.System
 import Distribution.Version
 import System.Directory
 import System.FilePath
@@ -67,24 +68,25 @@ test_parentProject =
             ++ "."
     write "cabal.project" "packages: repo/a\n"
     write "repo/a/a.cabal" (cabal "a" "GHC ^>= 9.10" False)
-    assertBool "a file above the root" . isRight =<< readProject root "a"
+    assertBool "a file above the root" . isRight =<< readProject linux root "a"
     write "repo/cabal.project" "packages: a\n"
     write "repo/sub/cabal.project" "packages: inner\n"
     write "repo/sub/inner/b.cabal" (cabal "b" "GHC ^>= 9.10" False)
-    assertEqual "the root" (Left [parentError "a" "cabal.project"]) =<< readProject root "a"
+    assertEqual "the root" (Left [parentError "a" "cabal.project"])
+      =<< readProject linux root "a"
     assertEqual
       "the nearest parent"
       (Left [parentError "sub/inner" "sub/cabal.project"])
-      =<< readProject root "sub/inner"
+      =<< readProject linux root "sub/inner"
     createDirectoryLink "sub/inner" (root </> "link")
     assertEqual
       "a symbolic link"
       (Left [parentError "link" "sub/cabal.project"])
-      =<< readProject root "link"
+      =<< readProject linux root "link"
 
 test_missingDirectory :: Assertion
 test_missingDirectory = do
-  result <- readProject "." "tests/does-not-exist"
+  result <- readProject linux "." "tests/does-not-exist"
   assertEqual
     "errors"
     (Left ["The project directory \"tests/does-not-exist\" does not exist."])
@@ -310,7 +312,7 @@ test_rootProject =
     assertEqual
       "errors of the package locations"
       (Left ["cabal.project:3:13: the package location \"b\" does not exist."])
-      =<< readProject root "."
+      =<< readProject linux root "."
     write "b/b.cabal" (cabal "b" "GHC ^>= 9.10" False)
     assertEqual
       "errors of the conditions"
@@ -318,7 +320,7 @@ test_rootProject =
           [ "cabal.project:2:1: the condition flag(dev) is not supported, because the tool does not know the value of the flag."
           ]
       )
-      =<< readProject root "."
+      =<< readProject linux root "."
 
 test_partialCondition :: Assertion
 test_partialCondition = do
@@ -436,17 +438,22 @@ test_not = do
 
 test_osArch :: Assertion
 test_osArch = do
-  project <-
-    readOk
+  linuxProject <- readOkOn linux files
+  assertEqual "linux" [(s 9 10, ["a", "b"])] (matrixOf linuxProject)
+  macosProject <- readOkOn (Platform AArch64 OSX) files
+  assertEqual "macos" [(s 9 10, ["a", "d"])] (matrixOf macosProject)
+  where
+    files :: [(FilePath, String)]
+    files =
       [
         ( "cabal.project"
-        , "packages: a\nif os(linux) && arch(x86_64)\n  packages: b\nif os(windows) || impl(ghcjs)\n  packages: c\n"
+        , "packages: a\nif os(linux) && arch(x86_64)\n  packages: b\nif os(windows) || impl(ghcjs)\n  packages: c\nif os(osx) && arch(aarch64)\n  packages: d\n"
         )
       , ("a/a.cabal", cabal "a" "GHC ^>= 9.10" False)
       , ("b/b.cabal", cabal "b" "GHC ^>= 9.10" False)
       , ("c/c.cabal", cabal "c" "GHC ^>= 9.10" False)
+      , ("d/d.cabal", cabal "d" "GHC ^>= 9.10" False)
       ]
-  assertEqual "matrix" [(s 9 10, ["a", "b"])] (matrixOf project)
 
 test_testedWithErrors :: Assertion
 test_testedWithErrors = do
@@ -603,18 +610,27 @@ cabal name testedWith testSuite =
         then ["test-suite test", "  type: exitcode-stdio-1.0", "  main-is: Main.hs"]
         else []
 
+linux :: Platform
+linux = Platform X86_64 Linux
+
 -- | Write the files of a project to a temporary directory and read it.
 readProjectFiles :: [(FilePath, String)] -> IO (Either [String] Project)
-readProjectFiles files =
+readProjectFiles = readProjectFilesOn linux
+
+readProjectFilesOn :: Platform -> [(FilePath, String)] -> IO (Either [String] Project)
+readProjectFilesOn p files =
   withSystemTempDirectory "haskell-gha-tests" $ \root -> do
     forM_ files $ \(path, contents) -> do
       createDirectoryIfMissing True (takeDirectory (root </> "PROJECT" </> path))
       writeFile (root </> "PROJECT" </> path) contents
-    readProject root "PROJECT"
+    readProject p root "PROJECT"
 
 readOk :: [(FilePath, String)] -> IO Project
-readOk files =
-  readProjectFiles files >>= \case
+readOk = readOkOn linux
+
+readOkOn :: Platform -> [(FilePath, String)] -> IO Project
+readOkOn p files =
+  readProjectFilesOn p files >>= \case
     Left errors -> assertFailure (unlines errors)
     Right project -> pure project
 

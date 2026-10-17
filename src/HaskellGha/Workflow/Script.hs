@@ -9,6 +9,7 @@ module HaskellGha.Workflow.Script
   , unpackScript
 
     -- * Scripts
+  , osScript
   , aptScript
   , setupScript
   , configureScript
@@ -77,6 +78,25 @@ unpackScript pkgs =
 ----------------------------------------
 -- Scripts
 
+-- | Stop the job if the runner has another operating system than the workflow.
+-- The tool cannot tell it from runs-on, e.g. from a runner group.
+osScript :: Os -> T.Text
+osScript os =
+  T.unlines
+    [ "if [ \"$RUNNER_OS\" != " <> runnerOs <> " ]; then"
+    , "  echo \"::error::The workflow is for "
+        <> runnerOs
+        <> ", but the runner has $RUNNER_OS. Change runs-on or os in the configuration.\""
+    , "  exit 1"
+    , "fi"
+    ]
+  where
+    -- The values of RUNNER_OS.
+    runnerOs :: T.Text
+    runnerOs = case os of
+      OsLinux -> "Linux"
+      OsMacos -> "macOS"
+
 -- | Install Ubuntu packages. A job in a container runs as root, and the image
 -- has no sudo. The runner images set DEBIAN_FRONTEND in /etc/environment, but
 -- the containers do not, and a debconf question there waits for an answer on
@@ -109,11 +129,13 @@ aptScript container packages =
 -- "ghc <version> ", so the two patterns match the exact version and a version
 -- of the series. cabal path reads the project unless it ignores it, and then
 -- it can clone a source-repository-package.
-setupScript :: CabalVersion -> T.Text
-setupScript (CabalVersion cabal) =
+setupScript :: Os -> CabalVersion -> T.Text
+setupScript os (CabalVersion cabal) =
   T.unlines
     [ "mkdir -p \"$RUNNER_TEMP\"/.ghcup/bin"
-    , "curl -fsSL -o \"$RUNNER_TEMP\"/.ghcup/bin/ghcup \"https://downloads.haskell.org/ghcup/$(uname -m)-linux-ghcup\""
+    , "curl -fsSL -o \"$RUNNER_TEMP\"/.ghcup/bin/ghcup \"https://downloads.haskell.org/ghcup/"
+        <> ghcupFile
+        <> "\""
     , "chmod +x \"$RUNNER_TEMP\"/.ghcup/bin/ghcup"
     , "export GHCUP_INSTALL_BASE_PREFIX=\"$RUNNER_TEMP\" PATH=\"$RUNNER_TEMP/.ghcup/bin:$PATH\""
     , "echo \"GHCUP_INSTALL_BASE_PREFIX=$RUNNER_TEMP\" >> \"$GITHUB_ENV\""
@@ -132,6 +154,13 @@ setupScript (CabalVersion cabal) =
     , "echo \"cabal-version=$(cabal --numeric-version)\" >> \"$GITHUB_OUTPUT\""
     , "echo \"cabal-store=$(cabal path -z --store-dir)\" >> \"$GITHUB_OUTPUT\""
     ]
+  where
+    -- On macOS, uname -m prints arm64, but the GHCup file says aarch64. The
+    -- tool supports macOS only on AArch64.
+    ghcupFile :: T.Text
+    ghcupFile = case os of
+      OsLinux -> "$(uname -m)-linux-ghcup"
+      OsMacos -> "aarch64-apple-darwin-ghcup"
 
 -- | Write the settings of the configuration to @cabal.project.local@. The file
 -- holds the settings of one developer, so a committed one is an error. The tool

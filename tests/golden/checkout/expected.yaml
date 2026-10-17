@@ -44,6 +44,13 @@ jobs:
       with:
         persist-credentials: false
 
+    - name: Make sure that the runner has the OS of the workflow
+      run: |
+        if [ "$RUNNER_OS" != Linux ]; then
+          echo "::error::The workflow is for Linux, but the runner has $RUNNER_OS. Change runs-on or os in the configuration."
+          exit 1
+        fi
+
     - name: Install GHC and cabal
       id: setup
       run: |

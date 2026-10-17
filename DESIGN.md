@@ -70,28 +70,59 @@ builds and CI use the same project.
 By default, the jobs run on the runner image. A job container is optional, see
 [Container](#container). Service containers are supported.
 
-The tool supports only Linux. Three rules keep macOS support easy to add later:
+The jobs run on Linux or macOS. A workflow has one operating system, set by the
+key `os`. A project that tests both has two workflows, each from its own
+configuration file. A single workflow for both systems would need an `os` axis
+in the matrix, with a service image and a `runs-on` that depend on it. macOS
+runners cannot run service containers, and GitHub has no plan to change that.
+Separate workflows also give separate checks on GitHub, so the macOS check can
+be optional.
 
-- The workflow sets `defaults.run.shell: bash`.
-- The cache key contains `runner.os`.
-- The path of the cabal store comes from `cabal path`. The other paths, also
-  the one of GHCup, are in `$HOME` or `$RUNNER_TEMP`, which macOS runners also
-  have.
+The tool does not take the operating system from `runs-on`. A runner group or a
+custom name of a larger runner does not show it, so the key `os` would be needed
+anyway. The first step after the checkout compares `RUNNER_OS` with `os`
+instead. It comes after the checkout, because the run steps start in the project
+directory.
 
-These parts of the tool work only on Linux:
+`container`, `services` and `apt` stay at the top level, and with `os: macos`
+they are errors. The fourmolu and HLint jobs do not depend on the operating
+system, so `fourmolu` and `hlint` are errors too. A key `linux` under `os` for
+the Linux-only keys was also possible. But it would not cover `fourmolu` and
+`hlint`, so it would add nesting and still need errors.
 
-- The build plan step uses `sha256sum`. macOS has `shasum -a 256` instead.
-- The `apt` step uses `apt-get`.
-- The setup step downloads the Linux build of GHCup.
-- The project reader decides `os(...)` and `arch(...)` for Linux on x86_64. The
-  `macos-latest` runner is macOS on AArch64.
-- Service containers need a Linux runner.
+The differences of the steps on macOS:
 
-The default `runs-on` is `ubuntu-26.04`, not `ubuntu-latest`. GitHub moves
-`ubuntu-latest` to a new Ubuntu release over some weeks. During that time, the
-jobs of one workflow run on different images. The tool pins the versions of the
-actions by default, and it pins the image for the same reason. Thus the workflow
-only changes with a new release of the tool or a change of the configuration.
+- The build plan step uses `shasum -a 256`, because macOS has no `sha256sum`. On
+  Linux, it keeps `sha256sum`, because `shasum` comes with Perl, which a
+  container image does not need to have.
+- The setup step downloads `aarch64-apple-darwin-ghcup`. On macOS, `uname -m`
+  prints `arm64`, which is not in the names of the GHCup files.
+- The gold linker step is only for Linux.
+- The project reader decides `os(...)` and `arch(...)` for the platform of `os`:
+  Linux on x86_64, or macOS on AArch64, the architecture of `macos-26`.
+
+The workflow sets `defaults.run.shell: bash`, and the cache key contains
+`runner.os`. The path of the cabal store comes from `cabal path`, and the other
+paths are in `$HOME` or `$RUNNER_TEMP`. Thus the other steps need no change for
+macOS.
+
+A CI test on `macos-26` on 2026-10-01 showed this, with `haskell-actions/setup`
+in place of the GHCup script. The workflows of haskell-gha and of the multi
+example passed on GHC 9.6 to 10.0. The passed steps included the source tarballs
+with `tar` and `extglob` in the bash of macOS, the semaphore, doctest and
+haddock. A macOS workflow with `runs-on: ubuntu-26.04` stopped in the runner
+check of each job. The GHCup script has no CI test on macOS yet.
+
+GHCup has AArch64 builds for macOS of each GHC release from 8.10.5 on, except
+9.0.1, as of 2026-10-17. On macOS, a job for 8.10.1 to 8.10.4 or 9.0.1 fails in
+the setup step.
+
+The default `runs-on` is `ubuntu-26.04` or `macos-26`, not `ubuntu-latest` or
+`macos-latest`. GitHub moves a `-latest` label to a new release over some weeks.
+During that time, the jobs of one workflow run on different images. The tool
+pins the versions of the actions by default, and it pins the image for the same
+reason. Thus the workflow only changes with a new release of the tool or a
+change of the configuration.
 
 The fourmolu and HLint jobs have their own optional `runs-on`. They need much
 less than a build job, e.g. a smaller self-hosted runner. Without the key, they
@@ -105,14 +136,14 @@ contain `ImageVersion`, because GitHub updates the image each week, and each
 update would start a new cache. In a job container, both variables are empty,
 and the cache key contains the image of the container instead.
 
-The cache keys also contain `runner.arch`. The tool supports only x86_64, but
-`runs-on` accepts an ARM runner, and the tool does not know whether `ImageOS`
-differs between the architectures. A doctest binary or a cabal store of another
-architecture does not run.
+The cache keys also contain `runner.arch`. On Linux, the tool supports only
+x86_64, but `runs-on` accepts an ARM runner, and the tool does not know whether
+`ImageOS` differs between the architectures. A doctest binary or a cabal store
+of another architecture does not run.
 
-An ARM runner, e.g. `ubuntu-24.04-arm`, gets the right GHCup build, because the
-setup step names it with `uname -m`. A check on 2026-10-17 found these limits on
-such a runner:
+An ARM runner with Linux, e.g. `ubuntu-24.04-arm`, gets the right GHCup build,
+because the setup step names it with `uname -m`. A check on 2026-10-17 found
+these limits on such a runner:
 
 - `run-fourmolu` v13 always downloads the x86_64 build of fourmolu, and the
   pinned `hlint-setup` fails on any architecture other than x86_64.
@@ -120,7 +151,7 @@ such a runner:
 - GHCup has AArch64 builds of each GHC release from 8.10.1 on. GHC before 9.2
   has no native code generator for AArch64, so 8.10 and 9.0 need LLVM on the
   runner.
-- The project reader decides `arch(...)` for x86_64.
+- The project reader decides `arch(...)` for x86_64 with `os: linux`.
 
 The reader runs when the tool writes the workflow, so `uname -m` there gives the
 machine of the developer, not the runner. Developers on different machines would
@@ -371,10 +402,10 @@ An error of an entry of `packages:` gives the position of the entry, as for an
 directory without a package gets the error for a project without packages.
 
 The reader parses each condition with `parseConditionConfVar` and decides it for
-each matrix entry. `os(linux)` and `arch(x86_64)` are true. `flag(...)` is an
-error, because the tool does not know the value of the flag. If one side of `||`
-is true or one side of `&&` is false, cabal ignores the other side. Thus an
-error in the other side does not count.
+each matrix entry. `os(...)` and `arch(...)` are true for the platform of `os`.
+`flag(...)` is an error, because the tool does not know the value of the flag.
+If one side of `||` is true or one side of `&&` is false, cabal ignores the
+other side. Thus an error in the other side does not count.
 
 The glob syntax of `packages:` is the cabal syntax. The reader parses it with
 the `Parsec` instance of `RootedGlob` and matches it with `matchGlob` from
@@ -953,7 +984,7 @@ in the copy, and it does not build the tool again.
 The tool does not support these features:
 
 - GHC older than 8.10.
-- macOS and Windows.
+- Windows, and macOS on Intel.
 - GHC head.
 - Benchmark runs.
 - stack.

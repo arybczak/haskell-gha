@@ -9,6 +9,7 @@ keys of the configuration file, see [Configuration](configuration.md).
 - [Dependencies](#dependencies)
 - [Source tarballs](#source-tarballs)
 - [Container](#container)
+- [macOS](#macos)
 - [Caches](#caches)
 - [Common failures](#common-failures)
 - [Known limits](#known-limits)
@@ -20,7 +21,8 @@ each version gets two jobs, one with the newest and one with the oldest
 dependencies. The extra axes of `matrix` multiply the jobs in the same way. A
 build job has these steps:
 
-1. Install the `apt` packages, then GHCup, and with it GHC and cabal. See
+1. Make sure that the runner has the operating system of the workflow. Install
+   the `apt` packages, then GHCup, and with it GHC and cabal. See
    [GHC versions](#ghc-versions).
 2. Unpack the source tarballs of the local packages into a separate directory.
    See [Source tarballs](#source-tarballs).
@@ -305,6 +307,38 @@ These points are different in a container:
   not exist in the container. Use `$RUNNER_TEMP` instead.
 - The cache keys contain the container image in place of the runner image.
 
+## macOS
+
+A workflow tests one operating system. To also test macOS, make a second
+workflow from its own configuration file, e.g.
+`.github/haskell-gha-macos.conf.yaml`:
+
+```yaml
+name: CI (macOS)
+os: macos
+```
+
+Give it its own `name`, so that the two workflows are easy to tell apart on
+GitHub. Then make the workflow:
+
+```
+haskell-gha --generate --config .github/haskell-gha-macos.conf.yaml --output haskell-gha-macos.yaml
+```
+
+Without `runs-on`, the build jobs run on `macos-26`. The tool supports only Macs
+with Apple Silicon. A macOS runner cannot run containers and has no apt, so
+`container`, `services` and `apt` are an error with `os: macos`. The fourmolu
+and HLint jobs do not depend on the operating system, so `fourmolu` and `hlint`
+are also an error. Keep them in the Linux workflow.
+
+If the tests need a service, e.g. a database, an `after-setup` hook can install
+and start it, e.g. with `brew`. To test fewer GHC versions on macOS, leave out
+the others with `matrix.exclude`, e.g. `- ghc: '9.6'`.
+
+The first step after the checkout makes sure that the runner has the operating
+system of the workflow. The tool cannot tell it from `runs-on`, e.g. from a
+runner group. If they differ, the job stops with an error.
+
 ## Caches
 
 Each workflow has its own caches of the cabal store. Their keys start with the
@@ -367,9 +401,9 @@ in a container. See [Container](#container).
   the tool applies the rules for package locations and `import:` lines to each
   branch. For example, a location in `packages:` must exist, and with
   `sdist: true` a local `import:` is an error.
-- The tool decides `os(...)` and `arch(...)` conditions for Linux on x86_64. It
-  assumes that no project selects its packages by operating system or
-  architecture.
+- The tool decides `os(...)` and `arch(...)` conditions for the system of `os`:
+  Linux on x86_64, or macOS on AArch64. A runner with another architecture, e.g.
+  an ARM runner with Linux, can select other packages than the tool read.
 
 ### Packages and jobs
 

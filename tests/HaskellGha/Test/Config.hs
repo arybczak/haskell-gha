@@ -136,7 +136,7 @@ test_example = do
         ]
   assertEqual "name" "Tests" config.name.value
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
-  assertEqual "runs-on" (plain "ubuntu-24.04") (normalize config.runsOn.value.value)
+  assertEqual "runs-on" (plain "ubuntu-24.04") (normalize (runner config).value.value)
   assertEqual "container" (Just (Container "buildpack-deps:22.04")) config.container
   assertEqual "timeout-minutes" 30 config.timeoutMinutes.value
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))

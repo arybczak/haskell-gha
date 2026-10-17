@@ -33,6 +33,7 @@ workflowTests =
     , testCase "the dependencies axis" test_dependenciesAxis
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "a range that includes no matrix entry" test_unusedRange
+    , testCase "the Linux-only keys in a macOS workflow" test_macosKeys
     , testCase "an unknown package in doctest.skip" test_unknownSkip
     , testCase "the errors of independent checks are collected" test_independentChecks
     , testCase "the command line in the header" test_headerCommandLine
@@ -93,7 +94,7 @@ test_comments = do
         , "    # The last lines."
         , "  # The end of the hooks."
         ]
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
   let rendered = T.lines $ renderWorkflow defaultOptions node
@@ -129,7 +130,7 @@ test_hlintPathOutside = do
     [ "conf.yml:3:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     , "conf.yml:3:16: hlint.path[1]: the path /abs is not in the repository. Give a path relative to the project directory."
     ]
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
@@ -148,7 +149,7 @@ test_hookStepId = do
     [ "conf.yml:3:9: hooks.after-setup[0].id: the build job already has a step with the id cache. Give the hook step another id."
     , "conf.yml:6:9: hooks.after-build[0].id: the build job already has a step with the id setup, and GitHub compares the ids without case. Give the hook step another id."
     ]
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hooks:\n  after-build:\n  - id: doctest\n    run: echo a\n"
@@ -208,7 +209,7 @@ test_controlCharacters =
 
 test_sdistNamePrefix :: Assertion
 test_sdistNamePrefix = do
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -231,7 +232,7 @@ test_sdistNamePrefix = do
 
 test_scriptQuoting :: Assertion
 test_scriptQuoting = do
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -270,7 +271,7 @@ test_hlintPaths = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
       BS8.pack "hlint:\n  enabled: true\n  path: [src, 'a\"b\\c']\n"
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
   assertEqual
@@ -283,7 +284,7 @@ test_hlintPaths = do
 
 test_sdistOutside :: Assertion
 test_sdistOutside = do
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   p <- case project.packages of
     [p] -> pure p
     ps -> assertFailure ("packages: " ++ show ps)
@@ -317,7 +318,7 @@ test_sdistOutside = do
 
 test_importOutside :: Assertion
 test_importOutside = do
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   let changed =
         project
           { imports =
@@ -391,7 +392,7 @@ test_dependenciesAxis = do
     assertValid input = do
       (config, source) <-
         either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
-      project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+      project <- singleProject
       either
         (assertFailure . unlines)
         (const (pure ()))
@@ -411,6 +412,17 @@ test_unusedRange =
     [ "conf.yml:3:8: doctest.ghc: the range >=9.14 includes no GHC version of the matrix, which contains only 9.6.7, 9.10, 9.12"
     ]
 
+test_macosKeys :: Assertion
+test_macosKeys =
+  assertErrors
+    "os: macos\ncontainer: buildpack-deps:26.04\napt: [libpq-dev]\nservices:\n  db:\n    image: postgres\nfourmolu:\n  enabled: true\nhlint:\n  enabled: true\n"
+    [ "conf.yml:2:12: container: a macOS runner cannot run a job container. Remove the key, or set os: linux."
+    , "conf.yml:3:6: apt: a macOS runner has no apt. Remove the key, or set os: linux."
+    , "conf.yml:5:3: services: a macOS runner cannot run service containers. Remove the key, or set os: linux."
+    , "conf.yml:8:3: fourmolu: the fourmolu job does not depend on the operating system, so it belongs in the Linux workflow. Remove the key, or set os: linux."
+    , "conf.yml:10:3: hlint: the HLint job does not depend on the operating system, so it belongs in the Linux workflow. Remove the key, or set os: linux."
+    ]
+
 test_independentChecks :: Assertion
 test_independentChecks =
   assertErrors
@@ -425,13 +437,19 @@ test_unknownSkip =
     "doctest:\n  enabled: true\n  skip: [other]\n"
     ["conf.yml:3:10: doctest.skip[0]: the project has no local package other"]
 
+-- | The project of the golden test @single@.
+singleProject :: IO Project
+singleProject =
+  readProject (platform OsLinux) "tests/golden" "single"
+    >>= either (assertFailure . unlines) pure
+
 -- | The first lines of the errors for a configuration and the project of the
 -- golden test @single@. The other lines show the line of the configuration.
 assertErrors :: String -> [String] -> Assertion
 assertErrors input expected = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $ BS8.pack input
-  project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
+  project <- singleProject
   assertEqual
     "errors"
     (Left expected)

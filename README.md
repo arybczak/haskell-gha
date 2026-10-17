@@ -4,7 +4,7 @@
 
 `haskell-gha` writes a GitHub Actions workflow for a Haskell cabal project. The
 workflow builds and tests the project on each GHC version from the `tested-with`
-field of its packages, in separate jobs. Only Linux is supported.
+field of its packages, in separate jobs. The jobs run on Linux or macOS.
 
 ## Features
 
@@ -102,5 +102,5 @@ For a complete workflow, see the
   each key of the configuration file.
 - [Guide](https://github.com/arybczak/haskell-gha/blob/master/docs/guide.md):
   the command line, the steps of the workflow, the GHC versions, the
-  dependencies, the source tarballs, the container, the caches, common failures
-  and known limits.
+  dependencies, the source tarballs, the container, macOS, the caches, common
+  failures and known limits.

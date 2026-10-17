@@ -111,6 +111,13 @@ jobs:
         persist-credentials: false
         submodules: recursive
 
+    - name: Make sure that the runner has the OS of the workflow
+      run: |
+        if [ "$RUNNER_OS" != Linux ]; then
+          echo "::error::The workflow is for Linux, but the runner has $RUNNER_OS. Change runs-on or os in the configuration."
+          exit 1
+        fi
+
     - name: Install the system packages
       run: |
         sudo apt-get update

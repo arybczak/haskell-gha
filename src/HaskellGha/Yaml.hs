@@ -9,6 +9,7 @@ module HaskellGha.Yaml
   , mapBefore
 
     -- * Inspection
+  , field
   , stringField
 
     -- * Rendering
@@ -52,15 +53,17 @@ mapBefore f n = withComments n.comments {before = f n.comments.before} n
 ----------------------------------------
 -- Inspection
 
+-- | The value of a key of a mapping.
+field :: T.Text -> Node -> Maybe Node
+field key n = case n.content of
+  MappingContent _ entries ->
+    listToMaybe [v | (Node {content = ScalarContent _ k}, v) <- entries, k == key]
+  _ -> Nothing
+
 -- | The scalar value of a key of a mapping, with its position.
 stringField :: T.Text -> Node -> Maybe (Located T.Text)
-stringField key n = case n.content of
-  MappingContent _ entries ->
-    listToMaybe
-      [ Located t v.offset
-      | (Node {content = ScalarContent _ k}, v@Node {content = ScalarContent _ t}) <- entries
-      , k == key
-      ]
+stringField key n = case field key n of
+  Just v@Node {content = ScalarContent _ t} -> Just (Located t v.offset)
   _ -> Nothing
 
 ----------------------------------------

@@ -8,11 +8,13 @@ module HaskellGha.Workflow.Validate
 import Control.Monad
 import Data.Foldable
 import Data.List qualified as L
+import Data.Maybe
 import Data.Text qualified as T
 import Distribution.Pretty
 import Distribution.Version
 import System.FilePath
 import Yamlet
+import Yamlet.Syntax
 
 import HaskellGha.Check
 import HaskellGha.Command.Options
@@ -32,6 +34,7 @@ validateWorkflow
   -- ^ The ids of the steps that the tool makes in the build job.
   -> Check ()
 validateWorkflow opts source config project stepIds = do
+  checkOs
   traverse_ checkGhcValue (combinationValues "ghc" combinations)
   checkDependencies
   when config.doctest.enabled $ do
@@ -56,6 +59,33 @@ validateWorkflow opts source config project stepIds = do
     -- An error at a value of the configuration, with its position.
     failureAt :: Offset -> String -> Check ()
     failureAt off msg = traverse_ failure (sourceErrors source [(off, msg)])
+
+    -- The error is at the value of the key in the configuration file.
+    checkOs :: Check ()
+    checkOs = case config.os of
+      OsLinux -> pure ()
+      OsMacos ->
+        traverse_
+          linuxOnly
+          [ ("container", isJust config.container, "a macOS runner cannot run a job container")
+          , ("apt", not (null config.apt), "a macOS runner has no apt")
+          , ("services", isJust config.services, "a macOS runner cannot run service containers")
+          , ("fourmolu", config.fourmolu.enabled, ownJob "fourmolu")
+          , ("hlint", config.hlint.enabled, ownJob "HLint")
+          ]
+      where
+        linuxOnly :: (T.Text, Bool, String) -> Check ()
+        linuxOnly (key, used, reason) =
+          when used $
+            traverse_
+              (\v -> failureAt v.offset (reason ++ ". Remove the key, or set os: linux."))
+              (field key source.document.root)
+
+        ownJob :: String -> String
+        ownJob job =
+          "the "
+            ++ job
+            ++ " job does not depend on the operating system, so it belongs in the Linux workflow"
 
     -- The action gets the path on the runner, where only the repository exists.
     checkHLintPath :: Located HLintPath -> Check ()

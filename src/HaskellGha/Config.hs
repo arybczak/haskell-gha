@@ -4,6 +4,9 @@
 module HaskellGha.Config
   ( -- * Configuration
     Config (..)
+  , Os (..)
+  , platform
+  , runner
   , CabalVersion (..)
   , Container (..)
   , Submodules (..)
@@ -54,6 +57,7 @@ import Data.List.NonEmpty qualified as NE
 import Data.Maybe
 import Data.Text qualified as T
 import Distribution.Parsec
+import Distribution.System
 import Distribution.Version
 import System.Directory hiding (Permissions)
 import System.FilePath
@@ -65,8 +69,10 @@ import HaskellGha.Yaml
 -- | The configuration.
 data Config = Config
   { name :: Commented T.Text
+  , os :: Os
   , cabalVersion :: CabalVersion
-  , runsOn :: Commented RunsOn
+  , runsOn :: Optional (Commented RunsOn)
+  -- ^ 'Nothing' gives the pinned image of 'os', see 'runner'.
   , container :: Maybe Container
   , timeoutMinutes :: Positive
   , branches :: Commented (NE.NonEmpty (Commented T.Text))
@@ -223,6 +229,34 @@ instance FromYaml Container where
       versions :: [T.Text]
       versions = ["22.04", "24.04", "26.04"]
 
+-- | The operating system of the build jobs. A workflow has one, so a project
+-- that tests two has two workflows.
+data Os
+  = OsLinux
+  | OsMacos
+  deriving stock (Eq, Show, Generic)
+  deriving (FromYaml) via GenericYaml Os
+
+instance GenericYamlOptions Os where
+  yamlOptions = defaultYamlOptions {constructorTagModifier = map toLower . drop (length @[] "Os")}
+
+-- | The platform of the pinned image of the operating system, for the
+-- conditions of @cabal.project@. macos-26 runs on Apple Silicon.
+platform :: Os -> Platform
+platform = \case
+  OsLinux -> Platform X86_64 Linux
+  OsMacos -> Platform AArch64 OSX
+
+-- | The runner of the build jobs: the runs-on of the configuration, or the
+-- pinned image of the operating system.
+runner :: Config -> Commented RunsOn
+runner config = fromMaybe (Commented (RunsOn (plain image)) noComments) config.runsOn.value
+  where
+    image :: T.Text
+    image = case config.os of
+      OsLinux -> "ubuntu-26.04"
+      OsMacos -> "macos-26"
+
 -- | The versions of the dependencies that the build jobs use.
 data Dependencies
   = DependenciesNewest
@@ -290,8 +324,9 @@ defaultConfig :: Config
 defaultConfig =
   Config
     { name = bare "CI"
+    , os = OsLinux
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
-    , runsOn = bare (RunsOn (plain "ubuntu-26.04"))
+    , runsOn = Optional Nothing
     , container = Nothing
     , -- Without a limit, GitHub stops a job only after six hours. A build
       -- usually takes way less than an hour, so 60 leaves room for a build
