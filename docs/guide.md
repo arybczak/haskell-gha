@@ -131,8 +131,19 @@ do not install it by default.
 
 ### Packages for some GHC versions only
 
-If the packages of a project support different GHC versions, put each package in
-a conditional block in `cabal.project`:
+Most projects need no change to `cabal.project`. This section applies only to a
+project with several packages that support different GHC versions, e.g. a new
+package that needs a newer GHC than the others.
+
+cabal can select the packages of a project by the GHC version with a conditional
+block in `cabal.project`. The block is a part of the project, not a setting of
+CI, so it also applies to a local build. Thus CI and a local build use the same
+packages. For the syntax, see
+[Conditionals and imports](https://cabal.readthedocs.io/en/stable/cabal-project-description-file.html#conditionals-and-imports)
+in the cabal documentation.
+
+For example, with this `cabal.project`, cabal builds the package `new` only with
+GHC 9.10 and later:
 
 ```
 packages: core
