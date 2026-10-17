@@ -26,10 +26,9 @@ import HaskellGha.Path
 
 -- | What the tool does.
 data Command
-  = -- | Make one workflow, with @--generate@.
+  = -- | Generate one workflow, with @--generate@.
     Generate Options
-  | -- | Make each workflow that the tool generated again, with the command in
-    -- its header.
+  | -- | Regenerate each workflow, with the command in its header.
     Regenerate
   | -- | Make sure that each generated workflow is up to date, with
     -- @--check@.
@@ -77,15 +76,15 @@ optionsParser version =
     ((generate <|> check) <**> versionOption <**> helper)
     ( fullDesc
         <> progDesc
-          ( "Write a GitHub Actions workflow that builds and tests a cabal project on each GHC version from tested-with. Without --generate, make each workflow in "
+          ( "Write a GitHub Actions workflow that builds and tests a cabal project on each GHC version from tested-with. Without --generate, regenerate each workflow in "
               ++ workflowDirectory
-              ++ " that the tool generated again, with the command in its header."
+              ++ ", with the command in its header."
           )
     )
   where
     generate :: Parser Command
     generate =
-      flag' () (long "generate" <> help "Make one workflow with the options below")
+      flag' () (long "generate" <> help "Generate one workflow with the options below")
         *> (Generate <$> options)
 
     check :: Parser Command

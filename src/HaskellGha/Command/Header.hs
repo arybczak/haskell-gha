@@ -1,5 +1,5 @@
 -- | The header of a workflow file. It holds the command that generates the
--- file, so a run without @--generate@ can generate the file again.
+-- file, so a run without @--generate@ can regenerate the file.
 module HaskellGha.Command.Header
   ( -- * Writing
     renderWorkflow

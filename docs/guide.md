@@ -47,7 +47,7 @@ GHC, so each runs once, at the same time as the build jobs.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--generate` | | Make one workflow with the options below. Without it, the tool makes all generated workflows again. If the workflow file exists and the tool did not generate it, the tool stops with an error and does not change the file. |
+| `--generate` | | Generate one workflow with the options below. Without it, the tool regenerates each workflow. If the workflow file exists and the tool did not generate it, the tool stops with an error and does not change the file. |
 | `--config FILE` | `.github/haskell-gha.conf.yaml` | The configuration file. If the default file does not exist, all keys take their defaults. A file that you name with this option must exist. It must be a relative path in the repository. |
 | `--project-dir DIR` | `.` | The directory that contains `cabal.project` or the package. It must be a relative path in the repository. If it has no `cabal.project`, no parent directory in the repository may have one, because cabal would use that file. |
 | `--output NAME` | `haskell-gha.yaml` | The name of the workflow file in `.github/workflows`, e.g. `ci.yaml`. It must end with `.yml` or `.yaml` and must not contain a directory, because GitHub reads only such files. It must not contain a comma, because the name is a part of the cache keys. |
@@ -63,11 +63,11 @@ current directory must contain `.git`.
 
 ### Keeping the workflow up to date
 
-Each workflow file starts with a header comment that gives the command that made
-the file. Without options, the tool finds each file in `.github/workflows` with
-this header and generates the workflow again with the options from the header.
-If no file has the header, the tool stops with an error. Each error of a
-workflow starts with the name of its file.
+Each workflow file starts with a header comment that gives the command that
+generated the file. Without options, the tool finds each file in
+`.github/workflows` with this header and regenerates the workflow with the
+options from the header. If no file has the header, the tool stops with an
+error. Each error of a workflow starts with the name of its file.
 
 The `--output` of the command in the header must be the name of the file itself,
 so a renamed workflow file is an error. To rename a workflow file, run the
@@ -81,18 +81,18 @@ with `--check`:
 haskell-gha --check
 ```
 
-With `--check`, the tool generates each workflow again and compares the result
-with the committed file. It writes no file. If a file differs, the tool exits
-with code 1. If a new version of the tool makes a different workflow, run it
-again and commit the files.
+With `--check`, the tool regenerates each workflow and compares the result with
+the committed file. It writes no file. If a file differs, the tool exits with
+code 1. If a new version of the tool generates a different workflow, regenerate
+the workflows and commit the files.
 
 ### More than one workflow
 
-To make a second workflow, e.g. one that tests only the lower bounds of the
+To generate a second workflow, e.g. one that tests only the lower bounds of the
 dependencies, run `--generate` with its own `--config` and `--output`. Give it
 its own `name` in its configuration file, so that the two workflows are easy to
-tell apart on GitHub. After that, `haskell-gha` without options makes both
-workflows again.
+tell apart on GitHub. After that, `haskell-gha` without options regenerates
+both workflows.
 
 ## GHC versions
 

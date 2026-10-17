@@ -1,5 +1,5 @@
--- | The checks of the configuration against the project, before the tool makes
--- the workflow.
+-- | The checks of the configuration against the project, before the tool
+-- generates the workflow.
 module HaskellGha.Workflow.Validate
   ( -- * Validation
     validateWorkflow
@@ -22,7 +22,8 @@ import HaskellGha.Project
 import HaskellGha.Project.Ghc
 import HaskellGha.Yaml
 
--- | Check that the workflow can be made from the configuration and the project.
+-- | Check that the workflow can be generated from the configuration and the
+-- project.
 validateWorkflow
   :: Options
   -> ConfigSource

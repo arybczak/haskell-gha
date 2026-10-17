@@ -39,7 +39,7 @@ is an exact release or a major series, e.g.:
 tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12
 ```
 
-In the root of your repository, make the workflow:
+In the root of your repository, generate the workflow:
 
 ```
 haskell-gha --generate
@@ -47,7 +47,7 @@ haskell-gha --generate
 
 The tool writes `.github/workflows/haskell-gha.yaml`. Commit this file. After a
 change to `tested-with`, to the packages of the project or to the configuration
-file of haskell-gha, see [Example](#example), make the workflow again:
+file of haskell-gha, see [Example](#example), regenerate the workflow:
 
 ```
 haskell-gha
@@ -104,7 +104,7 @@ GHC 9.12, oldest
   oldest ones. Each job installs `libsodium-dev` and starts Postgres. After the
   build, it creates the test database, and then it runs the tests and doctest.
 
-The tool makes
+The tool generates
 [this workflow](https://github.com/arybczak/haskell-gha/blob/master/tests/golden/readme/expected.yaml)
 from the configuration.
 

@@ -216,13 +216,13 @@ it.
 
 ## Command line
 
-The tool has no subcommands, but it has three modes. With `--generate`, it makes
-one workflow from the options. Without options, it makes each generated workflow
-again. With `--check`, it makes each generated workflow in memory and compares
-it with its file. Most repositories have one workflow, so the common commands
-need no options for the workflow.
+The tool has no subcommands, but it has three modes. With `--generate`, it
+generates one workflow from the options. Without options, it regenerates each
+workflow. With `--check`, it regenerates each workflow in memory and compares it
+with its file. Most repositories have one workflow, so the common commands need
+no options for the workflow.
 
-Each mode has one meaning. A run without options never makes a new workflow,
+Each mode has one meaning. A run without options never generates a new workflow,
 e.g. if no generated workflow exists, the run is an error. `--check` does not
 work with `--generate`, because every generated workflow has a header, and a run
 with `--check` already covers it.
@@ -237,11 +237,11 @@ GitHub never reads, without any sign of the mistake. Thus `--generate` needs
 generated workflow in a subdirectory, and `actions/checkout` without git gives a
 checkout without `.git`, where `--check` must still work.
 
-The header comment of the workflow gives the command that made the file. If the
-user gave `--config`, the command contains it, also with the default path. The
-command also contains each other option that is not a default. The configuration
-file must be a relative path in the repository, because a run with `--check` in
-CI or in another checkout reads it from the header.
+The header comment of the workflow gives the command that generated the file. If
+the user gave `--config`, the command contains it, also with the default path.
+The command also contains each other option that is not a default. The
+configuration file must be a relative path in the repository, because a run with
+`--check` in CI or in another checkout reads it from the header.
 
 Two rules apply to each path that the tool reads or writes, and to each path
 that the workflow uses on the runner, e.g. `hlint.path` and the local file of an
@@ -285,8 +285,8 @@ would make the tool write to the old path.
 `--output` gives only the name of the file in `.github/workflows`, and the name
 must end with `.yml` or `.yaml`. GitHub reads only the files directly in that
 directory with these extensions, and a run without `--generate` finds only them.
-Another path would give a workflow that never runs and that the tool never makes
-again. A name cannot give such a path, so the tool needs no check for an
+Another path would give a workflow that never runs and that the tool never
+regenerates. A name cannot give such a path, so the tool needs no check for an
 absolute path or a path outside the repository.
 
 The tool works in a sequence of phases. It reads the configuration. Then it
@@ -545,7 +545,7 @@ sequentially, and `-Werror` makes the warning an error. cabal 3.18 and later use
 only version 2, and older cabal only version 1. The semaphore step therefore
 uses the semaphore only if GHC and cabal use the same version, and otherwise
 gives each local package `ghc-options: -j<N>`, like the step for older GHC
-versions. The tool knows the cabal version when it makes the workflow.
+versions. The tool knows the cabal version when it generates the workflow.
 
 GHC 9.14.1.20260916, 9.14.2-rc2 and 10.0.0.20260917 show the entry
 `("Semaphore version","2")` in `ghc --info`. GHC 9.14.1 and older have no such

@@ -27,7 +27,7 @@ import HaskellGha.Workflow.Script
 import HaskellGha.Workflow.Validate
 import HaskellGha.Yaml
 
--- | Make the workflow.
+-- | Generate the workflow.
 workflow :: Options -> ConfigSource -> Config -> Project -> Either [String] Node
 workflow opts source config project =
   runCheck $ validateWorkflow opts source config project stepIds $> root

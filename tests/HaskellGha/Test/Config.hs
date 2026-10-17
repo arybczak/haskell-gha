@@ -205,8 +205,8 @@ test_example = do
     )
     config.actions
 
--- The golden test readme makes a workflow from the example configuration of the
--- README, so the example stays valid.
+-- The golden test readme generates a workflow from the example configuration of
+-- the README, so the example stays valid.
 test_readmeExample :: Assertion
 test_readmeExample = do
   readme <- T.decodeUtf8 <$> BS.readFile "README.md"
