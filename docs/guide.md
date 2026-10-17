@@ -269,6 +269,27 @@ You can also test the lower bounds in a second workflow with
 The main workflow can then be a required check on GitHub, and the second
 workflow an optional one.
 
+### Libraries that come with GHC
+
+GHC comes with some libraries, e.g. `containers` and `text`. The workflow uses
+the same build plan as a local build, so cabal can pick a newer version of such
+a library from Hackage. Unlike `haskell-ci`, the workflow does not pin these
+libraries to the versions that come with GHC.
+
+To check that the project also builds with those versions, add an `installed`
+constraint for each library to `cabal.project`:
+
+```
+constraints: containers installed, text installed
+```
+
+The constraint then also applies to a local build. If only CI needs it, put the
+line in `cabal-project-local` in the configuration file of haskell-gha instead.
+If a GHC version comes with a library version that the bounds exclude, cabal
+finds no build plan for it. Then put the constraint in an `impl(ghc ...)` block
+for the other GHC versions, see
+[Packages for some GHC versions only](#packages-for-some-ghc-versions-only).
+
 ## Source tarballs
 
 A user who installs a package from Hackage gets only the files of its source
