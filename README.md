@@ -85,16 +85,28 @@ fourmolu:
   enabled: true
 ```
 
-With the `tested-with` field above, the workflow has these jobs:
+For a package with `tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12`, GitHub
+shows these jobs:
 
-- Six build jobs: for each GHC version, one with the newest dependencies and one
-  with the oldest. Each job installs `libsodium-dev` and starts Postgres. After
-  the build, it creates the test database, and then it runs the tests and
-  doctest.
-- A fourmolu job that checks the formatting.
+```
+Fourmolu
+GHC 9.6.7, newest
+GHC 9.6.7, oldest
+GHC 9.10, newest
+GHC 9.10, oldest
+GHC 9.12, newest
+GHC 9.12, oldest
+```
 
-For a complete workflow, see the
-[workflow of this repository](https://github.com/arybczak/haskell-gha/blob/master/.github/workflows/haskell-gha.yaml).
+- The fourmolu job checks the formatting.
+- Each GHC version has two build jobs. The `newest` job builds with the newest
+  dependency versions that the bounds allow, and the `oldest` job with the
+  oldest ones. Each job installs `libsodium-dev` and starts Postgres. After the
+  build, it creates the test database, and then it runs the tests and doctest.
+
+The tool makes
+[this workflow](https://github.com/arybczak/haskell-gha/blob/master/tests/golden/readme/expected.yaml)
+from the configuration.
 
 ## Documentation
 
