@@ -1,0 +1,5 @@
+name: CI (wrong runner)
+os: macos
+ghc: '^>= 9.14'
+runs-on: ubuntu-26.04
+branches: [macos-support]

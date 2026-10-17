@@ -1,0 +1,11 @@
+name: CI (macOS)
+os: macos
+ghc: '>= 9.14'
+hooks:
+  after-setup:
+  # The image macos-26-arm64 20261013.0424.1 links with an Xcode linker that
+  # cannot read the SDK of the Command Line Tools, see
+  # https://github.com/actions/runner-images/issues/14940.
+  - name: Use the linker of the Command Line Tools
+    run: sudo xcode-select -s /Library/Developer/CommandLineTools
+branches: [master, macos-support]

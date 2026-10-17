@@ -1,5 +1,6 @@
 branches:
 - master
+- macos-support
 hooks:
   after-build:
   # The tool makes both workflows of the repository. A pull request that
