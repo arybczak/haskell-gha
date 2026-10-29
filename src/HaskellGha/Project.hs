@@ -521,7 +521,7 @@ readPackage root path relative = do
     doctestArguments :: PackageDescription -> IO [[String]]
     doctestArguments pd = fmap (L.nub . filter (not . null)) . forM (toList (library pd) ++ subLibraries pd) $ \lib -> do
       let bi = libBuildInfo lib
-          dirs = map (normalise . Path.getSymbolicPath) (hsSourceDirs bi)
+          dirs = map (normalisePath . Path.getSymbolicPath) (hsSourceDirs bi)
       -- The package directory can also contain other components, e.g. the
       -- tests, so it gives the files of the exposed modules instead.
       sources <- fmap concat . forM (if null dirs then ["."] else L.nub dirs) $ \case

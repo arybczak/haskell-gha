@@ -21,6 +21,7 @@ import Yamlet.Syntax
 import HaskellGha.Check
 import HaskellGha.Command.Options
 import HaskellGha.Config
+import HaskellGha.Path
 import HaskellGha.Project
 import HaskellGha.Project.Ghc
 import HaskellGha.Workflow.Script
@@ -98,7 +99,7 @@ workflow opts source config project =
     workingDirectory = ["working-directory" .= plain (T.pack projectDir) | projectDir /= "."]
 
     projectDir :: FilePath
-    projectDir = dropTrailingPathSeparator (normalise opts.projectDir)
+    projectDir = normalisePath opts.projectDir
 
     job :: Node
     job =
@@ -189,7 +190,7 @@ workflow opts source config project =
         paths
           | null h.path = [projectDir]
           | otherwise =
-              [ dropTrailingPathSeparator (normalise (projectDir </> T.unpack p.value.value))
+              [ normalisePath (projectDir </> T.unpack p.value.value)
               | p <- h.path
               ]
 

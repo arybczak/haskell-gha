@@ -10,6 +10,7 @@ module HaskellGha.Path
     -- * Text
   , leadsAbove
   , isUrl
+  , normalisePath
   ) where
 
 import Control.Exception
@@ -40,6 +41,11 @@ leadsAbove = any (< 0) . scanl (+) 0 . map depth . splitDirectories
 -- and not a path.
 isUrl :: String -> Bool
 isUrl = L.isInfixOf "://"
+
+-- | One spelling of a path, e.g. @src@ for @./src/@. 'normalise' alone keeps a
+-- trailing separator, so @./@ stays @./@ and not @.@.
+normalisePath :: FilePath -> FilePath
+normalisePath = dropTrailingPathSeparator . normalise
 
 -- | Why a path, relative to the root of the repository, does not work on the
 -- runner, if it does not. The path follows each symbolic link, also a broken

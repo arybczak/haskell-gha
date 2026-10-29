@@ -42,6 +42,9 @@ projectTests =
     , testCase
         "doctest sources in the package directory and a subdirectory"
         test_doctestRootAndSubdirectory
+    , testCase
+        "doctest sources with a trailing separator"
+        test_doctestTrailingSeparator
     , testCase "a missing project directory" test_missingDirectory
     , testCase "a cabal.project in a parent directory" test_parentProject
     ]
@@ -564,6 +567,31 @@ test_doctestRootAndSubdirectory = do
             , "tested-with: GHC ^>= 9.10"
             , "library"
             , "  hs-source-dirs: . src"
+            , "  exposed-modules: Root Inner"
+            ]
+        )
+      , ("Root.hs", "")
+      , ("src/Inner.hs", "")
+      , ("test/Main.hs", "")
+      ]
+  assertEqual
+    "doctest arguments"
+    [[["Root.hs", "src"]]]
+    (map (.doctestArgs) project.packages)
+
+test_doctestTrailingSeparator :: Assertion
+test_doctestTrailingSeparator = do
+  project <-
+    readOk
+      [
+        ( "a.cabal"
+        , unlines
+            [ "cabal-version: 3.0"
+            , "name: a"
+            , "version: 0"
+            , "tested-with: GHC ^>= 9.10"
+            , "library"
+            , "  hs-source-dirs: ./ src src/"
             , "  exposed-modules: Root Inner"
             ]
         )
