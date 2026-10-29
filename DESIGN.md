@@ -313,9 +313,10 @@ node, so their errors have the same form.
 
 A key without a value is an error, not the default. Only a missing key takes the
 default, so a key that the user forgot to fill in does not silently disable or
-change a feature. YAML reads a key without a value as `null`. For `container`
-and `services`, `null` is a valid value, and it means none. That is also their
-default, so the value changes nothing.
+change a feature. YAML reads a key without a value as `null`. This holds also
+for a key whose default is none, e.g. `container`. A `container` key without
+the image would otherwise run the build jobs on the runner, and CI would pass
+without a sign of the mistake.
 
 The value of a text key must be a YAML string. Every YAML reader reads an
 unquoted `3.10` as the number 3.1. Thus an unquoted value that the YAML 1.2 core

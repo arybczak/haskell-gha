@@ -6,9 +6,9 @@ file, all keys take their defaults. For an example, see the
 [README](../README.md#example).
 
 The file is YAML, and it needs only the keys that differ from the defaults. An
-unknown key is an error, and so is a key without a value, except `container`
-and `services`. A text value must be a YAML string, so quote a value that YAML
-reads as a number, e.g. `'3.10'`, which is otherwise the number 3.1.
+unknown key is an error, and so is a key without a value. A text value must be
+a YAML string, so quote a value that YAML reads as a number, e.g. `'3.10'`,
+which is otherwise the number 3.1.
 
 - [Workflow and jobs](#workflow-and-jobs)
 - [Hooks](#hooks)

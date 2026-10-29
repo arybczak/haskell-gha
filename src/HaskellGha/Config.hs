@@ -67,13 +67,13 @@ data Config = Config
   { name :: Commented T.Text
   , cabalVersion :: CabalVersion
   , runsOn :: Commented RunsOn
-  , container :: Maybe Container
+  , container :: Optional Container
   , timeoutMinutes :: Positive
   , branches :: Commented (NE.NonEmpty (Commented T.Text))
   , submodules :: Submodules
   , matrix :: Commented Matrix
   , apt :: [T.Text]
-  , services :: Maybe (Commented MappingNode)
+  , services :: Optional (Commented MappingNode)
   , permissions :: Commented Permissions
   , hooks :: Hooks
   , ghcOptions :: GhcOptions
@@ -292,7 +292,7 @@ defaultConfig =
     { name = bare "CI"
     , cabalVersion = CabalVersion (mkVersion [3, 16, 1, 0])
     , runsOn = bare (RunsOn (plain "ubuntu-26.04"))
-    , container = Nothing
+    , container = Optional Nothing
     , -- Without a limit, GitHub stops a job only after six hours. A build
       -- usually takes way less than an hour, so 60 leaves room for a build
       -- without a cache.
@@ -309,7 +309,7 @@ defaultConfig =
             , exclude = []
             }
     , apt = []
-    , services = Nothing
+    , services = Optional Nothing
     , permissions = bare (Permissions (mapping ["contents" .= plain "read"]))
     , hooks = Hooks {afterSetup = [], afterBuild = []}
     , ghcOptions = GhcOptions "-Werror"

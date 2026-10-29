@@ -107,9 +107,9 @@ workflow opts source config project =
           [ "name" .= jobName
           , runsOn (Just config.runsOn)
           ]
-        , ["container" .= plain c.image | Just c <- [config.container]]
+        , ["container" .= plain c.image | Just c <- [config.container.value]]
         , [timeout]
-        , ["services" .= copied s | Just s <- [config.services]]
+        , ["services" .= copied s | Just s <- [config.services.value]]
         ,
           [ "strategy"
               .= mapping
@@ -271,13 +271,16 @@ workflow opts source config project =
     setupSteps =
       concat
         [ [checkoutStep config.submodules]
-        , [ runStep "Install the system packages" Nothing (aptScript config.container config.apt)
+        , [ runStep
+              "Install the system packages"
+              Nothing
+              (aptScript config.container.value config.apt)
           | not (null config.apt)
           ]
         , [ runStep
               "Install the gold linker"
               (Just goldEntries)
-              (aptScript config.container ["binutils-gold"])
+              (aptScript config.container.value ["binutils-gold"])
           | not (null goldEntries)
           ]
         , [setupStep]
@@ -530,7 +533,7 @@ workflow opts source config project =
         ]
       where
         summaryImage, keyImage :: T.Text
-        (summaryImage, keyImage) = case config.container of
+        (summaryImage, keyImage) = case config.container.value of
           Nothing -> ("$ImageOS $ImageVersion", "$ImageOS")
           Just c -> (c.image, c.image)
 

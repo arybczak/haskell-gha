@@ -29,7 +29,6 @@ configTests =
     , testCase "the example configuration" test_example
     , testCase "the example configuration of the README" test_readmeExample
     , testCase "a section without enabled stays off" test_sectionWithoutEnabled
-    , testCase "a null container and null services" test_nullContainer
     , testCase "recursive submodules" test_recursiveSubmodules
     , testCase "a folded ghc-options value" test_foldedGhcOptions
     , testCase "errors" test_errors
@@ -137,7 +136,7 @@ test_example = do
   assertEqual "name" "Tests" config.name.value
   assertEqual "cabal-version" (CabalVersion $ mkVersion [3, 14, 2, 0]) config.cabalVersion
   assertEqual "runs-on" (plain "ubuntu-24.04") (normalize config.runsOn.value.value)
-  assertEqual "container" (Just (Container "buildpack-deps:22.04")) config.container
+  assertEqual "container" (Just (Container "buildpack-deps:22.04")) config.container.value
   assertEqual "timeout-minutes" 30 config.timeoutMinutes.value
   assertEqual "branches" ["master"] (map (.value) (NE.toList config.branches.value))
   assertEqual "submodules" TopSubmodules config.submodules
@@ -150,7 +149,7 @@ test_example = do
         (combinationValues "ghc" (config.matrix.value.include ++ config.matrix.value.exclude))
     )
   assertEqual "apt" ["libpq-dev"] config.apt
-  assertBool "services" (isJust config.services)
+  assertBool "services" (isJust config.services.value)
   assertEqual "permissions" (plain "read-all") (normalize config.permissions.value.value)
   assertEqual "after-setup" 1 (length config.hooks.afterSetup)
   assertEqual "after-build" 0 (length config.hooks.afterBuild)
@@ -231,12 +230,6 @@ test_foldedGhcOptions :: Assertion
 test_foldedGhcOptions = do
   config <- parseOk "ghc-options: >\n  -Wall\n  -Werror\n"
   assertEqual "ghc-options" "-Wall -Werror" config.ghcOptions.value
-
-test_nullContainer :: Assertion
-test_nullContainer = do
-  config <- parseOk "container: null\nservices: null\n"
-  assertEqual "container" Nothing config.container
-  assertBool "services" (isNothing config.services)
 
 test_errors :: Assertion
 test_errors = do
@@ -384,6 +377,14 @@ test_errors = do
     "step"
     "hooks.after-setup[0]: expected a mapping, but got a string"
     "hooks:\n  after-setup:\n    - make\n"
+  assertError
+    "container null"
+    "container: expected one of: buildpack-deps:22.04, buildpack-deps:24.04, buildpack-deps:26.04, but got null"
+    "container:\n"
+  assertError
+    "services null"
+    "services: expected a mapping, but got null"
+    "services: null\n"
   assertError
     "doctest null"
     "doctest: expected a mapping, but got null"
