@@ -35,14 +35,13 @@ validateWorkflow
 validateWorkflow opts source config project stepIds = do
   traverse_ checkGhcValue (combinationValues "ghc" combinations)
   checkDependencies
-  when config.doctest.enabled $ do
-    checkRange config.doctest.ghc
-    traverse_ checkSkip config.doctest.skip
+  for_ config.doctest.value $ \d -> do
+    checkRange d.ghc
+    traverse_ checkSkip d.skip
   traverse_ checkImport project.imports
   when config.sdist $
     traverse_ checkInside project.packages
-  when config.hlint.enabled $
-    traverse_ checkHLintPath config.hlint.path
+  traverse_ checkHLintPath (foldMap (.path) config.hlint.value)
   traverse_ checkHookId (config.hooks.afterSetup ++ config.hooks.afterBuild)
   where
     entries :: [GhcEntry]

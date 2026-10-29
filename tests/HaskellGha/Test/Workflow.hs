@@ -80,7 +80,7 @@ test_comments = do
         , "# The runner of the build."
         , "runs-on: ubuntu-24.04"
         , "fourmolu:"
-        , "  enabled: true"
+        , "  version: 0.21.0.0"
         , "hooks:"
         , "  # The steps after the build."
         , "  after-build:"
@@ -125,21 +125,17 @@ test_comments = do
 test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do
   assertErrors
-    "hlint:\n  enabled: true\n  path: [../x, /abs, a/../src]\n"
+    "hlint:\n  version: '3.10'\n  path: [../x, /abs, a/../src]\n"
     [ "conf.yml:3:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     , "conf.yml:3:16: hlint.path[1]: the path /abs is not in the repository. Give a path relative to the project directory."
     ]
   project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
-      BS8.pack "hlint:\n  enabled: true\n  path: [../x]\n"
+      BS8.pack "hlint:\n  version: '3.10'\n  path: [../x]\n"
   assertBool
     "in the repository"
     (isRight $ workflow defaultOptions {projectDir = "sub"} source config project)
-  (off, offSource) <-
-    either (assertFailure . unlines) pure . parseConfig "conf.yml" $
-      BS8.pack "hlint:\n  path: [../x]\n"
-  assertBool "not enabled" (isRight $ workflow defaultOptions offSource off project)
 
 test_hookStepId :: Assertion
 test_hookStepId = do
@@ -269,7 +265,7 @@ test_hlintPaths :: Assertion
 test_hlintPaths = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
-      BS8.pack "hlint:\n  enabled: true\n  path: [src, 'a\"b\\c']\n"
+      BS8.pack "hlint:\n  version: '3.10'\n  path: [src, 'a\"b\\c']\n"
   project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
@@ -400,30 +396,30 @@ test_dependenciesAxis = do
 test_partialDoctestRange :: Assertion
 test_partialDoctestRange =
   assertErrors
-    "doctest:\n  enabled: true\n  ghc: '>=9.10.2'\n"
-    [ "conf.yml:3:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that GHCup selects. Change the range, or write exact versions in tested-with."
+    "doctest:\n  ghc: '>=9.10.2'\n"
+    [ "conf.yml:2:8: doctest.ghc: the range >=9.10.2 includes only a part of the GHC versions of the matrix entry 9.10, so the result depends on the minor version that GHCup selects. Change the range, or write exact versions in tested-with."
     ]
 
 test_unusedRange :: Assertion
 test_unusedRange =
   assertErrors
-    "doctest:\n  enabled: true\n  ghc: '>=9.14'\n"
-    [ "conf.yml:3:8: doctest.ghc: the range >=9.14 includes no GHC version of the matrix, which contains only 9.6.7, 9.10, 9.12"
+    "doctest:\n  ghc: '>=9.14'\n"
+    [ "conf.yml:2:8: doctest.ghc: the range >=9.14 includes no GHC version of the matrix, which contains only 9.6.7, 9.10, 9.12"
     ]
 
 test_independentChecks :: Assertion
 test_independentChecks =
   assertErrors
-    "doctest:\n  enabled: true\n  skip: [other]\nhlint:\n  enabled: true\n  path: [../x]\n"
-    [ "conf.yml:3:10: doctest.skip[0]: the project has no local package other"
-    , "conf.yml:6:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
+    "doctest:\n  skip: [other]\nhlint:\n  version: '3.10'\n  path: [../x]\n"
+    [ "conf.yml:2:10: doctest.skip[0]: the project has no local package other"
+    , "conf.yml:5:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     ]
 
 test_unknownSkip :: Assertion
 test_unknownSkip =
   assertErrors
-    "doctest:\n  enabled: true\n  skip: [other]\n"
-    ["conf.yml:3:10: doctest.skip[0]: the project has no local package other"]
+    "doctest:\n  skip: [other]\n"
+    ["conf.yml:2:10: doctest.skip[0]: the project has no local package other"]
 
 -- | The first lines of the errors for a configuration and the project of the
 -- golden test @single@. The other lines show the line of the configuration.
@@ -615,7 +611,7 @@ test_symbolicLinks =
     createDirectoryLink "../real" (root </> "proj" </> "pkg")
     writeFile
       (root </> "proj" </> "conf.yml")
-      "sdist: false\nhlint:\n  enabled: true\n  path: [../out]\n"
+      "sdist: false\nhlint:\n  version: '3.10'\n  path: [../out]\n"
     assertEqual
       "the paths on the runner"
       ( Left

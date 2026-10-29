@@ -28,7 +28,6 @@ configTests =
     , testCase "an empty file gives the defaults" test_emptyFile
     , testCase "the example configuration" test_example
     , testCase "the example configuration of the README" test_readmeExample
-    , testCase "a section without enabled stays off" test_sectionWithoutEnabled
     , testCase "recursive submodules" test_recursiveSubmodules
     , testCase "a folded ghc-options value" test_foldedGhcOptions
     , testCase "errors" test_errors
@@ -110,7 +109,6 @@ test_example = do
         , "benchmarks: False"
         , "dependencies: both"
         , "doctest:"
-        , "  enabled: true"
         , "  ghc: '>=9.6 && <9.14'"
         , "  version: '>=0.24'"
         , "  skip: [some-package]"
@@ -119,11 +117,10 @@ test_example = do
         , "sdist: false"
         , "haddock: false"
         , "fourmolu:"
-        , "  enabled: true"
         , "  version: 0.19.0.1"
         , "  pattern: ['src/**/*.hs']"
         , "hlint:"
-        , "  enabled: true"
+        , "  version: '3.10'"
         , "  fail-on: error"
         , "  path: [src]"
         , "actions:"
@@ -162,36 +159,37 @@ test_example = do
   assertEqual "tests" False config.tests
   assertEqual "benchmarks" False config.benchmarks
   assertEqual "dependencies" DependenciesBoth config.dependencies
-  assertEqual "doctest enabled" True config.doctest.enabled
+  doctest <- maybe (assertFailure "no doctest") pure config.doctest.value
   assertEqual
     "doctest ghc"
     ( intersectVersionRanges
         (orLaterVersion $ mkVersion [9, 6])
         (earlierVersion $ mkVersion [9, 14])
     )
-    config.doctest.ghc.value
+    doctest.ghc.value
   assertEqual
     "doctest version"
     (Just (orLaterVersion $ mkVersion [0, 24]))
-    config.doctest.version.value
-  assertEqual "doctest skip" ["some-package"] (map (.value) config.doctest.skip)
-  assertEqual "doctest options" ["--fast"] config.doctest.options
+    doctest.version.value
+  assertEqual "doctest skip" ["some-package"] (map (.value) doctest.skip)
+  assertEqual "doctest options" ["--fast"] doctest.options
   assertEqual "check" False config.check
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
   assertEqual
     "fourmolu"
-    Fourmolu
-      { enabled = True
-      , version = mkVersion [0, 19, 0, 1]
-      , patterns = [Pattern "src/**/*.hs"]
-      , runsOn = Optional Nothing
-      }
-    config.fourmolu
-  assertEqual "hlint enabled" True config.hlint.enabled
-  assertEqual "hlint version" (mkVersion [3, 10]) config.hlint.version
-  assertEqual "hlint fail-on" FailError config.hlint.failOn
-  assertEqual "hlint path" [HLintPath "src"] (map (.value) config.hlint.path)
+    ( Just
+        Fourmolu
+          { version = mkVersion [0, 19, 0, 1]
+          , patterns = [Pattern "src/**/*.hs"]
+          , runsOn = Optional Nothing
+          }
+    )
+    config.fourmolu.value
+  hlint <- maybe (assertFailure "no hlint") pure config.hlint.value
+  assertEqual "hlint version" (mkVersion [3, 10]) hlint.version
+  assertEqual "hlint fail-on" FailError hlint.failOn
+  assertEqual "hlint path" [HLintPath "src"] (map (.value) hlint.path)
   assertEqual
     "actions"
     ( Actions
@@ -215,11 +213,6 @@ test_readmeExample = do
   assertBool
     "README.md shows tests/golden/readme/haskell-gha.conf.yaml"
     (("```yaml\n" <> config <> "```\n") `T.isInfixOf` readme)
-
-test_sectionWithoutEnabled :: Assertion
-test_sectionWithoutEnabled = do
-  config <- parseOk "hlint:\n  fail-on: error\n"
-  assertEqual "hlint" defaultHLint {failOn = FailError} config.hlint
 
 test_recursiveSubmodules :: Assertion
 test_recursiveSubmodules = do
@@ -247,7 +240,7 @@ test_errors = do
     "hooks:\n  before-build: []\n"
   assertError
     "unknown doctest key"
-    "doctest: unknown key \"flags\", expected one of: enabled, ghc, version, skip, options"
+    "doctest: unknown key \"flags\", expected one of: ghc, version, skip, options"
     "doctest:\n  flags: []\n"
   assertError
     "two documents"
@@ -400,11 +393,11 @@ test_errors = do
   assertError
     "hlint runs-on null"
     "hlint.runs-on: expected a runner label, a list of labels or a mapping"
-    "hlint:\n  runs-on:\n"
+    "hlint:\n  version: '3.10'\n  runs-on:\n"
   assertError
     "fourmolu runs-on null"
     "fourmolu.runs-on: expected a runner label, a list of labels or a mapping"
-    "fourmolu:\n  runs-on: ~\n"
+    "fourmolu:\n  version: 0.21.0.0\n  runs-on: ~\n"
   assertError
     "apt"
     "apt: expected a list, but got a string"
@@ -418,25 +411,33 @@ test_errors = do
     "actions: unknown key \"run-ormolu\", did you mean \"run-fourmolu\"?"
     "actions:\n  run-ormolu: v17\n"
   assertError
+    "hlint without version"
+    "hlint: missing key \"version\""
+    "hlint:\n  fail-on: error\n"
+  assertError
+    "fourmolu without version"
+    "fourmolu: missing key \"version\""
+    "fourmolu:\n  pattern: ['src/**/*.hs']\n"
+  assertError
     "fourmolu version"
     "fourmolu.version: expected a version, e.g. 0.21.0.0"
     "fourmolu:\n  version: latest\n"
   assertError
     "hlint path"
     "hlint.path[1]: a path must not contain a control character, e.g. a tab or a line break"
-    "hlint:\n  path: [src, \"a\\tb\"]\n"
+    "hlint:\n  version: '3.10'\n  path: [src, \"a\\tb\"]\n"
   assertError
     "empty hlint path"
     "hlint.path[1]: a path must not be empty"
-    "hlint:\n  path: [src, \"\"]\n"
+    "hlint:\n  version: '3.10'\n  path: [src, \"\"]\n"
   assertError
     "hlint fail-on"
     "hlint.fail-on: unknown value \"warnings\", did you mean \"warning\"?"
-    "hlint:\n  fail-on: warnings\n"
+    "hlint:\n  version: '3.10'\n  fail-on: warnings\n"
   assertError
     "unknown fourmolu key"
-    "fourmolu: unknown key \"extra-args\", expected one of: enabled, version, pattern, runs-on"
-    "fourmolu:\n  extra-args: [-q]\n"
+    "fourmolu: unknown key \"extra-args\", expected one of: version, pattern, runs-on"
+    "fourmolu:\n  version: 0.21.0.0\n  extra-args: [-q]\n"
   assertError
     "action ref"
     actionError
@@ -464,11 +465,11 @@ test_errors = do
   assertError
     "fourmolu pattern space"
     "fourmolu.pattern[0]: a pattern must be one line without spaces at the start or the end"
-    "fourmolu:\n  pattern: [' src/**/*.hs']\n"
+    "fourmolu:\n  version: 0.21.0.0\n  pattern: [' src/**/*.hs']\n"
   assertError
     "fourmolu pattern lines"
     "fourmolu.pattern[0]: a pattern must be one line without spaces at the start or the end"
-    "fourmolu:\n  pattern: [\"a.hs\\nb.hs\"]\n"
+    "fourmolu:\n  version: 0.21.0.0\n  pattern: [\"a.hs\\nb.hs\"]\n"
   assertError
     "cabal-project-local type"
     "cabal-project-local: expected a string, but got a list"

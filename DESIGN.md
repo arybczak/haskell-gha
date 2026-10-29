@@ -318,6 +318,12 @@ for a key whose default is none, e.g. `container`. A `container` key without
 the image would otherwise run the build jobs on the runner, and CI would pass
 without a sign of the mistake.
 
+The `doctest`, `fourmolu` and `hlint` keys turn their checks on, so they have
+no `enabled` key. With such a key, the other keys of the section would do
+nothing without it, e.g. a `doctest.ghc` range without `enabled: true` would
+silently run no doctest. Doctest with the defaults is `doctest: {}`, because a
+key without a value is an error.
+
 The value of a text key must be a YAML string. Every YAML reader reads an
 unquoted `3.10` as the number 3.1. Thus an unquoted value that the YAML 1.2 core
 schema reads as a number, a boolean or a null is an error. The error suggests
@@ -792,12 +798,16 @@ lists this as a known limit.
 The formatting does not depend on the GHC version, so the fourmolu job has no
 matrix and needs no GHC. It runs at the same time as the build jobs.
 
-The default version is a fixed version, not `latest`. With `latest`, a new
-fourmolu release can fail CI without a change in the repository. A new release
-can also change the format of the release files. fourmolu 0.20.0.0 changed the
-binary to a zip file, and only `run-fourmolu` v13 and later can read it. Thus
-the defaults of `fourmolu.version` and `actions.run-fourmolu` must work
-together, and a new release of haskell-gha changes them together.
+`fourmolu.version` is required, and it must be a fixed version, not `latest`.
+A new fourmolu version can format the same code differently. With `latest`, a
+new fourmolu release could fail CI without a change in the repository. With a
+default version, a new release of haskell-gha could do the same after the user
+regenerates the workflow.
+
+A new fourmolu release can also change the format of the release files.
+fourmolu 0.20.0.0 changed the binary to a zip file, and only `run-fourmolu` v13
+and later can read it. The configuration documentation states this, because
+the user picks the fourmolu version.
 
 ### HLint
 
@@ -810,8 +820,9 @@ of the repository, because it reads the file from its working directory.
 
 The default of `hlint.fail-on` is `suggestion`, so every hint fails the job. The
 default of the action is `never`, and then the job never fails. A hint that does
-not fail the job is only an annotation, and it is easy to miss. The default
-`hlint.version` is fixed for the same reason as `fourmolu.version`.
+not fail the job is only an annotation, and it is easy to miss. `hlint.version`
+is required for the same reason as `fourmolu.version`: a new HLint version adds
+hints, and they fail the job.
 
 The released versions of both HLint actions, up to `v2.4.10`, declare Node.js
 20, and GitHub removes Node.js 20 in autumn 2026. The defaults are thus the

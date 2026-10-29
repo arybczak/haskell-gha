@@ -68,8 +68,8 @@ workflow opts source config project =
           -- them.
           "jobs"
             .= mappingConcat
-              [ ["fourmolu" .= fourmoluJob config.fourmolu | config.fourmolu.enabled]
-              , ["hlint" .= hlintJob config.hlint | config.hlint.enabled]
+              [ ["fourmolu" .= fourmoluJob f | Just f <- [config.fourmolu.value]]
+              , ["hlint" .= hlintJob h | Just h <- [config.hlint.value]]
               , ["build" .= job]
               ]
         ]
@@ -314,7 +314,7 @@ workflow opts source config project =
         , [cacheRestore]
         , [sourceStep "Build the dependencies" Nothing "cabal build all --only-dependencies\n"]
         , [cacheSave]
-        , concat [doctestSteps | not (null doctestEntries)]
+        , concat [doctestSteps d | not (null doctestEntries), Just d <- [config.doctest.value]]
         , [sourceStep "Build" Nothing "cabal build all\n"]
         ]
 
@@ -331,9 +331,10 @@ workflow opts source config project =
         , [ sourceStep
               ("Run doctest for " <> T.pack p.name)
               (Just es)
-              (doctestScript config.doctest.options p)
-          | p <- project.packages
-          , T.pack p.name `notElem` map (.value) config.doctest.skip
+              (doctestScript d.options p)
+          | Just d <- [config.doctest.value]
+          , p <- project.packages
+          , T.pack p.name `notElem` map (.value) d.skip
           , not (null p.doctestArgs)
           , let es =
                   [ e.ghc
@@ -363,15 +364,17 @@ workflow opts source config project =
     -- names all packages. Only an unusual configuration does that, so the tool
     -- accepts the extra steps.
     doctestEntries :: [GhcEntry]
-    doctestEntries
-      | config.doctest.enabled =
-          [e | e <- entries, decide config.doctest.ghc.value e == Included]
-      | otherwise = []
+    doctestEntries =
+      [ e
+      | Just d <- [config.doctest.value]
+      , e <- entries
+      , decide d.ghc.value e == Included
+      ]
 
     -- The key of the main cache does not depend on the doctest version, so
     -- doctest has its own cache with only the binary.
-    doctestSteps :: [Node]
-    doctestSteps =
+    doctestSteps :: Doctest -> [Node]
+    doctestSteps d =
       [ step
           False
           "Find the doctest version"
@@ -448,7 +451,7 @@ workflow opts source config project =
                 <> maybe
                   ""
                   (\r -> " --constraint=" <> shellQuote ("doctest " <> T.pack (prettyShow r)))
-                  config.doctest.version.value
+                  d.version.value
                 <> " | sed -n 's/^ - doctest-\\([0-9.]*\\) (exe:doctest).*/\\1/p')"
             , "if [ -z \"$version\" ]; then"
             , "  echo 'The dry run of cabal install shows no doctest version.' >&2"

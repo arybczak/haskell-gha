@@ -1,7 +1,7 @@
-# Fourmolu and HLint with the defaults.
+# Fourmolu and HLint with only the required keys.
 fourmolu:
-  enabled: true
+  version: 0.21.0.0
 hlint:
-  enabled: true
+  version: '3.10'
 # Only the build job fetches the submodules.
 submodules: true

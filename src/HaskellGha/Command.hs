@@ -133,7 +133,7 @@ generate root opts = runExceptT $ do
     -- rejected each path that leads out by its text.
     runnerPaths :: Config -> ConfigSource -> Project -> IO (Either [String] ())
     runnerPaths config source project = do
-      hlint <- forM (if config.hlint.enabled then config.hlint.path else []) $ \p -> do
+      hlint <- forM (foldMap (.path) config.hlint.value) $ \p -> do
         let path = T.unpack p.value.value
         fmap (\r -> (p.offset, "the path " ++ path ++ " " ++ r ++ "."))
           <$> linkProblem root (opts.projectDir </> path)

@@ -79,10 +79,9 @@ hooks:
     run: psql -h localhost -U postgres -c 'CREATE DATABASE test'
     env:
       PGPASSWORD: postgres
-doctest:
-  enabled: true
+doctest: {}
 fourmolu:
-  enabled: true
+  version: 0.21.0.0
 ```
 
 For a package with `tested-with: GHC == 9.6.7 || ^>= 9.10 || ^>= 9.12`, GitHub

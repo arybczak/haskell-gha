@@ -16,7 +16,6 @@ module HaskellGha.Config
   , Actions (..)
   , ActionRef (..)
   , defaultConfig
-  , defaultHLint
 
     -- * Values
   , Optional (..)
@@ -82,12 +81,12 @@ data Config = Config
   , tests :: Bool
   , benchmarks :: Bool
   , dependencies :: Dependencies
-  , doctest :: Doctest
+  , doctest :: Optional Doctest
   , check :: Bool
   , sdist :: Bool
   , haddock :: Bool
-  , fourmolu :: Fourmolu
-  , hlint :: HLint
+  , fourmolu :: Optional Fourmolu
+  , hlint :: Optional HLint
   , actions :: Actions
   }
   deriving stock (Eq, Show, Generic)
@@ -99,8 +98,7 @@ instance GenericYamlOptions Config where
 
 -- | The configuration of the HLint job.
 data HLint = HLint
-  { enabled :: Bool
-  , version :: Version
+  { version :: ~Version
   , failOn :: FailOn
   , path :: [Located HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
@@ -130,8 +128,7 @@ instance GenericYamlOptions FailOn where
 
 -- | The configuration of the fourmolu job.
 data Fourmolu = Fourmolu
-  { enabled :: Bool
-  , version :: Version
+  { version :: ~Version
   , patterns :: [Pattern]
   -- ^ The files to check. An empty list gives the default of the action.
   , runsOn :: Optional (Commented RunsOn)
@@ -268,8 +265,7 @@ instance GenericYamlOptions Hooks where
 
 -- | The configuration of doctest.
 data Doctest = Doctest
-  { enabled :: Bool
-  , ghc :: Located VersionRange
+  { ghc :: Located VersionRange
   , version :: Optional VersionRange
   , skip :: [Located T.Text]
   , options :: [T.Text]
@@ -319,12 +315,12 @@ defaultConfig =
     , tests = True
     , benchmarks = True
     , dependencies = DependenciesNewest
-    , doctest = defaultDoctest
+    , doctest = Optional Nothing
     , check = True
     , sdist = True
     , haddock = True
-    , fourmolu = defaultFourmolu
-    , hlint = defaultHLint
+    , fourmolu = Optional Nothing
+    , hlint = Optional Nothing
     , actions =
         Actions
           { checkout = ActionRef {repository = Nothing, ref = "v7"}
@@ -348,34 +344,30 @@ defaultConfig =
     bare :: a -> Commented a
     bare a = Commented a noComments
 
--- | The HLint configuration without an @hlint@ field.
+-- | The values of the keys that an @hlint@ field leaves out.
 defaultHLint :: HLint
 defaultHLint =
   HLint
-    { enabled = False
-    , version = mkVersion [3, 10]
+    { version = requiredField
     , failOn = FailSuggestion
     , path = []
     , runsOn = Optional Nothing
     }
 
--- | The fourmolu configuration without a @fourmolu@ field. Version 0.20 and
--- later needs run-fourmolu v13 or later.
+-- | The values of the keys that a @fourmolu@ field leaves out.
 defaultFourmolu :: Fourmolu
 defaultFourmolu =
   Fourmolu
-    { enabled = False
-    , version = mkVersion [0, 21, 0, 0]
+    { version = requiredField
     , patterns = []
     , runsOn = Optional Nothing
     }
 
--- | The doctest configuration without a @doctest@ field.
+-- | The values of the keys that a @doctest@ field leaves out.
 defaultDoctest :: Doctest
 defaultDoctest =
   Doctest
-    { enabled = False
-    , ghc = Located anyVersion noOffset
+    { ghc = Located anyVersion noOffset
     , version = Optional Nothing
     , skip = []
     , options = []

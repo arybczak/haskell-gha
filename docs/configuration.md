@@ -158,19 +158,19 @@ repository.
 | `fourmolu` | off | Check the formatting with fourmolu. See [Fourmolu](#fourmolu). |
 | `hlint` | off | Check the code with HLint. See [HLint](#hlint). |
 
-Doctest, fourmolu and HLint are off by default. Each has an `enabled` key, and
-its other keys have no effect without it.
+Doctest, fourmolu and HLint are off by default. The `doctest`, `fourmolu` and
+`hlint` keys turn them on. To run doctest with the defaults, write
+`doctest: {}`.
 
 ### Doctest
 
-If `doctest.enabled` is `true`, the workflow installs doctest and runs it for
+If the `doctest` key is present, the workflow installs doctest and runs it for
 the library and the sublibraries of each local package. The workflow keeps the
 doctest binary in its own cache, so a job builds each doctest version only once
 for each GHC version.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `doctest.enabled` | `false` | Run doctest. |
 | `doctest.ghc` | all versions | The GHC versions to run doctest for, as a version range, e.g. `'>= 9.8'`. The range must include at least one matrix entry, and each entry fully or not at all, as in a [condition](guide.md#packages-for-some-ghc-versions-only). A new GHC release often works with doctest only after some weeks. |
 | `doctest.version` | any version | The versions of the doctest package. |
 | `doctest.skip` | `[]` | The packages to skip. |
@@ -178,14 +178,13 @@ for each GHC version.
 
 ### Fourmolu
 
-If `fourmolu.enabled` is `true`, the workflow gets a job that checks the
+If the `fourmolu` key is present, the workflow gets a job that checks the
 formatting of the Haskell files with `haskell-actions/run-fourmolu`. fourmolu
 reads the project's `fourmolu.yaml`.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `fourmolu.enabled` | `false` | Add the fourmolu job. |
-| `fourmolu.version` | `0.21.0.0` | The fourmolu version. |
+| `fourmolu.version` | required | The fourmolu version, e.g. `0.21.0.0`. |
 | `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
 | `fourmolu.runs-on` | the value of `runs-on` | The runner of the fourmolu job, e.g. a smaller self-hosted runner than the build jobs need. |
 
@@ -195,14 +194,13 @@ later need `run-fourmolu` v13 or later.
 
 ### HLint
 
-If `hlint.enabled` is `true`, the workflow gets a job that installs HLint with
+If the `hlint` key is present, the workflow gets a job that installs HLint with
 `haskell-actions/hlint-setup` and runs it with `haskell-actions/hlint-run`. The
 hints appear as annotations in the pull request.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `hlint.enabled` | `false` | Add the HLint job. |
-| `hlint.version` | `3.10` | The HLint version. |
+| `hlint.version` | required | The HLint version, e.g. `'3.10'`. A new version can add hints that fail the job. |
 | `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
 | `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, must not be empty, and must not contain a tab or another control character. |
 | `hlint.runs-on` | the value of `runs-on` | The runner of the HLint job, as for `fourmolu.runs-on`. |
