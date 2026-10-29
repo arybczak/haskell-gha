@@ -20,6 +20,7 @@ import Distribution.Simple.Glob
 import Distribution.Simple.Glob.Internal
 import Distribution.Types.Condition
 import Distribution.Types.ConfVar
+
 #if !MIN_VERSION_Cabal(3,18,0)
 import System.FilePath
 #endif
