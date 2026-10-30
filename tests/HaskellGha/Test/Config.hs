@@ -384,8 +384,12 @@ test_errors = do
     "doctest:\n"
   assertError
     "doctest range"
-    "doctest.ghc: expected a version range"
+    "doctest.ghc: expected a version range, e.g. '>=1.2' or '==1.2.3'"
     "doctest:\n  ghc: nine\n"
+  assertError
+    "doctest bare version"
+    "doctest.version: expected a version range, e.g. '>=1.2' or '==1.2.3'"
+    "doctest:\n  version: 0.24.2\n"
   assertError
     "doctest version null"
     "doctest.version: expected a string, but got null"

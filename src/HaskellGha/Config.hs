@@ -383,7 +383,11 @@ instance FromYaml Version where
 
 -- | A version range, e.g. @>=9.6 && <9.14@.
 instance FromYaml VersionRange where
-  parseYaml = withText $ \t -> maybe (fail "expected a version range") pure (simpleParsec (T.unpack t))
+  parseYaml = withText $ \t ->
+    maybe
+      (fail "expected a version range, e.g. '>=1.2' or '==1.2.3'")
+      pure
+      (simpleParsec (T.unpack t))
 
 -- | A value that only a missing key leaves out. Unlike for 'Maybe', null is an
 -- error.
