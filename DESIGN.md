@@ -646,8 +646,8 @@ repository and for a hook that uses `git diff`.
 The unpack step does not copy a local file of an `import:` line. It also keeps
 the relative path of a package outside the project directory, e.g. `../other`,
 and such a package then lands outside the copy. The tool finds both cases and
-asks for `sdist: false`. A path such as `a/../b` stays inside the project
-directory, so it is legal.
+asks for `build-from: checkout`. A path such as `a/../b` stays inside the
+project directory, so it is legal.
 
 ### Container
 

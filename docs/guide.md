@@ -304,7 +304,7 @@ unpacks them into a separate directory. It copies `cabal.project`,
 tests, doctest, `cabal check` and haddock then run in that directory. The hooks
 still run in the checkout, in the project directory.
 
-Set `sdist: false` in these cases:
+Set `build-from: checkout` in these cases:
 
 - `cabal.project` imports a local file with `import:`.
 - `cabal.project` lists a package outside the project directory, e.g.
@@ -401,7 +401,7 @@ in a container. See [Container](#container).
   a branch that no job selects. cabal reads only the branch that it selects, but
   the tool applies the rules for package locations and `import:` lines to each
   branch. For example, a location in `packages:` must exist, and with
-  `sdist: true` a local `import:` is an error.
+  `build-from: tarballs` a local `import:` is an error.
 - The tool decides `os(...)` and `arch(...)` conditions for Linux on x86_64. It
   assumes that no project selects its packages by operating system or
   architecture.

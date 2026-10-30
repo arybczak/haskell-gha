@@ -12,8 +12,9 @@ field of its packages, in separate jobs. Only Linux is supported.
   version, and a series, e.g. `^>= 9.12`, gets its newest release.
 - The workflow builds with the project's own `cabal.project`, so CI uses the
   same settings as a local build.
-- The jobs build and test the content of the source tarballs, so CI finds a file
-  that the `.cabal` file does not list before your users do.
+- The jobs build and test the content of the source tarballs that `cabal sdist`
+  makes, so CI finds a file that the `.cabal` file does not list before your
+  users do.
 - You write service containers, hook steps and extra matrix axes in plain GitHub
   Actions YAML, and the tool copies them to the workflow.
 - The jobs run on the runner image, or optionally in a job container.

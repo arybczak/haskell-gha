@@ -39,6 +39,9 @@ workflow opts source config project =
     entries :: [GhcEntry]
     entries = map (.ghc) project.matrix
 
+    fromTarballs :: Bool
+    fromTarballs = config.buildFrom == BuildFromTarballs
+
     root :: Node
     root =
       mapping
@@ -292,7 +295,7 @@ workflow opts source config project =
     buildSteps =
       concat
         [ [ runStep "Unpack the source tarballs" (Just group) (unpackScript pkgs)
-          | config.sdist
+          | fromTarballs
           , (group, pkgs) <- packageGroups project.matrix
           ]
         , [configureStep]
@@ -464,9 +467,9 @@ workflow opts source config project =
     runStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
     runStep name only = step False name (ifField only [])
 
-    -- A step that runs in the content of the tarballs, if sdist is true.
+    -- A step that runs in the content of the tarballs, if the build uses them.
     sourceStep :: T.Text -> Maybe [GhcEntry] -> T.Text -> Node
-    sourceStep name only = step config.sdist name (ifField only [])
+    sourceStep name only = step fromTarballs name (ifField only [])
 
     step :: Bool -> T.Text -> [(Node, Node)] -> T.Text -> Node
     step inSource name fields script =
@@ -495,7 +498,7 @@ workflow opts source config project =
     -- cache key as an output.
     planStep :: Node
     planStep =
-      step config.sdist "Make the build plan" ["id" .= plain "plan"] $
+      step fromTarballs "Make the build plan" ["id" .= plain "plan"] $
         T.unlines
           [ "cabal build all --dry-run"
           , "echo \"hash=$(sha256sum dist-newstyle/cache/plan.json | cut -d ' ' -f 1)\" >> \"$GITHUB_OUTPUT\""
@@ -552,7 +555,7 @@ workflow opts source config project =
         preferOldest :: [T.Text] -> Node
         preferOldest extra =
           step
-            config.sdist
+            fromTarballs
             "Prefer the oldest dependencies"
             (ifField Nothing extra)
             "echo 'prefer-oldest: True' >> cabal.project.local\n"

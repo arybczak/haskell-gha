@@ -8,6 +8,7 @@ module HaskellGha.Config
   , Container (..)
   , Submodules (..)
   , Dependencies (..)
+  , BuildFrom (..)
   , Hooks (..)
   , Doctest (..)
   , Fourmolu (..)
@@ -83,7 +84,7 @@ data Config = Config
   , dependencies :: Dependencies
   , doctest :: Optional Doctest
   , cabalCheck :: Bool
-  , sdist :: Bool
+  , buildFrom :: BuildFrom
   , haddock :: Bool
   , fourmolu :: Optional Fourmolu
   , hlint :: Optional HLint
@@ -230,6 +231,20 @@ instance GenericYamlOptions Dependencies where
       { constructorTagModifier = map toLower . drop (length @[] "Dependencies")
       }
 
+-- | The code that the build jobs build and test.
+data BuildFrom
+  = -- | The content of the source tarballs.
+    BuildFromTarballs
+  | BuildFromCheckout
+  deriving stock (Eq, Show, Generic)
+  deriving (FromYaml) via GenericYaml BuildFrom
+
+instance GenericYamlOptions BuildFrom where
+  yamlOptions =
+    defaultYamlOptions
+      { constructorTagModifier = map toLower . drop (length @[] "BuildFrom")
+      }
+
 -- | The Git submodules that the build jobs fetch.
 data Submodules
   = NoSubmodules
@@ -311,7 +326,7 @@ defaultConfig =
     , dependencies = DependenciesNewest
     , doctest = Optional Nothing
     , cabalCheck = True
-    , sdist = True
+    , buildFrom = BuildFromTarballs
     , haddock = True
     , fourmolu = Optional Nothing
     , hlint = Optional Nothing

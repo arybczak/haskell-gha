@@ -39,7 +39,7 @@ validateWorkflow opts source config project stepIds = do
     checkRange d.ghc
     traverse_ checkSkip d.skipPackages
   traverse_ checkImport project.imports
-  when config.sdist $
+  when (config.buildFrom == BuildFromTarballs) $
     traverse_ checkInside project.packages
   traverse_ checkHLintPath (foldMap (.paths) config.hlint.value)
   traverse_ checkHookId (config.hooks.afterSetup ++ config.hooks.afterBuild)
@@ -96,12 +96,12 @@ validateWorkflow opts source config project stepIds = do
               ++ "the imported file "
               ++ i.target
               ++ " is not in the repository. Give a path relative to the project directory."
-      | config.sdist =
+      | config.buildFrom == BuildFromTarballs =
           failure $
             i.location
               ++ "the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file "
               ++ i.target
-              ++ ". Set sdist: false in the configuration."
+              ++ ". Set build-from: checkout in the configuration."
       | otherwise = pure ()
 
     -- The unpack step keeps the path of each package relative to the project
@@ -114,7 +114,7 @@ validateWorkflow opts source config project stepIds = do
               ++ p.name
               ++ " is in "
               ++ p.directory
-              ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
+              ++ ", outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set build-from: checkout in the configuration."
       | otherwise = pure ()
 
     -- A range that includes no matrix entry turns its feature off without any

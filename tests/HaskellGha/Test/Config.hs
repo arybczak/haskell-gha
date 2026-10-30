@@ -114,7 +114,7 @@ test_example = do
         , "  skip-packages: [some-package]"
         , "  options: [--fast]"
         , "cabal-check: false"
-        , "sdist: false"
+        , "build-from: checkout"
         , "haddock: false"
         , "fourmolu:"
         , "  version: 0.19.0.1"
@@ -174,7 +174,7 @@ test_example = do
   assertEqual "doctest skip-packages" ["some-package"] (map (.value) doctest.skipPackages)
   assertEqual "doctest options" ["--fast"] doctest.options
   assertEqual "cabal-check" False config.cabalCheck
-  assertEqual "sdist" False config.sdist
+  assertEqual "build-from" BuildFromCheckout config.buildFrom
   assertEqual "haddock" False config.haddock
   assertEqual
     "fourmolu"
@@ -286,6 +286,10 @@ test_errors = do
     "dependencies"
     "dependencies: unknown value \"old\", expected one of: newest, oldest, both"
     "dependencies: old\n"
+  assertError
+    "build-from"
+    "build-from: expected one of: tarballs, checkout, but got a boolean"
+    "build-from: false\n"
   assertError
     "submodules"
     "submodules: expected true, false or recursive"

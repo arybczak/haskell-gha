@@ -115,7 +115,7 @@ the cabal store.
 A hook can run `ghcup`, e.g. to install another tool. It uses the GHCup of the
 job, not the one of the runner image.
 
-With `sdist: true`, the workflow unpacks the source tarballs in
+With `build-from: tarballs`, the workflow unpacks the source tarballs in
 `"$RUNNER_TEMP"/haskell-gha`. The `after-build` hooks can use this directory,
 but the `after-setup` hooks run before it exists.
 
@@ -130,7 +130,7 @@ but the `after-setup` hooks run before it exists.
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `dependencies` | `newest` | The versions of the dependencies: `newest`, `oldest` or `both`. See [Dependencies](guide.md#dependencies). |
-| `sdist` | `true` | Build and test the content of the source tarballs, not the checkout. See [Source tarballs](guide.md#source-tarballs). |
+| `build-from` | `tarballs` | What the build jobs build and test: `tarballs` for the content of the source tarballs that `cabal sdist` makes, or `checkout` for the checkout of the repository. See [Source tarballs](guide.md#source-tarballs). |
 
 ### Extra `cabal.project.local` text
 

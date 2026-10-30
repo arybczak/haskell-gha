@@ -300,15 +300,19 @@ test_sdistOutside = do
   assertEqual
     "errors"
     ( Left
-        [ "cabal.project:1:1: the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file local.project. Set sdist: false in the configuration."
-        , "Package example is in ../lib, outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set sdist: false in the configuration."
+        [ "cabal.project:1:1: the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file local.project. Set build-from: checkout in the configuration."
+        , "Package example is in ../lib, outside the project directory, but the workflow builds the source tarballs in a copy of the project directory. Set build-from: checkout in the configuration."
         ]
     )
     (workflow defaultOptions (emptySource "conf.yml") defaultConfig changed)
   assertBool
-    "sdist: false"
+    "build-from: checkout"
     ( isRight $
-        workflow defaultOptions (emptySource "conf.yml") defaultConfig {sdist = False} changed
+        workflow
+          defaultOptions
+          (emptySource "conf.yml")
+          defaultConfig {buildFrom = BuildFromCheckout}
+          changed
     )
 
 test_importOutside :: Assertion
@@ -337,16 +341,21 @@ test_importOutside = do
         , "cabal.project:3:1: the imported file /etc/absolute.project is not in the repository. Give a path relative to the project directory."
         ]
   assertEqual
-    "sdist: true"
+    "build-from: tarballs"
     ( Left $
-        "cabal.project:1:1: the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file ../inside.project. Set sdist: false in the configuration."
+        "cabal.project:1:1: the workflow builds the source tarballs in a copy of the project directory, and the copy does not contain the imported file ../inside.project. Set build-from: checkout in the configuration."
           : outside
     )
     (workflow opts (emptySource "conf.yml") defaultConfig changed)
   assertEqual
-    "sdist: false"
+    "build-from: checkout"
     (Left outside)
-    (workflow opts (emptySource "conf.yml") defaultConfig {sdist = False} changed)
+    ( workflow
+        opts
+        (emptySource "conf.yml")
+        defaultConfig {buildFrom = BuildFromCheckout}
+        changed
+    )
 
 test_headerCommandLine :: Assertion
 test_headerCommandLine = do
@@ -611,7 +620,7 @@ test_symbolicLinks =
     createDirectoryLink "../real" (root </> "proj" </> "pkg")
     writeFile
       (root </> "proj" </> "conf.yml")
-      "sdist: false\nhlint:\n  version: '3.10'\n  paths: [../out]\n"
+      "build-from: checkout\nhlint:\n  version: '3.10'\n  paths: [../out]\n"
     assertEqual
       "the paths on the runner"
       ( Left
