@@ -502,8 +502,8 @@ installs it for these GHC versions only.
 For GHC 9.6 and later, the package would cost an `apt-get update` in each job.
 These versions can also pick gold as their linker, and gold is deprecated.
 
-The default of `jobs` is 4, because the standard Linux runners of GitHub have 4
-CPUs. The configuration step writes `jobs: <N>`, so cabal builds up to N
+The default of `cabal-jobs` is 4, because the standard Linux runners of GitHub
+have 4 CPUs. The configuration step writes `jobs: <N>`, so cabal builds up to N
 packages at the same time. GHC 9.8 and later support the GHC job semaphore,
 which makes cabal and all GHC processes share one job count. For older GHC
 versions, and if GHC and cabal use different versions of the semaphore protocol,

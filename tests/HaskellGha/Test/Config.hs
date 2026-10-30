@@ -104,7 +104,7 @@ test_example = do
         , "cabal-project-local: |"
         , "  package a"
         , "    flags: +b"
-        , "jobs: 2"
+        , "cabal-jobs: 2"
         , "tests: false"
         , "benchmarks: False"
         , "dependencies: both"
@@ -155,7 +155,7 @@ test_example = do
     "cabal-project-local"
     "package a\n  flags: +b\n"
     config.cabalProjectLocal.value
-  assertEqual "jobs" 2 config.jobs.value
+  assertEqual "cabal-jobs" 2 config.cabalJobs.value
   assertEqual "tests" False config.tests
   assertEqual "benchmarks" False config.benchmarks
   assertEqual "dependencies" DependenciesBoth config.dependencies
@@ -232,8 +232,8 @@ test_errors = do
     "- a\n"
   assertError
     "unknown key"
-    "unknown key \"job\", did you mean \"jobs\"?"
-    "job: 4\n"
+    "unknown key \"cabal-job\", did you mean \"cabal-jobs\"?"
+    "cabal-job: 4\n"
   assertError
     "unknown hooks key"
     "hooks: unknown key \"before-build\", expected one of: after-setup, after-build"
@@ -245,19 +245,19 @@ test_errors = do
   assertError
     "two documents"
     "expected a single document, but got a second one"
-    "jobs: 1\n---\njobs: 2\n"
+    "cabal-jobs: 1\n---\ncabal-jobs: 2\n"
   assertError
-    "jobs"
-    "jobs: expected a positive integer"
-    "jobs: 0\n"
+    "cabal-jobs"
+    "cabal-jobs: expected a positive integer"
+    "cabal-jobs: 0\n"
   assertError
-    "jobs type"
-    "jobs: expected a positive integer"
-    "jobs: four\n"
+    "cabal-jobs type"
+    "cabal-jobs: expected a positive integer"
+    "cabal-jobs: four\n"
   assertError
-    "jobs null"
-    "jobs: expected a positive integer"
-    "jobs: ~\n"
+    "cabal-jobs null"
+    "cabal-jobs: expected a positive integer"
+    "cabal-jobs: ~\n"
   assertError
     "timeout-minutes"
     "timeout-minutes: expected a positive integer"
@@ -526,8 +526,12 @@ test_locations = do
     (firstLines $ parse "hooks:\n  before-build: []\n")
   assertEqual
     "duplicate key"
-    (Left ["conf.yml:2:1: duplicate key \"jobs\"", "conf.yml:1:1: the first key \"jobs\""])
-    (firstLines $ parse "jobs: 1\njobs: 2\n")
+    ( Left
+        [ "conf.yml:2:1: duplicate key \"cabal-jobs\""
+        , "conf.yml:1:1: the first key \"cabal-jobs\""
+        ]
+    )
+    (firstLines $ parse "cabal-jobs: 1\ncabal-jobs: 2\n")
   assertEqual
     "list item"
     ( Left
@@ -548,12 +552,12 @@ test_allErrors = do
   assertEqual
     "fields"
     ( Left
-        [ "conf.yml:1:1: unknown key \"job\", did you mean \"jobs\"?"
+        [ "conf.yml:1:1: unknown key \"cabal-job\", did you mean \"cabal-jobs\"?"
         , "conf.yml:2:8: tests: expected a boolean, but got an integer"
-        , "conf.yml:3:7: jobs: expected a positive integer"
+        , "conf.yml:3:13: cabal-jobs: expected a positive integer"
         ]
     )
-    (firstLines $ parse "job: 1\ntests: 1\njobs: -1\n")
+    (firstLines $ parse "cabal-job: 1\ntests: 1\ncabal-jobs: -1\n")
   assertEqual
     "matrix"
     ( Left

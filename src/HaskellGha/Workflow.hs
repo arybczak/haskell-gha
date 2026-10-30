@@ -300,14 +300,14 @@ workflow opts source config project =
         , [ sourceStep
               "Enable parallel module builds for the local packages"
               (Just es)
-              (parallelScript config.jobs.value)
+              (parallelScript config.cabalJobs.value)
           | let es = filter (not . hasSemaphore) entries
           , not (null es)
           ]
         , [ sourceStep
               "Enable the GHC job semaphore or parallel module builds"
               (Just es)
-              (semaphoreScript config.jobs.value config.cabalVersion)
+              (semaphoreScript config.cabalJobs.value config.cabalVersion)
           | let es = filter hasSemaphore entries
           , not (null es)
           ]

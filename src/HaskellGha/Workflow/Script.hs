@@ -153,7 +153,7 @@ configureScript config doctest =
     settings :: [T.Text]
     settings =
       concat
-        [ ["jobs: " <> tshow config.jobs.value]
+        [ ["jobs: " <> tshow config.cabalJobs.value]
         , ["tests: True" | config.tests]
         , ["benchmarks: True" | config.benchmarks]
         , ["write-ghc-environment-files: always" | doctest]

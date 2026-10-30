@@ -126,7 +126,7 @@ but the `after-setup` hooks run before it exists.
 | `cabal-version` | `3.16.1.0` | The cabal release, with four parts, e.g. `3.16.1.0`. The version must be 3.12 or later. |
 | `ghc-options` | `-Werror` | GHC options for the local packages only, on one line. An empty string disables them. |
 | `cabal-project-local` | none | Text to add to `cabal.project.local`, e.g. package flags or constraints. See [Extra cabal.project.local text](#extra-cabalprojectlocal-text). |
-| `jobs` | `4` | The number of parallel jobs for cabal, as its `jobs` setting, and for GHC in the local packages. |
+| `cabal-jobs` | `4` | The number of parallel jobs for cabal, as its `jobs` setting, and for GHC in the local packages. |
 | `tests` | `true` | Build and run the test suites. |
 | `benchmarks` | `true` | Build the benchmarks. The workflow does not run them. |
 | `dependencies` | `newest` | The versions of the dependencies: `newest`, `oldest` or `both`. See [Dependencies](guide.md#dependencies). |

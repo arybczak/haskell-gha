@@ -77,7 +77,7 @@ data Config = Config
   , hooks :: Hooks
   , ghcOptions :: GhcOptions
   , cabalProjectLocal :: ProjectText
-  , jobs :: Positive
+  , cabalJobs :: Positive
   , tests :: Bool
   , benchmarks :: Bool
   , dependencies :: Dependencies
@@ -305,7 +305,7 @@ defaultConfig =
     , ghcOptions = GhcOptions "-Werror"
     , cabalProjectLocal = ProjectText ""
     , -- The standard Linux runners of GitHub have 4 CPUs.
-      jobs = Positive 4
+      cabalJobs = Positive 4
     , tests = True
     , benchmarks = True
     , dependencies = DependenciesNewest

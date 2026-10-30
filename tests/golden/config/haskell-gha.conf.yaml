@@ -47,7 +47,7 @@ cabal-project-local: |
     flags: +postgres
 
   constraints: postgresql-libpq >= 0.10
-jobs: 2
+cabal-jobs: 2
 tests: false
 benchmarks: false
 dependencies: both
