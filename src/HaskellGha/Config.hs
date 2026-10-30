@@ -113,13 +113,12 @@ instance GenericYamlOptions HLint where
   yamlOptions = options
   yamlDefault = Just defaultHLint
 
--- | The lowest hint level that fails the HLint job.
+-- | The lowest hint severity that fails the HLint job.
 data FailOn
   = FailNever
-  | FailStatus
+  | FailError
   | FailWarning
   | FailSuggestion
-  | FailError
   deriving stock (Eq, Show, Generic)
   deriving (FromYaml, ToYaml) via GenericYaml FailOn
 

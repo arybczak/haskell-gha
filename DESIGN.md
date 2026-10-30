@@ -824,6 +824,10 @@ not fail the job is only an annotation, and it is easy to miss. `hlint.version`
 is required for the same reason as `fourmolu.version`: a new HLint version adds
 hints, and they fail the job.
 
+The action also takes `fail-on: status`, which fails the job when HLint exits
+non-zero. HLint 3.10 does so for every hint that it reports, so `status` acts as
+`suggestion`, and `hlint.fail-on` leaves it out.
+
 The released versions of both HLint actions, up to `v2.4.10`, declare Node.js
 20, and GitHub removes Node.js 20 in autumn 2026. The defaults are thus the
 commits "Upgrade to node24" on the default branches. These commits change only

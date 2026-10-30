@@ -201,7 +201,7 @@ hints appear as annotations in the pull request.
 | Key | Default | Meaning |
 |---|---|---|
 | `hlint.version` | required | The HLint version, e.g. `'3.10'`. A new version can add hints that fail the job. |
-| `hlint.fail-on` | `suggestion` | The lowest hint level that fails the job: `never`, `status`, `warning`, `suggestion` or `error`. |
+| `hlint.fail-on` | `suggestion` | When the job fails. `never`: no hint fails the job. `error`, `warning` or `suggestion`: on a hint of this or a higher severity, e.g. `warning` fails on errors and warnings. |
 | `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, must not be empty, and must not contain a tab or another control character. |
 | `hlint.runs-on` | the value of `runs-on` | The runner of the HLint job, as for `fourmolu.runs-on`. |
 
