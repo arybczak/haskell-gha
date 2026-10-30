@@ -188,10 +188,10 @@ workflow opts source config project =
       where
         paths :: [FilePath]
         paths
-          | null h.path = [projectDir]
+          | null h.paths = [projectDir]
           | otherwise =
               [ normalisePath (projectDir </> T.unpack p.value.value)
-              | p <- h.path
+              | p <- h.paths
               ]
 
         jsonString :: T.Text -> T.Text

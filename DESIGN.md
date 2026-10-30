@@ -244,9 +244,9 @@ configuration file must be a relative path in the repository, because a run with
 `--check` in CI or in another checkout reads it from the header.
 
 Two rules apply to each path that the tool reads or writes, and to each path
-that the workflow uses on the runner, e.g. `hlint.path` and the local file of an
-`import:` line. The runner has only the repository, at another place than the
-local checkout.
+that the workflow uses on the runner, e.g. `hlint.paths` and the local file of
+an `import:` line. The runner has only the repository, at another place than
+the local checkout.
 
 1. By its text, the path must be relative, and its `..` components must not lead
    above the root. Each reader checks this rule, so its error shows the option
@@ -815,7 +815,7 @@ Like the fourmolu job, the HLint job has no matrix and needs no GHC.
 
 `hlint-run` has no `working-directory` input, so it runs in the root of the
 repository. Thus the tool puts the project directory in front of each path of
-`hlint.path`. For the same reason, HLint reads only a `.hlint.yaml` in the root
+`hlint.paths`. For the same reason, HLint reads only a `.hlint.yaml` in the root
 of the repository, because it reads the file from its working directory.
 
 The default of `hlint.fail-on` is `suggestion`, so every hint fails the job. The

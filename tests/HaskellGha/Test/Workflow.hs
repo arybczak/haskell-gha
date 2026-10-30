@@ -125,14 +125,14 @@ test_comments = do
 test_hlintPathOutside :: Assertion
 test_hlintPathOutside = do
   assertErrors
-    "hlint:\n  version: '3.10'\n  path: [../x, /abs, a/../src]\n"
-    [ "conf.yml:3:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
-    , "conf.yml:3:16: hlint.path[1]: the path /abs is not in the repository. Give a path relative to the project directory."
+    "hlint:\n  version: '3.10'\n  paths: [../x, /abs, a/../src]\n"
+    [ "conf.yml:3:11: hlint.paths[0]: the path ../x is not in the repository. Give a path relative to the project directory."
+    , "conf.yml:3:17: hlint.paths[1]: the path /abs is not in the repository. Give a path relative to the project directory."
     ]
   project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
-      BS8.pack "hlint:\n  version: '3.10'\n  path: [../x]\n"
+      BS8.pack "hlint:\n  version: '3.10'\n  paths: [../x]\n"
   assertBool
     "in the repository"
     (isRight $ workflow defaultOptions {projectDir = "sub"} source config project)
@@ -265,7 +265,7 @@ test_hlintPaths :: Assertion
 test_hlintPaths = do
   (config, source) <-
     either (assertFailure . unlines) pure . parseConfig "conf.yml" $
-      BS8.pack "hlint:\n  version: '3.10'\n  path: [src, 'a\"b\\c']\n"
+      BS8.pack "hlint:\n  version: '3.10'\n  paths: [src, 'a\"b\\c']\n"
   project <- readProject "tests/golden" "single" >>= either (assertFailure . unlines) pure
   node <-
     either (assertFailure . unlines) pure (workflow defaultOptions source config project)
@@ -410,9 +410,9 @@ test_unusedRange =
 test_independentChecks :: Assertion
 test_independentChecks =
   assertErrors
-    "doctest:\n  skip: [other]\nhlint:\n  version: '3.10'\n  path: [../x]\n"
+    "doctest:\n  skip: [other]\nhlint:\n  version: '3.10'\n  paths: [../x]\n"
     [ "conf.yml:2:10: doctest.skip[0]: the project has no local package other"
-    , "conf.yml:5:10: hlint.path[0]: the path ../x is not in the repository. Give a path relative to the project directory."
+    , "conf.yml:5:11: hlint.paths[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     ]
 
 test_unknownSkip :: Assertion
@@ -611,11 +611,11 @@ test_symbolicLinks =
     createDirectoryLink "../real" (root </> "proj" </> "pkg")
     writeFile
       (root </> "proj" </> "conf.yml")
-      "sdist: false\nhlint:\n  version: '3.10'\n  path: [../out]\n"
+      "sdist: false\nhlint:\n  version: '3.10'\n  paths: [../out]\n"
     assertEqual
       "the paths on the runner"
       ( Left
-          [ throughLink "proj/conf.yml:4:10: hlint.path[0]: the path ../out"
+          [ throughLink "proj/conf.yml:4:11: hlint.paths[0]: the path ../out"
           , throughLink "proj/cabal.project:2:1: the imported file ../out.yml"
           ]
       )

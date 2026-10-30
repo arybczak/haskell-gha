@@ -100,7 +100,7 @@ instance GenericYamlOptions Config where
 data HLint = HLint
   { version :: ~Version
   , failOn :: FailOn
-  , path :: [Located HLintPath]
+  , paths :: [Located HLintPath]
   -- ^ Relative to the project directory. An empty list gives the project
   -- directory.
   , runsOn :: Optional (Commented RunsOn)
@@ -137,12 +137,7 @@ data Fourmolu = Fourmolu
   deriving (FromYaml) via GenericYaml Fourmolu
 
 instance GenericYamlOptions Fourmolu where
-  yamlOptions =
-    options
-      { fieldLabelModifier = \case
-          "patterns" -> "pattern"
-          f -> kebabCase f
-      }
+  yamlOptions = options
   yamlDefault = Just defaultFourmolu
 
 -- | The versions of the actions.
@@ -349,7 +344,7 @@ defaultHLint =
   HLint
     { version = requiredField
     , failOn = FailSuggestion
-    , path = []
+    , paths = []
     , runsOn = Optional Nothing
     }
 

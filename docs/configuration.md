@@ -185,7 +185,7 @@ reads the project's `fourmolu.yaml`.
 | Key | Default | Meaning |
 |---|---|---|
 | `fourmolu.version` | required | The fourmolu version, e.g. `0.21.0.0`. |
-| `fourmolu.pattern` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
+| `fourmolu.patterns` | all `.hs` and `.hs-boot` files | The files to check, as glob patterns. A pattern that starts with `!` excludes files. A pattern must be one line without spaces at the start or the end. |
 | `fourmolu.runs-on` | the value of `runs-on` | The runner of the fourmolu job, e.g. a smaller self-hosted runner than the build jobs need. |
 
 Set `fourmolu.version` to the version that the project developers use. A new
@@ -202,7 +202,7 @@ hints appear as annotations in the pull request.
 |---|---|---|
 | `hlint.version` | required | The HLint version, e.g. `'3.10'`. A new version can add hints that fail the job. |
 | `hlint.fail-on` | `suggestion` | When the job fails. `never`: no hint fails the job. `error`, `warning` or `suggestion`: on a hint of this or a higher severity, e.g. `warning` fails on errors and warnings. |
-| `hlint.path` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, must not be empty, and must not contain a tab or another control character. |
+| `hlint.paths` | the project directory | The directories or files to check, relative to the project directory. A path must be in the repository, must not be empty, and must not contain a tab or another control character. |
 | `hlint.runs-on` | the value of `runs-on` | The runner of the HLint job, as for `fourmolu.runs-on`. |
 
 By default, every hint fails the job. To turn off a hint that the project does

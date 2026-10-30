@@ -118,11 +118,11 @@ test_example = do
         , "haddock: false"
         , "fourmolu:"
         , "  version: 0.19.0.1"
-        , "  pattern: ['src/**/*.hs']"
+        , "  patterns: ['src/**/*.hs']"
         , "hlint:"
         , "  version: '3.10'"
         , "  fail-on: error"
-        , "  path: [src]"
+        , "  paths: [src]"
         , "actions:"
         , "  checkout: v8"
         , "  cache: runs-on/cache@v4"
@@ -189,7 +189,7 @@ test_example = do
   hlint <- maybe (assertFailure "no hlint") pure config.hlint.value
   assertEqual "hlint version" (mkVersion [3, 10]) hlint.version
   assertEqual "hlint fail-on" FailError hlint.failOn
-  assertEqual "hlint path" [HLintPath "src"] (map (.value) hlint.path)
+  assertEqual "hlint path" [HLintPath "src"] (map (.value) hlint.paths)
   assertEqual
     "actions"
     ( Actions
@@ -421,26 +421,26 @@ test_errors = do
   assertError
     "fourmolu without version"
     "fourmolu: missing key \"version\""
-    "fourmolu:\n  pattern: ['src/**/*.hs']\n"
+    "fourmolu:\n  patterns: ['src/**/*.hs']\n"
   assertError
     "fourmolu version"
     "fourmolu.version: expected a version, e.g. 0.21.0.0"
     "fourmolu:\n  version: latest\n"
   assertError
     "hlint path"
-    "hlint.path[1]: a path must not contain a control character, e.g. a tab or a line break"
-    "hlint:\n  version: '3.10'\n  path: [src, \"a\\tb\"]\n"
+    "hlint.paths[1]: a path must not contain a control character, e.g. a tab or a line break"
+    "hlint:\n  version: '3.10'\n  paths: [src, \"a\\tb\"]\n"
   assertError
     "empty hlint path"
-    "hlint.path[1]: a path must not be empty"
-    "hlint:\n  version: '3.10'\n  path: [src, \"\"]\n"
+    "hlint.paths[1]: a path must not be empty"
+    "hlint:\n  version: '3.10'\n  paths: [src, \"\"]\n"
   assertError
     "hlint fail-on"
     "hlint.fail-on: unknown value \"warnings\", did you mean \"warning\"?"
     "hlint:\n  version: '3.10'\n  fail-on: warnings\n"
   assertError
     "unknown fourmolu key"
-    "fourmolu: unknown key \"extra-args\", expected one of: version, pattern, runs-on"
+    "fourmolu: unknown key \"extra-args\", expected one of: version, patterns, runs-on"
     "fourmolu:\n  version: 0.21.0.0\n  extra-args: [-q]\n"
   assertError
     "action ref"
@@ -468,12 +468,12 @@ test_errors = do
     "ghc-options: |\n  -Wall\n  -Werror\n"
   assertError
     "fourmolu pattern space"
-    "fourmolu.pattern[0]: a pattern must be one line without spaces at the start or the end"
-    "fourmolu:\n  version: 0.21.0.0\n  pattern: [' src/**/*.hs']\n"
+    "fourmolu.patterns[0]: a pattern must be one line without spaces at the start or the end"
+    "fourmolu:\n  version: 0.21.0.0\n  patterns: [' src/**/*.hs']\n"
   assertError
     "fourmolu pattern lines"
-    "fourmolu.pattern[0]: a pattern must be one line without spaces at the start or the end"
-    "fourmolu:\n  version: 0.21.0.0\n  pattern: [\"a.hs\\nb.hs\"]\n"
+    "fourmolu.patterns[0]: a pattern must be one line without spaces at the start or the end"
+    "fourmolu:\n  version: 0.21.0.0\n  patterns: [\"a.hs\\nb.hs\"]\n"
   assertError
     "cabal-project-local type"
     "cabal-project-local: expected a string, but got a list"

@@ -41,7 +41,7 @@ validateWorkflow opts source config project stepIds = do
   traverse_ checkImport project.imports
   when config.sdist $
     traverse_ checkInside project.packages
-  traverse_ checkHLintPath (foldMap (.path) config.hlint.value)
+  traverse_ checkHLintPath (foldMap (.paths) config.hlint.value)
   traverse_ checkHookId (config.hooks.afterSetup ++ config.hooks.afterBuild)
   where
     entries :: [GhcEntry]

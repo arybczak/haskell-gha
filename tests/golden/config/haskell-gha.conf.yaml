@@ -53,7 +53,7 @@ benchmarks: false
 dependencies: both
 fourmolu:
   version: '0.19.0.1'
-  pattern:
+  patterns:
     - 'src/**/*.hs'
     - '!src/Generated.hs'
   runs-on:
@@ -62,7 +62,7 @@ fourmolu:
 hlint:
   version: '3.8'
   fail-on: error
-  path: [src, test]
+  paths: [src, test]
   # HLint needs no large runner.
   runs-on: ubuntu-slim
 actions:
