@@ -152,7 +152,7 @@ repository.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
+| `cabal-check` | `true` | Run `cabal check` for each local package. A warning does not fail the job. |
 | `haddock` | `true` | Build the documentation of the libraries as for a Hackage upload. |
 | `doctest` | off | Run doctest. See [Doctest](#doctest). |
 | `fourmolu` | off | Check the formatting with fourmolu. See [Fourmolu](#fourmolu). |

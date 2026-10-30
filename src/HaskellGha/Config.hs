@@ -82,7 +82,7 @@ data Config = Config
   , benchmarks :: Bool
   , dependencies :: Dependencies
   , doctest :: Optional Doctest
-  , check :: Bool
+  , cabalCheck :: Bool
   , sdist :: Bool
   , haddock :: Bool
   , fourmolu :: Optional Fourmolu
@@ -316,7 +316,7 @@ defaultConfig =
     , benchmarks = True
     , dependencies = DependenciesNewest
     , doctest = Optional Nothing
-    , check = True
+    , cabalCheck = True
     , sdist = True
     , haddock = True
     , fourmolu = Optional Nothing

@@ -72,7 +72,7 @@ test_comments = do
         , "  os: [a, b]"
         , "  # The end of the matrix."
         , "tests: false"
-        , "check: false"
+        , "cabal-check: false"
         , "haddock: false"
         , ""
         , "# The jobs."

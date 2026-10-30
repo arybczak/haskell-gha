@@ -346,7 +346,7 @@ workflow opts source config project =
           , not (null es)
           ]
         , [ sourceStep "Check the packages" (Just group) (checkScript pkgs)
-          | config.check
+          | config.cabalCheck
           , (group, pkgs) <- packageGroups project.matrix
           ]
         , -- With --haddock-all, each component of a package writes the same

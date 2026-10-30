@@ -113,7 +113,7 @@ test_example = do
         , "  version: '>=0.24'"
         , "  skip: [some-package]"
         , "  options: [--fast]"
-        , "check: false"
+        , "cabal-check: false"
         , "sdist: false"
         , "haddock: false"
         , "fourmolu:"
@@ -173,7 +173,7 @@ test_example = do
     doctest.version.value
   assertEqual "doctest skip" ["some-package"] (map (.value) doctest.skip)
   assertEqual "doctest options" ["--fast"] doctest.options
-  assertEqual "check" False config.check
+  assertEqual "cabal-check" False config.cabalCheck
   assertEqual "sdist" False config.sdist
   assertEqual "haddock" False config.haddock
   assertEqual
