@@ -261,7 +261,7 @@ instance GenericYamlOptions Hooks where
 data Doctest = Doctest
   { ghc :: Located VersionRange
   , version :: Optional VersionRange
-  , skip :: [Located T.Text]
+  , skipPackages :: [Located T.Text]
   , options :: [T.Text]
   }
   deriving stock (Eq, Show, Generic)
@@ -363,7 +363,7 @@ defaultDoctest =
   Doctest
     { ghc = Located anyVersion noOffset
     , version = Optional Nothing
-    , skip = []
+    , skipPackages = []
     , options = []
     }
 

@@ -1,5 +1,5 @@
 doctest:
   ghc: '>=9.8'
   version: '>=0.24'
-  skip: [c]
+  skip-packages: [c]
   options: [--fast]

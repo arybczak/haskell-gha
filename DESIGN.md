@@ -292,9 +292,9 @@ absolute path or a path outside the repository.
 The tool works in a sequence of phases. It reads the configuration. Then it
 parses `cabal.project`, finds the packages, reads the `.cabal` files and checks
 each package against each matrix entry. Last, it checks the configuration
-against the project, e.g. `doctest.skip`. In each phase, the tool collects all
-errors and prints them all. If a phase has errors, the tool does not start the
-next phase, because the next phase needs its result.
+against the project, e.g. `doctest.skip-packages`. In each phase, the tool
+collects all errors and prints them all. If a phase has errors, the tool does
+not start the next phase, because the next phase needs its result.
 
 The decoder of yamlet collects the errors of the independent parts of a value,
 e.g. the fields of a record or the items of a list. A check that the decoder
@@ -308,8 +308,8 @@ An unknown key is an error, because it is usually a typing error.
 An error of the configuration gives the line and the column of the node that
 caused it, the path of keys to it, e.g. `hlint.version`, and that line of the
 file. The checks of the configuration against the project run after the decode,
-e.g. for `doctest.skip`. The values that they check keep the position of their
-node, so their errors have the same form.
+e.g. for `doctest.skip-packages`. The values that they check keep the position
+of their node, so their errors have the same form.
 
 A key without a value is an error, not the default. Only a missing key takes the
 default, so a key that the user forgot to fill in does not silently disable or

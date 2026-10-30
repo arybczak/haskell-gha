@@ -37,7 +37,7 @@ validateWorkflow opts source config project stepIds = do
   checkDependencies
   for_ config.doctest.value $ \d -> do
     checkRange d.ghc
-    traverse_ checkSkip d.skip
+    traverse_ checkSkip d.skipPackages
   traverse_ checkImport project.imports
   when config.sdist $
     traverse_ checkInside project.packages

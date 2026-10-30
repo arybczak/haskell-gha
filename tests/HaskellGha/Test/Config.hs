@@ -111,7 +111,7 @@ test_example = do
         , "doctest:"
         , "  ghc: '>=9.6 && <9.14'"
         , "  version: '>=0.24'"
-        , "  skip: [some-package]"
+        , "  skip-packages: [some-package]"
         , "  options: [--fast]"
         , "cabal-check: false"
         , "sdist: false"
@@ -171,7 +171,7 @@ test_example = do
     "doctest version"
     (Just (orLaterVersion $ mkVersion [0, 24]))
     doctest.version.value
-  assertEqual "doctest skip" ["some-package"] (map (.value) doctest.skip)
+  assertEqual "doctest skip-packages" ["some-package"] (map (.value) doctest.skipPackages)
   assertEqual "doctest options" ["--fast"] doctest.options
   assertEqual "cabal-check" False config.cabalCheck
   assertEqual "sdist" False config.sdist
@@ -240,7 +240,7 @@ test_errors = do
     "hooks:\n  before-build: []\n"
   assertError
     "unknown doctest key"
-    "doctest: unknown key \"flags\", expected one of: ghc, version, skip, options"
+    "doctest: unknown key \"flags\", expected one of: ghc, version, skip-packages, options"
     "doctest:\n  flags: []\n"
   assertError
     "two documents"

@@ -173,7 +173,7 @@ for each GHC version.
 |---|---|---|
 | `doctest.ghc` | all versions | The GHC versions to run doctest for, as a version range, e.g. `'>= 9.8'`. The range must include at least one matrix entry, and each entry fully or not at all, as in a [condition](guide.md#packages-for-some-ghc-versions-only). A new GHC release often works with doctest only after some weeks. |
 | `doctest.version` | any version | The versions of the doctest package, as a version range, e.g. `'>= 0.24'`. The workflow builds doctest with the GHC of each job, and cabal picks the newest version in the range that builds with it. An exact version, e.g. `'== 0.24.2'`, fails for a GHC that this version does not support. |
-| `doctest.skip` | `[]` | The packages to skip. |
+| `doctest.skip-packages` | `[]` | The names of the local packages that doctest does not check. |
 | `doctest.options` | `[]` | Extra arguments for doctest. |
 
 ### Fourmolu

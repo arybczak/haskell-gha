@@ -33,7 +33,7 @@ workflowTests =
     , testCase "the dependencies axis" test_dependenciesAxis
     , testCase "a doctest range that includes a part of a series" test_partialDoctestRange
     , testCase "a range that includes no matrix entry" test_unusedRange
-    , testCase "an unknown package in doctest.skip" test_unknownSkip
+    , testCase "an unknown package in doctest.skip-packages" test_unknownSkip
     , testCase "the errors of independent checks are collected" test_independentChecks
     , testCase "the command line in the header" test_headerCommandLine
     , testCase "sdist with an import and a package outside the project" test_sdistOutside
@@ -410,16 +410,16 @@ test_unusedRange =
 test_independentChecks :: Assertion
 test_independentChecks =
   assertErrors
-    "doctest:\n  skip: [other]\nhlint:\n  version: '3.10'\n  paths: [../x]\n"
-    [ "conf.yml:2:10: doctest.skip[0]: the project has no local package other"
+    "doctest:\n  skip-packages: [other]\nhlint:\n  version: '3.10'\n  paths: [../x]\n"
+    [ "conf.yml:2:19: doctest.skip-packages[0]: the project has no local package other"
     , "conf.yml:5:11: hlint.paths[0]: the path ../x is not in the repository. Give a path relative to the project directory."
     ]
 
 test_unknownSkip :: Assertion
 test_unknownSkip =
   assertErrors
-    "doctest:\n  skip: [other]\n"
-    ["conf.yml:2:10: doctest.skip[0]: the project has no local package other"]
+    "doctest:\n  skip-packages: [other]\n"
+    ["conf.yml:2:19: doctest.skip-packages[0]: the project has no local package other"]
 
 -- | The first lines of the errors for a configuration and the project of the
 -- golden test @single@. The other lines show the line of the configuration.

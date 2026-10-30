@@ -335,7 +335,7 @@ workflow opts source config project =
               (doctestScript d.options p)
           | Just d <- [config.doctest.value]
           , p <- project.packages
-          , T.pack p.name `notElem` map (.value) d.skip
+          , T.pack p.name `notElem` map (.value) d.skipPackages
           , not (null p.doctestArgs)
           , let es =
                   [ e.ghc
@@ -361,9 +361,9 @@ workflow opts source config project =
         ]
 
     -- The entries in the range of doctest.ghc. The workflow installs doctest
-    -- for such an entry also if no package runs it there, e.g. if doctest.skip
-    -- names all packages. Only an unusual configuration does that, so the tool
-    -- accepts the extra steps.
+    -- for such an entry also if no package runs it there, e.g. if
+    -- doctest.skip-packages names all packages. Only an unusual configuration
+    -- does that, so the tool accepts the extra steps.
     doctestEntries :: [GhcEntry]
     doctestEntries =
       [ e
