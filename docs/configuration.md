@@ -22,7 +22,7 @@ which is otherwise the number 3.1.
 | Key | Default | Meaning |
 |---|---|---|
 | `name` | `CI` | The name of the workflow. |
-| `branches` | `[master, main]` | The branches for the `push` trigger. |
+| `branches` | `[master, main]` | The branches for the `push` trigger. Pull requests run CI for every target branch. |
 | `permissions` | `contents: read` | The permissions of the `GITHUB_TOKEN`, as in GitHub Actions: a mapping, `read-all` or `write-all`. |
 | `runs-on` | `ubuntu-26.04` | The runner of the build jobs, as GitHub Actions YAML: a label, e.g. `ubuntu-latest`, a list of labels, e.g. `[self-hosted, linux]`, or a mapping with `group` and `labels`. The tool copies it to the workflow without changes. |
 | `container` | none | The image of a job container for the build jobs: `buildpack-deps:22.04`, `buildpack-deps:24.04` or `buildpack-deps:26.04`. See [Container](guide.md#container). |
